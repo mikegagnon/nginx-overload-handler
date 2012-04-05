@@ -23,8 +23,6 @@ OVERLOAD_MODULE=`pwd`
 
 cd ../nginx-1.0.12
 
-echo $OVERLOAD_MODULE
-
 ./configure --with-debug \
     --add-module=$OVERLOAD_MODULE
 
