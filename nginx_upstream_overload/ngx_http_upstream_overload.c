@@ -26,7 +26,7 @@
  * servers drops below num_spare_backends then upstream_overload will send an alert
  * message to a named pipe that identifies the backend server that has been busy
  * for the longest time. The idea is that a daemon will listen on this pipe and then
-
+ * somehow abort the request being processed by the backend server.
  *
  * upstream_overload is designed to be scalable w.r.t. (a) the number of nginx
  * worker processes and (b) the number of backend worker processes. Makes most
@@ -52,7 +52,7 @@
  * Macro definition
  *****************************************************************************/
 
-#define DEFAULT_NUM_SPARE_BACKENDS 3
+#define DEFAULT_NUM_SPARE_BACKENDS 1
 #define DEFAULT_ALERT_PIPE_PATH ""
 #define MAX_ALERT_PIPE_PATH_BYTES 256
 
@@ -155,8 +155,8 @@
  *****************************************************************************/
 
 typedef struct {
-    ngx_uint_t          num_spare_backends;
-    char                alert_pipe_path[MAX_ALERT_PIPE_PATH_BYTES];
+    ngx_uint_t                      num_spare_backends;
+    char                            alert_pipe_path[MAX_ALERT_PIPE_PATH_BYTES];
 } ngx_http_upstream_overload_conf_t;
 
 
