@@ -96,9 +96,11 @@ You can do something as simple as cat /home/nginx_user/alert_pipe. However,
 there are nuances to the ordering of pipes opening, closing, etc.
 
 For convenience there is a script alert_reader.py, which cats a pipe,
-and continuously re-opens asn needed. So you lan launch nginx and then
-launch the alert_reader and vice versa. Or can you run alert_reader
+and continuously re-opens as needed. So you can you run alert_reader.py
 once and restart nginx multiple times.
+
+Note: nginx won't start unless there is a process reading the alert_pipe;
+make sure to run alert_reader.py before launching nginx.
 
 Usage:
     ./alert_reader.py /home/nginx_user/alert_pipe
