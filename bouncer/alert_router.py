@@ -21,43 +21,6 @@
 # This daemon should probably run at a higher priority than web server,
 # because the alerts need to get to the bouncers ASAP.
 #
-# ==== Example config ====
-#
-# {
-#    "alert_pipe" : "/home/nginx_user/alert_pipe"
-#    "bouncers" : [
-#       {
-#           "bouncer_addr" : "10.51.23.65",
-#           "bouncer_port" : 10012,
-#           "fcgi_workers" : [
-#               "10.51.23.65:9000",
-#               "10.51.23.65:9001",
-#               "10.51.23.65:9002"
-#               ]
-#       },
-#       {
-#           "bouncer_addr" : "10.51.23.66",
-#           "bouncer_port" : 10014,
-#           "fcgi_workers" : [
-#               "10.51.23.66:9010",
-#               "10.51.23.66:9011"
-#               ]
-#       }
-#    ]
-# }
-#
-# In this configuration:
-#   - the alert_router receives alerts by reading meassges from
-#     /home/www/pipes/alert_pipe
-#   - there are 5 FastCGI workers spread over two machines:
-#       - 10.51.23.65
-#       - 10.51.23.66.
-#   - If the load balancer generates an alert for "10.51.23.65:9000",
-#     "10.51.23.65:9001", or "10.51.23.65:9002" then alert_router will send an
-#     alert to the bouncer daemon on 10.51.23.65, which is listening on port
-#     10012.
-#   - And so on for the bouncer on .66
-#
 # ==== TODO ====
 #   - Logging
 #   - Consider keeping connections alive. Right now sendAlert creates, opens, and closes
@@ -66,12 +29,17 @@
 #     keep the connections alive there are probably still ways to improve sendAlert
 
 import sys
-sys.path.append('gen-py')
+import os
+
+dirname = os.path.dirname(os.path.realpath(__file__))
+
+sys.path.append(os.path.join(dirname, 'gen-py'))
 
 import import_thrift_lib
 
 import time
 import json
+import traceback
 from select import select
 
 from BouncerService import BouncerService
@@ -83,52 +51,10 @@ from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 
+from bouncer_common import *
+
 # Request a heartbeat every HEART_BEAT_PERIOD seconds
 HEART_BEAT_PERIOD=60
-
-class BadConfig(ValueError):
-    pass
-
-class BouncerAddress:
-
-    def __init__(self, addr, port):
-        self.addr = addr
-        self.port = port
-
-    def __str__(self):
-        return "%s:%d" % (self.addr, self.port)
-
-class Config:
-
-    def __init__(self, json_config):
-        '''sets:
-        self.alert_pipe to the path of alert_pipe.
-        self.worker_map which is a dict that maps every FCGI worker string.
-        self.bouncer_list which is a list of all BouncerAddress objects.'''
-
-        self.worker_map = {}
-        self.bouncer_list = []
-
-        if "alert_pipe" not in json_config:
-            raise BadConfig("alert_pipe is not defined")
-        self.alert_pipe = str(json_config["alert_pipe"])
-
-        if "bouncers" not in json_config:
-            raise BadConfig("bouncers is not defined")
-        bouncers = json_config["bouncers"]
-
-        for bouncer in bouncers:
-            bouncer_addr = bouncer["bouncer_addr"]
-            bouncer_port = int(bouncer["bouncer_port"])
-            fcgi_workers = bouncer["fcgi_workers"]
-
-            bouncer_obj = BouncerAddress(bouncer_addr, bouncer_port)
-            self.bouncer_list.append(bouncer_obj)
-            for worker in fcgi_workers:
-                worker = str(worker)
-                if worker in self.worker_map:
-                    raise BadConfig("Same fcgi worker appears more than once")
-                self.worker_map[worker] = bouncer_obj
 
 class GetBouncerException(ValueError):
     pass
@@ -152,8 +78,13 @@ class AlertRouter:
 
                 transport.close()
 
-                print "Bouncer %s:%d heartbeat = %s" % \
-                    (bouncer.addr, bouncer.port, result)
+                if result == []:
+                    print "Bouncer %s:%d heartbeat = OK" % (bouncer.addr, bouncer.port)
+                elif result != self.config.bouncer_map[str(bouncer)]:
+                    print "Error: the bouncer's configuration == %s does not match the " \
+                        "alert_router's configuration == %s" % (result, self.config.bouncer_map[str(bouncer)])
+                else:
+                    print "Good: the bouncer's configuration and the alert_router's configuration match"
 
             except Thrift.TException, exception:
                 print "ERROR while requesting heartbeat from Bouncer %s:%d --> %s" % (bouncer.addr, bouncer.port, exception)
@@ -176,8 +107,12 @@ class AlertRouter:
           print "Successfully sent alert '%s' to Bouncer '%s:%d'" % \
             (alert_message, bouncer.addr, bouncer.port)
 
-        except Thrift.TException, exception:
-          print exception.message
+        except BouncerException, e:
+            print "Bouncer ERROR: %s" % e
+            sys.stdout.flush()
+        except Thrift.TException, e:
+            print "Thrift exception: %s" % e
+            sys.stdout.flush()
 
 
     def getBouncer(self, pipe_message):
@@ -200,6 +135,7 @@ class AlertRouter:
                 print "Waiting for pipe to open"
                 with open(self.config.alert_pipe) as alert_pipe:
                     print "Pipe opened"
+                    self.requestHeartbeat()
                     while True:
                         print "Waiting for message"
                         rfds, _, _ = select( [alert_pipe], [], [], HEART_BEAT_PERIOD)
@@ -225,13 +161,12 @@ class AlertRouter:
                                     self.sendAlert(bouncer, pipe_message)
 
             except Exception as e:
-                print e
+                traceback.print_exc()
                 sys.stdout.flush()
-                time.sleep(1)
 
 def print_usage():
     print "Usage: %s [config_filename]" % sys.argv[0]
-    print "View %s for config-file format." % sys.argv[0]
+    print "View bouncer/bouncer_common.py for config-file format."
     print ""
 
 if __name__ == "__main__":
@@ -240,8 +175,7 @@ if __name__ == "__main__":
         config_filename = sys.argv[1]
         try:
             with open(config_filename) as f:
-                json_config = json.load(f)
-            config = Config(json_config)
+                config = Config(f)
         except IOError:
             print "Could not open config file %s" % config_filename
             sys.exit(1)

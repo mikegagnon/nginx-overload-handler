@@ -45,8 +45,18 @@ service BouncerService {
     /**
      * the heartbeat method is called periodically in order to ensure
      * that there is a good connection to the Bouncer.
-     * the Bouncer service must return "OK"
+     * It is also used to ensure that the Bouncer's configuration matches
+     * the Alert Router's configuration.
+     *
+     * The first time a Bouncer instance receives a call to heartbeat()
+     * it should return a list of workers it is configured to handle.
+     * The alert_router should check this result to make sure it matches
+     * it's configuration.
+     *
+     * On subsequent calls to heartbeat, the Bouncer should return the
+     * empty list.
+     *
      */
-    string heartbeat()
+    list<string> heartbeat()
 }
 

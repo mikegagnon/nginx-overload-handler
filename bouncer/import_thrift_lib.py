@@ -33,7 +33,9 @@
 import sys
 import os
 
-path_filename = os.path.join("..", "thrift_compile", "python_thrift_lib", "path.txt")
+dirname = os.path.dirname(os.path.realpath(__file__))
+
+path_filename = os.path.join(dirname, "..", "thrift_compile", "python_thrift_lib", "path.txt")
 
 with open(path_filename) as f:
     python_thrift_lib_path = f.readline().rstrip()

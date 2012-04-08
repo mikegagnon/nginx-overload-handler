@@ -17,8 +17,8 @@ from cgi import parse_qs, escape
 import sys, os
 import time
 
-cwd = os.getcwd()
-sys.path.append(os.path.join(cwd, "..", "flup-1.0.2"))
+dirname = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(dirname, "..", "flup-1.0.2"))
 
 from flup.server.fcgi_fork import WSGIServer
 
