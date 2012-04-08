@@ -40,8 +40,10 @@ try:
 
   transport.open()
 
-  client.alert("test alert")
-  print "alert(...)"
+  print client.heartbeat()
+  client.alert("test alert 1")
+  print client.heartbeat()
+  client.alert("test alert 2")
 
   transport.close()
 

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-#!/usr/bin/env bash
 #
 # Copyright 2012 HellaSec, LLC
 #
@@ -15,7 +14,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== Bouncer service ====
+# ==== Bouncer process manager ====
 #
 # Listens for alerts from AlertRouter, then kills (and restarts) the
 # selected FastCGI worker
@@ -27,11 +26,7 @@
 import sys
 sys.path.append('gen-py')
 
-# Thrift installed it's python library in this dir;
-# however, this dir is not in python's path by default.
-# TODO: Come up with a more principled way of getting the
-# thrift library in the path
-sys.path.append('/usr/lib/python2.7/site-packages/')
+import import_thrift_lib
 
 from BouncerService import BouncerService
 from BouncerService.ttypes import *
@@ -43,30 +38,26 @@ from thrift.server import TServer
 
 import socket
 
-class BouncerHandler:
+class BouncerProcessManager:
 
     def __init__(self):
-        self.log = {}
+        pass
 
     def alert(self, alert_message):
-        print "Received '%s'" % alert_message
+        print "Received alert '%s'" % alert_message
 
-  #def sayHello(self):
-  #  print "sayHello()"
-  #  return "say hello from " + socket.gethostbyname(socket.gethostname())
-  #
-  #def sayMsg(self, msg):
-  #  print "sayMsg(" + msg + ")"
-  #  return "say " + msg + " from " + socket.gethostbyname(socket.gethostname())
+    def heartbeat(self):
+        print "Received heartbeat request"
+        return "OK"
 
-handler = BouncerHandler()
-processor = BouncerService.Processor(handler)
+bpm = BouncerProcessManager()
+processor = BouncerService.Processor(bpm)
 transport = TSocket.TServerSocket(port=3001)
 tfactory = TTransport.TBufferedTransportFactory()
 pfactory = TBinaryProtocol.TBinaryProtocolFactory()
 
 server = TServer.TSimpleServer(processor, transport, tfactory, pfactory)
 
-print "Starting BouncerService server..."
+print "Starting Bouncer process manager "
 server.serve()
 print "finished"
