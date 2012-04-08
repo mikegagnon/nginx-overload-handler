@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Copyright 2012 Michael N. Gagnon
+# Copyright 2012 HellaSec, LLC
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -23,7 +23,9 @@ OVERLOAD_MODULE=`pwd`
 
 cd ../nginx-1.0.12
 
-./configure --with-debug \
+./configure \
+    --prefix=/usr/local/nginx \
+    --with-debug \
     --add-module=$OVERLOAD_MODULE
 
 make

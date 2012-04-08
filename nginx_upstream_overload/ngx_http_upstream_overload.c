@@ -13,26 +13,9 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  *
- * ==== upstream_overload ====
+ * ==== upstream_overload module for nginx ====
  *
- * A basic load-balancing module for nginx.
- *
- * Provides similar functionality to the upstream_fair 3rd-party module (see
- * http://nginx.localdomain.pl/wiki/UpstreamFair ) with weight_mode=peak
- * and all servers have weight=1.
- *
- * upstream_overload will only distribute requests to idle backend servers. If
- * there are no idle servers client will get a 502 error. When the number of idle
- * servers drops below num_spare_backends then upstream_overload will send an alert
- * message to a named pipe that identifies the backend server that has been busy
- * for the longest time. The idea is that a daemon will listen on this pipe and then
- * somehow abort the request being processed by the backend server.
- *
- * upstream_overload is designed to be scalable w.r.t. (a) the number of nginx
- * worker processes and (b) the number of backend worker processes. Makes most
- * load-balancing operations in O(c) time, as opposed to upstream_fair, which
- * has most load-balancing decisions of O(N), where N is the number of backend
- * servers.
+ * See README.txt for description of module and various instructions.
  *
  * ==== maturity ====
  *
