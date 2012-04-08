@@ -14,6 +14,9 @@ Install thrift dependencies (assuming Ubunutu)
         g++ \
         libssl-dev
 
+We don't want all of thrifts object files cluttering up the repo,
+so create a scratch space to compile and install thrift. Then:
+
 ./configure
 
 make sure "Building Python Library ...... : yes" and not no
