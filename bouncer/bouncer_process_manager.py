@@ -16,11 +16,12 @@
 #
 # ==== Bouncer process manager ====
 #
-# Listens for alerts from AlertRouter, then kills (and restarts) the
+# Listens for alerts from the Alert Router, then kills (and restarts) the
 # selected FastCGI worker
 #
-# ==== Build instructions ====
+# ==== TODO ====
 #
+# Lots
 #
 
 import sys
@@ -50,14 +51,26 @@ class BouncerProcessManager:
         print "Received heartbeat request"
         return "OK"
 
-bpm = BouncerProcessManager()
-processor = BouncerService.Processor(bpm)
-transport = TSocket.TServerSocket(port=3001)
-tfactory = TTransport.TBufferedTransportFactory()
-pfactory = TBinaryProtocol.TBinaryProtocolFactory()
+def run_server(port):
+    bpm = BouncerProcessManager()
+    processor = BouncerService.Processor(bpm)
+    transport = TSocket.TServerSocket(port=port)
+    tfactory = TTransport.TBufferedTransportFactory()
+    pfactory = TBinaryProtocol.TBinaryProtocolFactory()
 
-server = TServer.TSimpleServer(processor, transport, tfactory, pfactory)
+    server = TServer.TSimpleServer(processor, transport, tfactory, pfactory)
 
-print "Starting Bouncer process manager "
-server.serve()
-print "finished"
+    print "Starting Bouncer process manager on port %d" % port
+    server.serve()
+    print "finished"
+
+
+if __name__ == "__main__":
+
+    if len(sys.argv) == 2:
+        port = int(sys.argv[1])
+        run_server(port)
+    else:
+        print "Missing port number"
+        sys.exit(1)
+
