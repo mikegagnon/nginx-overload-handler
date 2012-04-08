@@ -90,3 +90,16 @@ This configuration specifies that:
     (*) If 1 (or fewer) upstream servers (aka backend servers, aka peers)
         are idle, then the module will send an alert (via num_spare_backends).
 
+==== Read alert messages ====
+
+You can do something as simple as cat /home/nginx_user/alert_pipe. However,
+there are nuances to the ordering of pipes opening, closing, etc.
+
+For convenience there is a script alert_reader.py, which cats a pipe,
+and continuously re-opens asn needed. So you lan launch nginx and then
+launch the alert_reader and vice versa. Or can you run alert_reader
+once and restart nginx multiple times.
+
+Usage:
+    ./alert_reader.py /home/nginx_user/alert_pipe
+
