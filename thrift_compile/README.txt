@@ -1,27 +1,21 @@
+Copyright 2012 HellaSec, LLC
 
-Install thrift dependencies (assuming Ubunutu)
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
 
-    sudo apt-get install \
-        libboost-dev \
-        libboost-test-dev \
-        libboost-program-options-dev \
-        libevent-dev \
-        automake \
-        libtool \
-        flex \
-        bison \
-        pkg-config \
-        g++ \
-        libssl-dev
+      http://www.apache.org/licenses/LICENSE-2.0
 
-We don't want all of thrifts object files cluttering up the repo,
-so create a scratch space to compile and install thrift. Then:
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
 
-./configure
+==== README.txt for configuring, comiling, and installing thrift ====
 
-make sure "Building Python Library ...... : yes" and not no
-
-make
-sudo make install
-
+sudo ./install_dependencies.sh
+./compile.sh
+sudo ./install.sh
+./record_lib_location.sh
 
