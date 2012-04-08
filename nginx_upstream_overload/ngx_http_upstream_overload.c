@@ -55,7 +55,7 @@
 
 #define DEFAULT_NUM_SPARE_BACKENDS 1
 #define DEFAULT_ALERT_PIPE_PATH ""
-#define MAX_ALERT_PIPE_PATH_BYTES 256
+#define STATIC_ALLOC_STR_BYTES 256
 
 #define SPINLOCK_NUM_SPINS 1024
 #define SPINLOCK_VALUE ngx_pid
@@ -151,6 +151,12 @@
         ngx_log_debug3(level, log, err, "[" MODULE_NAME_STR "] " format, a, b, c);  \
     } while (0)
 
+#define dd_log4(level, log, err, format, a, b, c, d)                                    \
+    do {                                                                                \
+        dd4(format, a, b, c, d);                                                        \
+        ngx_log_debug4(level, log, err, "[" MODULE_NAME_STR "] " format, a, b, c, d);   \
+    } while (0)
+
 #define dd_error0(level, log, err, format)                                  \
     do {                                                                    \
         dd0("          [ERROR] " format);                                   \
@@ -187,7 +193,7 @@
 
 typedef struct {
     ngx_uint_t                      num_spare_backends;
-    char                            alert_pipe_path[MAX_ALERT_PIPE_PATH_BYTES];
+    char                            alert_pipe_path[STATIC_ALLOC_STR_BYTES];
 } ngx_http_upstream_overload_conf_t;
 
 // holds global variables
@@ -329,13 +335,27 @@ ngx_http_upstream_overload_parse_alert_pipe(
     ngx_command_t *cmd,
     void *conf);
 
+/* Communcation via alert_pipe */
 
-/* Module initialization (after configuration parsing)*/
+static void
+write_alert(
+    ngx_http_upstream_overload_peer_state_t *state,
+    char *buf,
+    size_t count,
+    ngx_log_t *log);
 
 static ngx_int_t
 init_alert_pipe(
     ngx_http_upstream_overload_peer_state_t *state,
     ngx_log_t *log);
+
+static void
+send_overload_alert(
+    ngx_http_upstream_overload_peer_state_t *state,
+    ngx_http_upstream_overload_peer_t *peer,
+    ngx_log_t *log);
+
+/* Module initialization (after configuration parsing)*/
 
 static ngx_int_t
 ngx_http_upstream_overload_init_peer_state(
@@ -512,7 +532,6 @@ ngx_peer_list_pop(
         peer = list->head;
         dd4("_list_pop(list=%p, list_name='%s', log=%p): popping peer[%d]", list, list_name, log, peer->peer_config->index);
 
-        //beergarden_assert(peer->prev == NULL, log, "pop: peer->prev != NULL");
         list->head = list->head->next;
         peer->next = NULL;
         if (list->head == NULL) {
@@ -537,8 +556,6 @@ ngx_peer_list_push(
 {
     dd5("_list_push(list=%p, list_name='%s', peer=%p, log=%p): pushing peer[%d]", list, list_name, peer, log, peer->peer_config->index);
 
-    //beergarden_assert(peer->prev == NULL && peer->next == NULL, log, "ngx_beergarden_list_push: not(peer->prev == NULL && peer->next == NULL)");
-
     list->len++;
     if (list->head == NULL) {
         list->head = peer;
@@ -560,17 +577,15 @@ ngx_peer_list_remove(
     ngx_http_upstream_overload_peer_t *peer,
     ngx_log_t *log)
 {
-    //dd5("_list_remove(list=%p, list_name='%s', peer=%p, log=%p): removing peer[%d]", list, list_name, peer, log, peer->index);
+    dd5("_list_remove(list=%p, list_name='%s', peer=%p, log=%p): removing peer[%d]", list, list_name, peer, log, peer->peer_config->index);
 
     if (list->head == peer) {
         ngx_peer_list_pop(list, list_name, log);
-        //beergarden_assert(peer->index == index, log, "ngx_beergarden_list_remove: peer->index != index");
     } else if (list->tail == peer) {
         list->len--;
         list->tail = peer->prev;
         list->tail->next = NULL;
         peer->prev = NULL;
-        //beergarden_assert(peer->next == NULL, log, "ngx_beergarden_list_remove: nopeer->next != NULL");
     } else {
         list->len--;
         peer->prev->next = peer->next;
@@ -647,6 +662,38 @@ ngx_http_upstream_overload_parse_alert_pipe(
     return NGX_CONF_OK;
 }
 
+// Tries to write bytes to the alert_pipe. On failure, closes the pipe and
+// sets alert_pipe = NGX_INVALID_FILE
+static void
+write_alert(
+    ngx_http_upstream_overload_peer_state_t *state,
+    char *buf,
+    size_t count,
+    ngx_log_t *log)
+{
+    ssize_t bytes_written;
+
+    bytes_written = write(state->alert_pipe, buf, count);
+
+    if (bytes_written == (ssize_t) count) {
+        dd_log2(NGX_LOG_DEBUG_HTTP, log, 0, "successfully wrote %d bytes to alert_pipe '%s'", count, overload_conf.alert_pipe_path);
+        return;
+    }
+    else if (bytes_written == -1) {
+        dd_error2(NGX_LOG_ERR, log, 0, "Error while writting to alert_pipe '%s'. Error = '%s'.", overload_conf.alert_pipe_path, strerror(errno));
+    }
+    else {
+        dd_error1(NGX_LOG_ERR, log, 0, "Unknown error while writting to alert_pipe '%s'", overload_conf.alert_pipe_path);
+    }
+
+    if (ngx_close_file(state->alert_pipe) == NGX_FILE_ERROR) {
+        dd_error2(NGX_LOG_ERR, log, 0, "Error while trying to close alert_pipe '%s'. Error = '%s'.", overload_conf.alert_pipe_path, strerror(errno));
+    }
+
+    state->alert_pipe = NGX_INVALID_FILE;
+}
+
+
 // Tests to do:
 //  - File not exist
 //  - File not a named pipe
@@ -662,13 +709,12 @@ init_alert_pipe(
     ngx_http_upstream_overload_peer_state_t *state,
     ngx_log_t *log)
 {
-    //char buf[] = "init\n";
+    char buf[] = "init\n";
 
     dd2("_init_alert_pipe(state=%p, log=%p): entering", state, log);
 
     if (overload_conf.alert_pipe_path[0] == '\0') {
-        //dd_log0(NGX_LOG_DEBUG_HTTP, log, 0, "not initializing alert_pipe because alert_pipe_path == ''");
-        dd2("_init_alert_pipe(state=%p, log=%p): not initializing alert_pipe because alert_pipe_path == ''", state, log);
+        dd_log0(NGX_LOG_DEBUG_HTTP, log, 0, "not initializing alert_pipe because alert_pipe_path == ''");
         dd2("_init_alert_pipe(state=%p, log=%p): exiting", state, log);
         return NGX_OK;
     }
@@ -681,12 +727,37 @@ init_alert_pipe(
             return NGX_ERROR;
         }
         dd_log1(NGX_LOG_DEBUG_HTTP, log, 0, "opened alert_pipe '%s'", overload_conf.alert_pipe_path);
-        // TODO: implement this
-        //write_alert(log, state, buf, ngx_strlen(buf));
+
+        write_alert(state, buf, ngx_strlen(buf), log);
     }
     dd2("_init_alert_pipe(state=%p, log=%p): exiting", state, log);
 
     return NGX_OK;
+}
+
+// Present strategy is to send an alert from the head of busy list.
+// TODO: Consider keeping track of busy peers that we have already sent alerts for.
+// Then we will only send an alert to an item from the busy list that hasn't received
+// an alert before
+static void
+send_overload_alert(
+    ngx_http_upstream_overload_peer_state_t *state,
+    ngx_http_upstream_overload_peer_t *peer,
+    ngx_log_t *log)
+{
+    char buf[STATIC_ALLOC_STR_BYTES];
+
+    if (overload_conf.alert_pipe_path[0] == '\0') {
+        dd_log0(NGX_LOG_DEBUG_HTTP, log, 0, "can't send alert because alerts are disabled");
+    } else {
+        dd_log1(NGX_LOG_DEBUG_HTTP, log, 0, "sending alert for peer %d", peer->peer_config->index);
+        init_alert_pipe(state, log);
+
+        if (state->alert_pipe != NGX_INVALID_FILE) {
+            ngx_snprintf((u_char *) buf, sizeof(buf), "%s\n", peer->peer_config->name.data);
+            write_alert(state, buf, (size_t) ngx_strlen(buf), log);
+        }
+    }
 }
 
 // initializes state by copying the peer configuation into state
@@ -792,7 +863,6 @@ ngx_http_upstream_overload_init_shared_mem_zone(
     ngx_shm_zone_t *shared_mem_zone,
     void *data)
 {
-    //ngx_slab_pool_t                     *shpool;
     ngx_upstream_overload_peer_data_t   *peer_data = shared_mem_zone->data;
     ngx_int_t                            result;
     ngx_log_t                           *log = overload_global.shared_mem_zone->shm.log;
@@ -808,46 +878,15 @@ ngx_http_upstream_overload_init_shared_mem_zone(
     if (data) {
         dd2("_init_shared_mem_zone(shared_mem_zone=%p, data=%p): this is a re-invocation --> return NGX_OK",
             shared_mem_zone, data);
-        //shared_mem_zone->data = data;
+        shared_mem_zone->data = data;
         return NGX_OK;
     }
 
     dd2("_init_shared_mem_zone(shared_mem_zone=%p, data=%p): this is the first invocation",
         shared_mem_zone, data);
 
-    /*shpool = (ngx_slab_pool_t *) shared_mem_zone->shm.addr;
-    tree = ngx_slab_alloc(shpool, sizeof *tree);
-    if (tree == NULL) {
-        return NGX_ERROR;
-    }*/
-
     result = ngx_http_upstream_overload_shared_mem_alloc(peer_data, log);
 
-    /*shpool = (ngx_slab_pool_t *) overload_global.shared_mem_zone->shm.addr;
-
-    ngx_shmtx_lock(&shpool->mutex);
-
-    peer_data->state = ngx_slab_alloc_locked(shpool,
-        sizeof(ngx_upstream_overload_peer_data_t));
-
-    if (peer_data->state == NULL) {
-        ngx_shmtx_unlock(&shpool->mutex);
-        ngx_log_error(NGX_LOG_EMERG, log, 0, "shared_mem_size is too small");
-        return NGX_ERROR;
-    }
-
-    ngx_spinlock(&peer_data->state->lock, SPINLOCK_VALUE, SPINLOCK_NUM_SPINS);
-
-
-    ngx_shmtx_unlock(&shpool->mutex);
-    */
-
-
-    /*sentinel = ngx_slab_alloc(shpool, sizeof *sentinel);
-    if (sentinel == NULL) {
-        return NGX_ERROR;
-    }
-    */
     shared_mem_zone->data = peer_data;
 
     return result;
@@ -954,15 +993,8 @@ ngx_http_upstream_init_overload_peer(
 {
     ngx_http_upstream_overload_request_data_t *request_data;
     ngx_upstream_overload_peer_data_t *peer_data = us->peer.data;
-    //ngx_int_t result;
 
     dd2("_init_overload_peer(r=%p, us=%p): entering", r, us);
-
-    /*result = ngx_http_upstream_overload_shared_mem_alloc(peer_data, r->connection->log);
-    if (result != NGX_OK) {
-        dd2("_init_overload_peer(r=%p, us=%p): exiting with error", r, us);
-        return result;
-    }*/
 
     r->upstream->peer.get = ngx_http_upstream_get_overload_peer;
     r->upstream->peer.free = ngx_http_upstream_free_overload_peer;
@@ -989,7 +1021,6 @@ ngx_http_upstream_get_overload_peer(
     ngx_http_upstream_overload_peer_state_t *peer_state = request_data->peer_state;
     ngx_http_upstream_overload_peer_t *peer;
 
-    //dd2("_get_overload_peer(pc=%p, request_data=%p): entering", pc, request_data);
     dd_log2(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): entering", pc, request_data);
 
     ngx_spinlock(&peer_state->lock, SPINLOCK_VALUE, SPINLOCK_NUM_SPINS);
@@ -1006,6 +1037,9 @@ ngx_http_upstream_get_overload_peer(
 
     if (request_data->peer_index == NGX_PEER_INVALID) {
         dd_log2(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): No peers available; cannot forward request.\n\n", pc, request_data);
+
+        send_overload_alert(peer_state, peer_state->busy_list.head, pc->log);
+
         ngx_unlock(&peer_state->lock);
         return NGX_BUSY;
     }
@@ -1018,6 +1052,12 @@ ngx_http_upstream_get_overload_peer(
     dd_list(&peer_state->idle_list, "idle_list", peer_state);
     dd_list(&peer_state->busy_list, "busy_list", NULL);
 
+    dd_log4(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): peer_state->idle_list.len=%d, overload_conf.num_spare_backends=%d\n\n",
+        pc, request_data, peer_state->idle_list.len, overload_conf.num_spare_backends);
+    if (peer_state->idle_list.len <= overload_conf.num_spare_backends) {
+        send_overload_alert(peer_state, peer_state->busy_list.head, pc->log);
+    }
+
     ngx_unlock(&peer_state->lock);
 
     // the whole point of this function is to set these three values
@@ -1025,7 +1065,6 @@ ngx_http_upstream_get_overload_peer(
     pc->socklen = peer->peer_config->socklen;
     pc->name = &peer->peer_config->name;
 
-    //dd3("_get_overload_peer(pc=%p, request_data=%p): peer_index = %d\n\n", pc, request_data, request_data->peer_index);
     dd_log3(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): exiting with peer_index==%d", pc, request_data, request_data->peer_index);
 
     return NGX_OK;
@@ -1043,7 +1082,8 @@ ngx_http_upstream_free_overload_peer(
     ngx_http_upstream_overload_peer_t *peer;
     ngx_uint_t peer_index = request_data->peer_index;
 
-    dd3("_free_overload_peer(pc=%p, request_data=%p, connection_state=%d): entering", pc, request_data, connection_state);
+    dd_log3(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_free_overload_peer(pc=%p, request_data=%p, connection_state=%d): entering",
+        pc, request_data, connection_state);
 
     // If the _get_overload_peer() invocation yielded NGX_BUSY
     if (peer_index == NGX_PEER_INVALID) {
@@ -1053,7 +1093,8 @@ ngx_http_upstream_free_overload_peer(
 
     peer = &peer_state->peer[peer_index];
 
-    dd4("_free_overload_peer(pc=%p, request_data=%p, connection_state=%d): peer_index == %d", pc, request_data, connection_state, peer_index);
+    dd_log4(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_free_overload_peer(pc=%p, request_data=%p, connection_state=%d): peer_index==%d",
+        pc, request_data, connection_state, peer_index);
 
     ngx_spinlock(&peer_state->lock, SPINLOCK_VALUE, SPINLOCK_NUM_SPINS);
 
@@ -1073,8 +1114,7 @@ ngx_http_upstream_free_overload_peer(
 
     pc->tries = 0;
 
-    dd4("_free_overload_peer(pc=%p, request_data=%p, connection_state=%d): exiting --> decremented pc->tries to %d\n\n",
-        pc, request_data, connection_state, pc->tries);
-
+    dd_log3(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_free_overload_peer(pc=%p, request_data=%p, connection_state=%d): exiting",
+        pc, request_data, connection_state);
 }
 
