@@ -7,3 +7,6 @@
 nginx-1.0.12/Makefile
 nginx-1.0.12/objs/
 
+# thrift compilation
+thrift_compile/compiled_thrift/
+thrift_compile/python_thrift_lib/
