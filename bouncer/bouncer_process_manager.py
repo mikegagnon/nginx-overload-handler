@@ -33,7 +33,10 @@
 # ==== TODO ====
 #   - The sublcass methods raise exceptions, the superclass should handle them
 #   - Consider event handling models: threaded, event based, ...?
-
+#   - monitor workers for unexpected crashes. Perhaps run a thread for each popen
+#     object that waits on the popen and when an unxepcted crash occurs, enqueues
+#     a message for the main event loop to handle.
+#
 import sys
 import os
 

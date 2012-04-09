@@ -17,7 +17,7 @@ Copyright 2012 HellaSec, LLC
 fcgi_worker_process.p implements a simple FastCGI web application that
 is useful for testing upstream_overload module.
 
-==== How to test upstream_overload module ====
+==== How to test upstream_overload module (without Bouncer) ====
 
 PREREQUISITE:
     Ensure nginx is compiled and installed with the upstream_overload module.
@@ -31,4 +31,25 @@ In another terminal:
     ./launch_fastcgi_workers.sh
     sudo ./launch_nginx.sh
     ./send_requests.sh
+
+==== How to test Bouncer with upstream_overload module ====
+
+PREREQUISITE:
+(1) Ensure nginx is compiled and installed with the upstream_overload module.
+    See ../nginx_upstream_overload/README.txt
+(2) Build bouncer dependencies. SEe ../bouncer/README.txt
+
+In five separate terminals:
+(1) Launch two bouncers (which also launches the FastCGI workers)
+    ./dummyfci_bouncer.py bouncer_config.json 127.0.0.1 3001
+    ./dummyfci_bouncer.py bouncer_config.json 127.0.0.1 3002
+(2) Launch the Alert Router:
+    ../bouncer/alert_router.py bouncer_config.json
+(3) Launch nginx
+    sudo ./launch_nginx.sh
+(4) Send a mix of big request and quick requests in rapid succession.
+    All the quick requests should be serviced (whereas the bouncer
+    kills the big requests). You should see "Oh hai!" appear every
+    second (from the quick requests).
+    ./send_loop.sh
 

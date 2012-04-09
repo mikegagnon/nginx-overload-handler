@@ -15,18 +15,38 @@ Copyright 2012 HellaSec, LLC
 ==== README.txt for bouncer ====
 
 Contents:
-(1) bouncer_process_manager.py, the Bouncer process manager. Each
-    pool of FastCGI workers runs and instance of bouncer_process_manager.py,
-    which does the following:
+
+bouncer_commony.py
+    used by alert_router.py and bouncer_process_manager.py
+
+bouncer_process_manager.py,
+    the super class for bouncers. Each web application implements a subclass
+    of bouncer_process_manager.py (which defines how start and kill FastCGI
+    workers). For example, see ../dummy_fcgi_app/dummyfci_bouncer.py. Each
+    pool of FastCGI workers runs its own instance of bouncer, which does the
+    following:
         (a) Restarts its FastCGI workers if they crash
         (b) Listens for overload alerts from the alert_router. When it receives
             an alert, bouncer_process_manager.py restarts the FastGI worker
             that is specified in the alert.
-(2) alert_router.py, which listens for alerts from the upstream_overload nginx
-    module (via a named pipe), then forwards those alerts to the appropriate
-    Bouncer instance using thrift RPC.
-(3) BouncerService.thrift, which specifies the thrift RPC interface between
-    bouncer_process_manager.py and alert_router.py
+
+alert_router.py
+    listens for alerts from the upstream_overload nginx module (via a named
+    pipe), then forwards those alerts to the appropriate Bouncer instance
+    using thrift RPC.
+
+BouncerService.thrift
+    specifies the thrift RPC interface between bouncer_process_manager.py and
+    alert_router.py
+
+compile.sh
+    script to compile the thrift file into Python stub code
+
+example_config.json
+    Alert Routers and Bouncers read the same config file. This is an example.
+
+import_thrift_lib.py
+    a hack that imports thrift's python library
 
 ==== Build instructions ====
 
@@ -34,3 +54,8 @@ PREREQUSIITE:
     Install thrift per the instructions in ../thrift_compile/README.txt
 
 ./compile.sh
+
+==== Example usage ====
+
+See ../dummy_fcgi_app/README.txt
+
