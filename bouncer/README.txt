@@ -22,7 +22,7 @@ bouncer_commony.py
 bouncer_process_manager.py,
     the super class for bouncers. Each web application implements a subclass
     of bouncer_process_manager.py (which defines how start and kill FastCGI
-    workers). For example, see ../dummy_fcgi_app/dummyfci_bouncer.py. Each
+    workers). For example, see ../dummy_fcgi_app/bouncer_for_dummy_app.py. Each
     pool of FastCGI workers runs its own instance of bouncer, which does the
     following:
         (a) Restarts its FastCGI workers if they crash
