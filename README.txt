@@ -45,4 +45,7 @@ Several moving parts:
 
 See dummy_fcgi_app/README.txt
 
+==== Is this code ready for production? ====
+
+Definintely not. It is highly experimental.
 
