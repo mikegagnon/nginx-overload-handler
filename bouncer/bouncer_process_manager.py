@@ -36,6 +36,8 @@
 #   - monitor workers for unexpected crashes. Perhaps run a thread for each popen
 #     object that waits on the popen and when an unxepcted crash occurs, enqueues
 #     a message for the main event loop to handle.
+#       I think the best way to do this is to spawn threads that wait on popen
+#       on objects, then issue thrift RPC calls when the wait finishes
 #
 import sys
 import os
@@ -55,11 +57,50 @@ from thrift.protocol import TBinaryProtocol
 from thrift.server import TServer
 
 import socket
+import threading
 
 from bouncer_common import *
 
 class StartWorkerFailed(Exception):
     pass
+
+# TODO: Determine if popen objects are thread safe. As in, is it OK
+# for one thread to do popen_obj.wait() while another does popen_obj.terminate() ?
+class WorkerMonitor(threading.Thread):
+    '''A thread that watches a worker process and sends workerTerminated
+    message when the worker terminates.'''
+
+    def __init__(self, popen_obj, bouncerAddr, worker):
+        '''popen_obj is an instance of subprocess.Popen for the worker to be monitored.
+        bouncerAddr is the BouncerAddress objcect for this bouncer.
+        worker is a string like "127.0.0.1:9001".'''
+        self.popen_obj = popen_obj
+        self.bouncerAddr = bouncerAddr
+        self.worker = worker
+        super(WorkerMonitor, self).__init__()
+
+    def sendMessage(self):
+        print "Sending worker-terminated message for worker '%s' to bouncer" % self.worker
+        try:
+            transport = TSocket.TSocket(self.bouncerAddr.addr, self.bouncerAddr.port)
+            transport = TTransport.TBufferedTransport(transport)
+            protocol = TBinaryProtocol.TBinaryProtocol(transport)
+            client = BouncerService.Client(protocol)
+
+            transport.open()
+
+            client.workerTerminated(self.worker)
+
+            transport.close()
+
+        except Thrift.TException, exception:
+            print "ERROR while sending workerTerminated to Bouncer %s:%d --> %s" % (bouncer.addr, bouncer.port, exception)
+
+    def run(self):
+        print "Monitor launched for worker '%s'" % self.worker
+        self.popen_obj.wait()
+        print "Monitor for worker '%s': worker terminated" % self.worker
+        self.sendMessage()
 
 class BouncerProcessManager(object):
     '''The super class for bouncer process managers. Each web application requires its
@@ -68,8 +109,7 @@ class BouncerProcessManager(object):
     that overrides the following methods:
         start_worker
         kill_worker
-        is_worker_alive
-    Each of these methods accepts one paramter, worker, which is a string identifying
+    Each of these methods accepts one parameter, worker, which is a string identifying
     the worker to kill. The worker string is of the form '127.0.0.1:9001', i.e.
     'ip_addr:port'.
 
@@ -93,28 +133,33 @@ class BouncerProcessManager(object):
         self.workers = self.config.bouncer_map[str(self.bouncerAddr)]
         self.receivedFirstHeartbeat = False
 
+        # maps each worker string to the popen object for that worker process
+        self.worker_popen_map = {}
+
         for worker in self.workers:
             try:
                 addr, port = BouncerProcessManager.parse_worker(worker)
             except ValueError, e:
                 raise StartWorkerFailed("Could not start worker '%s' because it is malformed" % worker)
 
-            print "Starting worker: %s" % worker
-            self.start_worker(addr, port)
-            if not self.is_worker_alive(addr, port):
+            print "Trying to start worker: %s" % worker
+            popen_obj = self.start_worker(addr, port)
+            if (popen_obj == None):
                 raise StartWorkerFailed("Could not start worker '%s' for unknown reason" % worker)
 
-    def start_worker(self, addr, port):
-        '''Must attempt to launch the specified worker. Does not return anything'''
-        pass
+            self.worker_popen_map[worker] = popen_obj
 
-    def kill_worker(self, addr, port):
+            # Launch the WorkerMonitor thread for this worker
+            WorkerMonitor(popen_obj, self.bouncerAddr, worker).start()
+
+    def start_worker(self, addr, port):
+        '''Must attempt to launch the specified worker. Should return the popen object for the new worker
+        or None, if the worker couldn't be be launched for some reason.'''
+        return None
+
+    def kill_worker(self, addr, port, popen_obj):
         '''Must attempt to kill the specified worker. Does not return anything'''
         pass
-
-    def is_worker_alive(self, addr, port):
-        '''Returns True if the worker is alive, and False otherwise'''
-        return False
 
     def alert(self, alert_message):
         print "Received alert '%s'" % alert_message
@@ -127,17 +172,19 @@ class BouncerProcessManager(object):
         except ValueError, e:
             raise BouncerException("Worker '%s' because is malformed" % worker)
 
-        print "Killing worker: %s" % worker
-        self.kill_worker(addr, port)
-        if self.is_worker_alive(addr, port):
-            raise BouncerException("Tried to kill worker '%s', but could not kill worker" % worker)
+        if worker not in self.worker_popen_map:
+            raise BouncerException("Worker '%s' does not seem to be running (it's not in worker_popen_map)" % worker)
 
-        print "Restarting worker: %s" % worker
-        self.start_worker(addr, port)
-        if not self.is_worker_alive(addr, port):
-            raise BouncerException("Killed worker '%s', but could not start worker" % worker)
+        popen_obj = self.worker_popen_map[worker]
+        if popen_obj == None:
+            raise BouncerException("Worker '%s' does not seem to be running (its popen_obj == None)" % worker)
 
-        print "Restart successful for worker: %s" % worker
+        print "Killing worker '%s'" % worker
+        self.kill_worker(addr, port, popen_obj)
+
+        # No need to start worker manually; the WorkerMonitor thread for that worker
+        # will detect that the worker was killed and will call workerTerminated, which
+        # will then restart the worker
 
     def heartbeat(self):
         # TODO: modify heartbeat so that it returns a list of strings
@@ -152,6 +199,22 @@ class BouncerProcessManager(object):
             print "Received first heartbeat"
             self.receivedFirstHeartbeat = True
             return self.workers
+
+    def workerTerminated(self, worker):
+        print "Received workerCrashed(%s) message" % worker
+        try:
+            addr, port = BouncerProcessManager.parse_worker(worker)
+        except ValueError, e:
+            print "Could not handle message because worker '%s' is malformed" % worker
+            return
+        print "Trying to start the worker"
+        popen_obj = self.start_worker(addr, port)
+        self.worker_popen_map[worker] = popen_obj
+        if popen_obj != None:
+            # Launch the WorkerMonitor thread for this worker
+            WorkerMonitor(popen_obj, self.bouncerAddr, worker).start()
+        else:
+            print "Could not start the worker"
 
     def run(self):
         processor = BouncerService.Processor(self)

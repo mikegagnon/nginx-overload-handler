@@ -23,6 +23,10 @@
 #
 # ==== TODO ====
 #   - Logging
+#   - Timeouts on RPC calls
+#   - To the extent possible, ensure that bouncers, alert_router, and nginx can be
+#     started in any order (and at least give intelligent errors when an error
+#     results from out-of-order startup)
 #   - Consider keeping connections alive. Right now sendAlert creates, opens, and closes
 #     a connection every time an alert needs to be sent, which will have higher
 #     overhead than keeping the connections alive. If if alert_router.py doesn't acutally
@@ -143,7 +147,7 @@ class AlertRouter:
                         if len(rfds) == 0:
                             self.requestHeartbeat()
                         else:
-                            print "Something else"
+                            print "Received message (or pipe closed)"
                             pipe_message = alert_pipe.readline()
                             if pipe_message == "":
                                 print "Pipe closed"
@@ -152,13 +156,19 @@ class AlertRouter:
                                 pipe_message = pipe_message.rstrip()
                                 print 'Received from pipe: "%s"' % pipe_message
                                 try:
+                                    print "Getting bouncer"
                                     bouncer = self.getBouncer(pipe_message)
+                                    print "Got bouncer"
                                 except GetBouncerException, e:
-                                    print e.message
+                                    print "ERROR: %s" % e.message
                                     bouncer = None
 
                                 if bouncer:
+                                    print "Sending alert"
                                     self.sendAlert(bouncer, pipe_message)
+                                    print "Sent alert"
+                                else:
+                                    print "Not sending alert"
 
             except Exception as e:
                 traceback.print_exc()

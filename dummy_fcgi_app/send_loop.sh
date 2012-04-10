@@ -28,5 +28,5 @@ do
     big_request
     sleep 0.1
     quick_request
-    sleep 1
+    sleep 0.1
 done

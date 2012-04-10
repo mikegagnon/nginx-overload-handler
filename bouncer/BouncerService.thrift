@@ -30,6 +30,8 @@ exception BouncerException {
 service BouncerService {
 
     /**
+     * Called by alert_router
+     *
      * the alert method is called when there is an overload and
      * a FastCGI worker must therefore be killed. alert_message
      * identifies which FastCGI worker to kill. alert_message follows
@@ -43,6 +45,8 @@ service BouncerService {
     void alert(1: string alert_message) throws (1:BouncerException be),
 
     /**
+     * Called by alert_router
+     *
      * the heartbeat method is called periodically in order to ensure
      * that there is a good connection to the Bouncer.
      * It is also used to ensure that the Bouncer's configuration matches
@@ -58,5 +62,18 @@ service BouncerService {
      *
      */
     list<string> heartbeat()
+
+    /**
+     * Called by the bouncer itself.
+     *
+     * For each worker, the bouncer spawns a thread to monitor that worker.
+     * When that worker terminates, the montioring thread calls workerCrashed
+     * to notify the bouncer that the worker terminated.
+     *
+     * TODO: Presently anyone can make this call, even though it is really
+     * private to the bouncer. Figure out if there is a way to make it
+     * officially "private." Otherwise this is probably fine.
+     */
+    oneway void workerTerminated(1: string worker)
 }
 
