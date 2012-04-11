@@ -105,3 +105,8 @@ make sure to run alert_reader.py before launching nginx.
 Usage:
     ./alert_reader.py /home/nginx_user/alert_pipe
 
+==== TODO ====
+
+To the extent possible, make the whole system resilient to crashes, erroneous messages,
+etc.
+

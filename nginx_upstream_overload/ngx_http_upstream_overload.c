@@ -72,7 +72,7 @@
         printf ("[" MODULE_NAME_STR "] " format "\n", a, b, c, d, e, f)
     #define dd7(format, a, b, c, d, e, f, g) \
         printf ("[" MODULE_NAME_STR "] " format "\n", a, b, c, d, e, f, g)
-    #define dd_list(list, name, peers) ngx_upstream_overload_print_list(list, name, peers)
+    #define dd_list(list, name, peers, log) ngx_upstream_overload_print_list(list, name, peers, log)
 #else
     #define dd0(format)
     #define dd1(format, a)
@@ -82,7 +82,7 @@
     #define dd5(format, a, b, c, d, e)
     #define dd6(format, a, b, c, d, e, f)
     #define dd7(format, a, b, c, d, e, f, g)
-    #define dd_list(list, name, peers)
+    #define dd_list(list, name, peers, log)
 #endif
 
 // Set to 1 to slow down the module, which helps with testing correct shared
@@ -110,34 +110,40 @@
     #define DO_SLOW_DOWN()
 #endif
 
-#define dd_log0(level, log, err, format)                                    \
-    do {                                                                    \
-        dd0(format);                                                        \
-        ngx_log_debug0(level, log, err, "[" MODULE_NAME_STR "] " format);   \
-    } while (0)
-
-#define dd_log1(level, log, err, format, a)                                     \
-    do {                                                                        \
-        dd1(format, a);                                                         \
-        ngx_log_debug1(level, log, err, "[" MODULE_NAME_STR "] " format, a);    \
-    } while (0)
-
-#define dd_log2(level, log, err, format, a, b)                                  \
-    do {                                                                        \
-        dd2(format, a, b);                                                      \
-        ngx_log_debug2(level, log, err, "[" MODULE_NAME_STR "] " format, a, b); \
-    } while (0)
-
-#define dd_log3(level, log, err, format, a, b, c)                                   \
+#define dd_log0(level, log, err, format)                                            \
     do {                                                                            \
-        dd3(format, a, b, c);                                                       \
-        ngx_log_debug3(level, log, err, "[" MODULE_NAME_STR "] " format, a, b, c);  \
+        dd0(format);                                                                \
+        if (log) ngx_log_debug0(level, log, err, "[" MODULE_NAME_STR "] " format);  \
     } while (0)
 
-#define dd_log4(level, log, err, format, a, b, c, d)                                    \
+#define dd_log1(level, log, err, format, a)                                             \
     do {                                                                                \
-        dd4(format, a, b, c, d);                                                        \
-        ngx_log_debug4(level, log, err, "[" MODULE_NAME_STR "] " format, a, b, c, d);   \
+        dd1(format, a);                                                                 \
+        if (log) ngx_log_debug1(level, log, err, "[" MODULE_NAME_STR "] " format, a);   \
+    } while (0)
+
+#define dd_log2(level, log, err, format, a, b)                                              \
+    do {                                                                                    \
+        dd2(format, a, b);                                                                  \
+        if (log) ngx_log_debug2(level, log, err, "[" MODULE_NAME_STR "] " format, a, b);    \
+    } while (0)
+
+#define dd_log3(level, log, err, format, a, b, c)                                               \
+    do {                                                                                        \
+        dd3(format, a, b, c);                                                                   \
+        if (log) ngx_log_debug3(level, log, err, "[" MODULE_NAME_STR "] " format, a, b, c);     \
+    } while (0)
+
+#define dd_log4(level, log, err, format, a, b, c, d)                                            \
+    do {                                                                                        \
+        dd4(format, a, b, c, d);                                                                \
+        if (log) ngx_log_debug4(level, log, err, "[" MODULE_NAME_STR "] " format, a, b, c, d);  \
+    } while (0)
+
+#define dd_log5(level, log, err, format, a, b, c, d, e)                                             \
+    do {                                                                                            \
+        dd5(format, a, b, c, d, e);                                                                 \
+        if (log) ngx_log_debug5(level, log, err, "[" MODULE_NAME_STR "] " format, a, b, c, d, e);   \
     } while (0)
 
 #define dd_error0(level, log, err, format)                                  \
@@ -157,6 +163,19 @@
         dd2("          [ERROR] " format, a, b);                                 \
         ngx_log_error(level, log, err, "[" MODULE_NAME_STR "] " format, a, b);  \
     } while (0)
+
+#define dd_error3(level, log, err, format, a, b, c)                                 \
+    do {                                                                            \
+        dd3("          [ERROR] " format, a, b, c);                                  \
+        ngx_log_error(level, log, err, "[" MODULE_NAME_STR "] " format, a, b, c);   \
+    } while (0)
+
+#define dd_error4(level, log, err, format, a, b, c, d)                                 \
+    do {                                                                               \
+        dd4("          [ERROR] " format, a, b, c, d);                                  \
+        ngx_log_error(level, log, err, "[" MODULE_NAME_STR "] " format, a, b, c, d);   \
+    } while (0)
+
 
 #define dd_conf_error0(level, cf, err, format)                                  \
     do {                                                                        \
@@ -257,6 +276,12 @@ typedef struct {
 typedef struct {
     ngx_http_upstream_overload_peer_state_t * peer_state;
 
+    // freed == 1 if this peer has already been free'd for this
+    // request; freed == 0 otherwise. The freed field is only needed
+    // because there is a bug in nginx that causes peer.free to be
+    // be called multiple times for the same connection
+    ngx_uint_t                           freed;
+
     // The index of the peer that is handling this request
     ngx_uint_t                           peer_index;
 } ngx_http_upstream_overload_request_data_t;
@@ -274,24 +299,30 @@ ngx_upstream_overload_print_peer_state(
 static void ngx_upstream_overload_print_list(
     ngx_peer_list_t *list,
     char *list_name,
-    ngx_http_upstream_overload_peer_state_t *state);
+    ngx_http_upstream_overload_peer_state_t *state,
+    ngx_log_t * log);
+
+static ngx_int_t ngx_upstream_overload_verify_state(
+    ngx_http_upstream_overload_peer_state_t * state,
+    ngx_log_t * log);
 
 /* List operations */
 
-static ngx_uint_t
+static ngx_int_t
 ngx_peer_list_pop(
     ngx_peer_list_t *list,
+    ngx_uint_t * poppedIndex,
     char *list_name,
     ngx_log_t *log);
 
-static void
+static ngx_int_t
 ngx_peer_list_push(
     ngx_peer_list_t *list,
     char *list_name,
     ngx_http_upstream_overload_peer_t *peer,
     ngx_log_t *log);
 
-static void
+static ngx_int_t
 ngx_peer_list_remove(
     ngx_peer_list_t *list,
     char *list_name,
@@ -468,7 +499,8 @@ static void
 ngx_upstream_overload_print_list(
     ngx_peer_list_t *list,
     char *list_name,
-    ngx_http_upstream_overload_peer_state_t *state)
+    ngx_http_upstream_overload_peer_state_t *state,
+    ngx_log_t * log)
 {
     ngx_http_upstream_overload_peer_t *peer = list->head;
     ngx_http_upstream_overload_peer_t *last = NULL;
@@ -477,39 +509,110 @@ ngx_upstream_overload_print_list(
         ngx_upstream_overload_print_peer_state(state);
     }
 
-    printf("[" MODULE_NAME_STR "] [%s] len = %d\n", list_name, list->len);
-
+    dd_log2(NGX_LOG_DEBUG_HTTP, log, 0, "[list %s] len=%d", list_name, list->len);
     if (peer == NULL) {
-        printf("[" MODULE_NAME_STR "] [%s] (empty list)\n", list_name);
+        dd_log1(NGX_LOG_DEBUG_HTTP, log, 0, "[list %s] (empty list)", list_name);
     }
 
     while (peer != NULL) {
-        printf("[" MODULE_NAME_STR "] [%s] peer[%d] prev=%p, this=%p, next=%p\n",
+        dd_log5(NGX_LOG_DEBUG_HTTP, log, 0, "[list %s] peer[%d] prev=%p, this=%p, next=%p",
             list_name, peer->peer_config->index, peer->prev, peer, peer->next);
         last = peer;
         peer = peer->next;
     }
 
     if (list->tail != last) {
-        printf("ERROR ****************** [" MODULE_NAME_STR "] [%s] TAIL IS WRONG!!!\n", list_name);
+        // TODO: change this to error instead of log
+        dd_log1(NGX_LOG_DEBUG_HTTP, log, 0, "[list %s] ERROR TAIL IS WRONG", list_name);
+    }
+}
+
+static ngx_int_t
+ngx_upstream_overload_verify_list(
+    ngx_peer_list_t *list,
+    char *list_name,
+    ngx_log_t *log)
+{
+    ngx_http_upstream_overload_peer_t *peer = list->head;
+    ngx_http_upstream_overload_peer_t *last = NULL;
+    ngx_uint_t count = 0;
+
+    if (list->head == NULL ||
+        list->tail == NULL ||
+        list->len == 0) {
+        if (list->head == NULL && list->tail == NULL && list->len == 0) {
+            return NGX_OK;
+        } else {
+            dd_error4(NGX_LOG_ERR, log, 0, "bad list %s: head=%p, tail=%p, len=%d",
+                list_name, list->head, list->tail, list->len);
+            return NGX_ERROR;
+        }
+    }
+
+    // There is at least one element
+    if (list->head->prev != NULL || list->tail->next != NULL) {
+        dd_error3(NGX_LOG_ERR, log, 0, "bad list %s: list->head->prev==%p, list->tail->next==%p",
+            list_name, list->head->prev, list->tail->next);
+        return NGX_ERROR;
+    }
+
+    while (peer != NULL) {
+        count += 1;
+        last = peer;
+        peer = peer->next;
+    }
+
+    if (list->tail != last) {
+        dd_error1(NGX_LOG_ERR, log, 0, "bad list %s: tail is wrong", list_name);
+        return NGX_ERROR;
+    }
+
+    if (list->len != count) {
+        dd_error3(NGX_LOG_ERR, log, 0, "bad list %s: list->len==%d != count==%d", list_name, list->len, count);
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+
+// Make sure state is consistent. Returns NGX_ERROR or NGX_OK.
+static ngx_int_t
+ngx_upstream_overload_verify_state(
+    ngx_http_upstream_overload_peer_state_t *state,
+    ngx_log_t *log)
+{
+    if (state->busy_list.len + state->idle_list.len != state->num_peers) {
+        dd_error3(NGX_LOG_ERR, log, 0, "state->busy_list.len==%d + state->idle_list.len==%d != state->num_peers==%d", state->busy_list.len,  state->idle_list.len, state->num_peers);
+    }
+
+    if (ngx_upstream_overload_verify_list(&state->busy_list, "busy_list", log) != NGX_OK) {
+        return NGX_ERROR;
+    } else if (ngx_upstream_overload_verify_list(&state->idle_list, "idle_list", log) != NGX_OK) {
+        return NGX_ERROR;
+    } else {
+        return NGX_OK;
     }
 }
 
 /**
- * remove the head item and return it's index
- * or NGX_PEER_INVALID if the list is empty
+ * returns NGX_OK if successful, and NGX_ERROR if there is a BUG
+ * remove the head item and sets *poppedIndex to its index
+ * (or NGX_PEER_INVALID if the list is empty)
  */
-static ngx_uint_t
+static ngx_int_t
 ngx_peer_list_pop(
     ngx_peer_list_t *list,
+    ngx_uint_t * poppedIndex,
     char *list_name,
     ngx_log_t *log)
 {
     ngx_http_upstream_overload_peer_t *peer;
 
     if (list->head == NULL) {
-        dd3("_list_pop(list=%p, list_name='%s', log=%p): pop failed (list is empty)", list, list_name, log);
-        return NGX_PEER_INVALID;
+        dd_log3(NGX_LOG_DEBUG_HTTP, log, 0, "_list_pop(list=%p, list_name='%s', log=%p): could not pop (list is empty)",
+            list, list_name, log);
+        *poppedIndex = NGX_PEER_INVALID;
+        return NGX_ERROR;
     } else {
         list->len--;
         peer = list->head;
@@ -522,7 +625,8 @@ ngx_peer_list_pop(
         } else {
             list->head->prev = NULL;
         }
-        return peer->peer_config->index;
+        *poppedIndex = peer->peer_config->index;
+        return NGX_OK;
     }
 }
 
@@ -530,7 +634,7 @@ ngx_peer_list_pop(
  * add peer to the head of the list
  * or NGX_PEER_INVALID if the list is empty
  */
-static void
+static ngx_int_t
 ngx_peer_list_push(
     ngx_peer_list_t *list,
     char *list_name,
@@ -548,22 +652,26 @@ ngx_peer_list_push(
         peer->prev = list->tail;
         list->tail = peer;
     }
+
+    return NGX_OK;
 }
 
 /**
  * remove a peer from an arbitrary position in the list
  */
-static void
+static ngx_int_t
 ngx_peer_list_remove(
     ngx_peer_list_t *list,
     char *list_name,
     ngx_http_upstream_overload_peer_t *peer,
     ngx_log_t *log)
 {
+    ngx_uint_t poppedIndex;
+
     dd5("_list_remove(list=%p, list_name='%s', peer=%p, log=%p): removing peer[%d]", list, list_name, peer, log, peer->peer_config->index);
 
     if (list->head == peer) {
-        ngx_peer_list_pop(list, list_name, log);
+        return ngx_peer_list_pop(list, &poppedIndex, list_name, log);
     } else if (list->tail == peer) {
         list->len--;
         list->tail = peer->prev;
@@ -576,6 +684,8 @@ ngx_peer_list_remove(
         peer->prev = NULL;
         peer->next = NULL;
     }
+
+    return NGX_OK;
 }
 
 // parses the "overload" directive in the nginx config file
@@ -737,7 +847,9 @@ send_overload_alert(
         init_alert_pipe(state, log);
 
         if (state->alert_pipe != NGX_INVALID_FILE) {
-            ngx_snprintf((u_char *) buf, sizeof(buf), "%s\n", peer->peer_config->name.data);
+            //ngx_snprintf != snprintf. In particular, ngx_sprintf does not automatically add
+            //a null terminating character to buf, which motivates the %Z (to add the '\0')
+            ngx_snprintf((u_char *) buf, sizeof(buf), "%s\n%Z", peer->peer_config->name.data);
             write_alert(state, buf, (size_t) ngx_strlen(buf), log);
         }
     }
@@ -781,8 +893,8 @@ ngx_http_upstream_overload_init_peer_state(
     }
     prev->next = NULL;
 
-    dd_list(&state->idle_list, "idle_list", state);
-    dd_list(&state->busy_list, "busy_list", NULL);
+    dd_list(&state->idle_list, "idle_list", state, NULL);
+    dd_list(&state->busy_list, "busy_list", NULL, NULL);
 
     result = init_alert_pipe(state, log);
 
@@ -821,18 +933,22 @@ ngx_http_upstream_overload_shared_mem_alloc(
     }
 
     ngx_spinlock(&peer_data->state->lock, SPINLOCK_VALUE, SPINLOCK_NUM_SPINS);
+    dd2("_shared_mem_alloc(peer_data=%p, log=%p): received lock", peer_data, log);
 
     peer_data->state->peer = ngx_slab_alloc_locked(shpool,
         sizeof(ngx_http_upstream_overload_peer_t) * peer_data->config->num_peers);
 
     if (peer_data->state->peer == NULL) {
+        dd2("_shared_mem_alloc(peer_data=%p, log=%p): releasing lock", peer_data, log);
         ngx_unlock(&peer_data->state->lock);
         ngx_shmtx_unlock(&shpool->mutex);
+        dd2("_shared_mem_alloc(peer_data=%p, log=%p): exiting with NGX_ERROR", peer_data, log);
         return NGX_ERROR;
     }
 
     result = ngx_http_upstream_overload_init_peer_state(peer_data->config, peer_data->state, log);
 
+    dd2("_shared_mem_alloc(peer_data=%p, log=%p): releasing lock", peer_data, log);
     ngx_unlock(&peer_data->state->lock);
 
     ngx_shmtx_unlock(&shpool->mutex);
@@ -987,6 +1103,7 @@ ngx_http_upstream_init_overload_peer(
     dd3("_init_overload_peer(r=%p, us=%p): request_data=%p", r, us, request_data);
     request_data->peer_state = peer_data->state;
     request_data->peer_index = NGX_PEER_INVALID;
+    request_data->freed = 0;
 
     r->upstream->peer.data = request_data;
 
@@ -1007,23 +1124,26 @@ ngx_http_upstream_get_overload_peer(
     dd_log2(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): entering", pc, request_data);
 
     ngx_spinlock(&peer_state->lock, SPINLOCK_VALUE, SPINLOCK_NUM_SPINS);
+    dd_log2(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): received lock", pc, request_data);
 
     #if FINE_DEBUG == 1
         DO_SLOW_DOWN();
     #endif
 
-    dd_list(&peer_state->idle_list, "idle_list", peer_state);
-    dd_list(&peer_state->busy_list, "busy_list", NULL);
+    dd_list(&peer_state->idle_list, "idle_list", peer_state, NULL);
+    dd_list(&peer_state->busy_list, "busy_list", NULL, NULL);
 
     // grab a peer from the idle list
-    request_data->peer_index = ngx_peer_list_pop(&peer_state->idle_list, "idle_list", pc->log);
+    // set request_data->peer_index by popping head from idle_list
+    if (ngx_peer_list_pop(&peer_state->idle_list, &request_data->peer_index, "idle_list", pc->log) != NGX_OK) {
 
-    if (request_data->peer_index == NGX_PEER_INVALID) {
         dd_log2(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): No peers available; cannot forward request.\n\n", pc, request_data);
 
         send_overload_alert(peer_state, peer_state->busy_list.head, pc->log);
 
+        dd_log2(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): releasing lock", pc, request_data);
         ngx_unlock(&peer_state->lock);
+        dd_log2(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): exiting with NGX_BUSY", pc, request_data);
         return NGX_BUSY;
     }
 
@@ -1031,9 +1151,14 @@ ngx_http_upstream_get_overload_peer(
 
     // push the peer onto the busy list
     ngx_peer_list_push(&peer_state->busy_list, "busy_list", peer, pc->log);
+    #if FINE_DEBUG == 1
+        if (ngx_upstream_overload_verify_state(peer_state, pc->log) != NGX_OK) {
+            return NGX_ERROR;
+        }
+    #endif
 
-    dd_list(&peer_state->idle_list, "idle_list", peer_state);
-    dd_list(&peer_state->busy_list, "busy_list", NULL);
+    dd_list(&peer_state->idle_list, "idle_list", peer_state, NULL);
+    dd_list(&peer_state->busy_list, "busy_list", NULL, NULL);
 
     dd_log4(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): peer_state->idle_list.len=%d, overload_conf.num_spare_backends=%d\n\n",
         pc, request_data, peer_state->idle_list.len, overload_conf.num_spare_backends);
@@ -1041,6 +1166,7 @@ ngx_http_upstream_get_overload_peer(
         send_overload_alert(peer_state, peer_state->busy_list.head, pc->log);
     }
 
+    dd_log2(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): releasing lock", pc, request_data);
     ngx_unlock(&peer_state->lock);
 
     // the whole point of this function is to set these three values
@@ -1050,6 +1176,7 @@ ngx_http_upstream_get_overload_peer(
 
     dd_log3(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): exiting with peer_index==%d", pc, request_data, request_data->peer_index);
 
+    dd_log2(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): exiting with NGX_OK", pc, request_data);
     return NGX_OK;
 }
 
@@ -1068,11 +1195,33 @@ ngx_http_upstream_free_overload_peer(
     dd_log3(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_free_overload_peer(pc=%p, request_data=%p, connection_state=%d): entering",
         pc, request_data, connection_state);
 
+#if (NGX_DEBUG)
+    if (connection_state == 0) {
+        dd_log0(NGX_LOG_DEBUG_HTTP, pc->log, 0, "state is SUCCESS");
+    }
+    if (connection_state & NGX_PEER_KEEPALIVE) {
+        dd_log0(NGX_LOG_DEBUG_HTTP, pc->log, 0, "state is NGX_PEER_KEEPALIVE");
+    }
+    if (connection_state & NGX_PEER_NEXT) {
+        dd_log0(NGX_LOG_DEBUG_HTTP, pc->log, 0, "state is NGX_PEER_NEXT");
+    }
+    if (connection_state & NGX_PEER_FAILED) {
+        dd_log0(NGX_LOG_DEBUG_HTTP, pc->log, 0, "state is NGX_PEER_FAILED");
+    }
+#endif
+
     // If the _get_overload_peer() invocation yielded NGX_BUSY
     if (peer_index == NGX_PEER_INVALID) {
         dd3("_free_overload_peer(pc=%p, request_data=%p, connection_state=%d): peer_index == NGX_PEER_INVALID --> exiting", pc, request_data, connection_state);
         return;
     }
+
+    if (request_data->freed == 1) {
+        dd3("_free_overload_peer(pc=%p, request_data=%p, connection_state=%d): this connection has already been freed --> exiting", pc, request_data, connection_state);
+        return;
+    }
+
+    request_data->freed = 1;
 
     peer = &peer_state->peer[peer_index];
 
@@ -1080,19 +1229,37 @@ ngx_http_upstream_free_overload_peer(
         pc, request_data, connection_state, peer_index);
 
     ngx_spinlock(&peer_state->lock, SPINLOCK_VALUE, SPINLOCK_NUM_SPINS);
+    dd_log3(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_free_overload_peer(pc=%p, request_data=%p, connection_state=%d): received lock",
+        pc, request_data, connection_state);
 
-    dd_list(&peer_state->idle_list, "idle_list", peer_state);
-    dd_list(&peer_state->busy_list, "busy_list", NULL);
+    dd_list(&peer_state->idle_list, "idle_list", peer_state, pc->log);
+    dd_list(&peer_state->busy_list, "busy_list", NULL, pc->log);
+
+    dd_log3(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_free_overload_peer(pc=%p, request_data=%p, connection_state=%d): printed list",
+        pc, request_data, connection_state);
 
     // remove the peer from the busy list
     ngx_peer_list_remove(&peer_state->busy_list, "busy_list", peer, pc->log);
 
+    dd_log3(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_free_overload_peer(pc=%p, request_data=%p, connection_state=%d): removed peer from busy_list",
+        pc, request_data, connection_state);
+
     // push the peer onto the idle list
     ngx_peer_list_push(&peer_state->idle_list, "idle_list", peer, pc->log);
+    #if FINE_DEBUG == 1
+        if (ngx_upstream_overload_verify_state(peer_state, pc->log) != NGX_OK) {
+            return;
+        }
+    #endif
 
-    dd_list(&peer_state->idle_list, "idle_list", peer_state);
-    dd_list(&peer_state->busy_list, "busy_list", NULL);
+    dd_log3(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_free_overload_peer(pc=%p, request_data=%p, connection_state=%d): pushed peer to idle list",
+        pc, request_data, connection_state);
 
+    dd_list(&peer_state->idle_list, "idle_list", peer_state, pc->log);
+    dd_list(&peer_state->busy_list, "busy_list", NULL, pc->log);
+
+    dd_log3(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_free_overload_peer(pc=%p, request_data=%p, connection_state=%d): releasing lock",
+        pc, request_data, connection_state);
     ngx_unlock(&peer_state->lock);
 
     pc->tries = 0;

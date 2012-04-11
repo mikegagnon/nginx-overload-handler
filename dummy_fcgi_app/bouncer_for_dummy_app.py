@@ -56,7 +56,10 @@ class BouncerForDummyFcgi(BouncerProcessManager):
     def kill_worker(self, addr, port, popen_obj):
         '''Must attempt to kill the specified worker. Does not return anything'''
         #worker = "%s:%d" % (addr, port)
-        popen_obj.terminate()
+        try:
+            popen_obj.terminate()
+        except OSError, e:
+            print "Error while trying to kill '%s:%d': %s" % (addr, port, e)
         #if port in self.worker_popen:
         #    p = self.worker_popen[port]
         #    # TODO: graduate to p.kill() if terminate doesn't work
