@@ -54,7 +54,7 @@ sudp ./install.sh
 
 ==== Configure and use module ====
 
-see ../dummy_fcgi_app for an example of how to use this module.
+see ../dummy_py_app for an example of how to use this module.
 
 There are three directives that upstream_overload accepts within the nginx
 configuration file.

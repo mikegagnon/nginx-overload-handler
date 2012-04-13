@@ -43,7 +43,7 @@ Several moving parts:
 
 ==== Want to see it in action? ====
 
-See dummy_fcgi_app/README.txt
+See dummy_py_app/README.txt
 
 ==== Is this code ready for production? ====
 

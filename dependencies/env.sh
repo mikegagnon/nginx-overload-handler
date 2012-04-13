@@ -28,6 +28,7 @@ NGINX_DL_REMOTE_PATH="http://nginx.org/download/nginx-1.0.12.tar.gz"
 NGINX_DL_LOCAL_PATH="$DOWNLOAD_DIR/nginx-1.0.12.tar.gz"
 NGINX_LOCAL_PATH="$DOWNLOAD_DIR/nginx-1.0.12"
 NGINX_BIN=/usr/local/nginx/sbin/nginx
+NGINX_CONF=/usr/local/nginx/conf/nginx.conf
 
 MEDIA_WIKI_DL_REMOTE_PATH="http://download.wikimedia.org/mediawiki/1.18/mediawiki-1.18.2.tar.gz"
 MEDIA_WIKI_DL_LOCAL_PATH="$DOWNLOAD_DIR/mediawiki-1.18.2.tar.gz"

@@ -29,7 +29,7 @@ In one terminal:
 In another terminal:
     sudo ./install.sh
     ./launch_fastcgi_workers.sh
-    sudo ./launch_nginx.sh
+    sudo ../nginx_upstream_overload/launch_nginx.sh
     ./send_requests.sh
 
 ==== How to test Bouncer with upstream_overload module ====
@@ -46,7 +46,7 @@ In five separate terminals:
 (2) Launch the Alert Router:
     ../bouncer/alert_router.py bouncer_config.json
 (3) Launch nginx
-    sudo ./launch_nginx.sh
+    sudo ../nginx_upstream_overload/launch_nginx.sh
 (4) Send a mix of big request and quick requests in rapid succession.
     All the quick requests should be serviced (whereas the bouncer
     kills the big requests). You should see "Oh hai!" appear every
