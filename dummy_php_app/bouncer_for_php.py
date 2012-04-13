@@ -14,13 +14,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== Bouncer process manager (for dummy FastCGI app) ====
+# ==== Bouncer process manager (for dummy php app) ====
 #
 # See ../bouncer/bouncer_process_manager.py for more information
-#
-# ==== TODO ====
-# - When the bouncer kills a flup worker, flup sends debug information as a response.
-#   It needs to return a 502, or something else, or nothing.
 #
 
 import sys
@@ -62,20 +58,10 @@ class BouncerForPhp(BouncerProcessManager):
 
     def kill_worker(self, addr, port, popen_obj):
         '''Must attempt to kill the specified worker. Does not return anything'''
-        #worker = "%s:%d" % (addr, port)
         try:
-            popen_obj.terminate()
+            popen_obj.kill()
         except OSError, e:
             print "Error while trying to kill '%s:%d': %s" % (addr, port, e)
-        #if port in self.worker_popen:
-        #    p = self.worker_popen[port]
-        #    # TODO: graduate to p.kill() if terminate doesn't work
-        #    p.terminate()
-        #    # Give terminate some time to take effect
-        #    time.sleep(0.25)
-        #else:
-        #    raise ValueError("worker %s:%d isn't running" % (addr, port))
-
 
 bouncer_process_manager.main(BouncerForPhp)
 

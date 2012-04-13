@@ -26,7 +26,7 @@ function quick_request {
 while [ 1 ]
 do
     big_request
-    sleep 1
+    sleep 0.1
     quick_request
-    sleep 1
+    sleep 0.1
 done

@@ -14,6 +14,19 @@ Copyright 2012 HellaSec, LLC
 
 ==== README.txt for the dummy_php_app ====
 
+Issues:
+- If you curl slow_index.php, then ctrl-c it, then overload module
+  will see that the connection closed and will mark the peer as idle
+  despite the fact that the process is still running.
+  What happens when nginx tries to send a request to this busy fcgi worker?
+    Maybe php-fpm solves this type issue...?
+- Terminate doesn't seem to kill fast enough. Sending sigkill seems to do the job.
+
+TODO:
+- Update documentation
+
+==== Running ====
+
 In five separate terminals:
 (1) Launch two bouncers (which also launches the FastCGI workers)
     ./bouncer_for_php.py bouncer_config.json 127.0.0.1 3001
