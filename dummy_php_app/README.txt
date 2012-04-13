@@ -15,7 +15,7 @@ Copyright 2012 HellaSec, LLC
 ==== README.txt for the dummy_php_app ====
 
 Issues:
-- If you curl slow_index.php, then ctrl-c it, then overload module
+- If you curl slow.php, then ctrl-c it, then overload module
   will see that the connection closed and will mark the peer as idle
   despite the fact that the process is still running.
   What happens when nginx tries to send a request to this busy fcgi worker?

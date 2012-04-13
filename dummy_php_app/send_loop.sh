@@ -16,11 +16,11 @@
 #
 
 function big_request {
-    curl -s http://localhost/slow_index.php > /dev/null &
+    curl -s http://localhost/slow.php > /dev/null &
 }
 
 function quick_request {
-    curl -s http://localhost/fast_index.php &
+    curl -s http://localhost/fast.php &
 }
 
 while [ 1 ]
