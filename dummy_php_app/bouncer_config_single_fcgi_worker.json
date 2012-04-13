@@ -1,0 +1,13 @@
+{
+    "alert_pipe" : "/home/nginx_user/alert_pipe",
+    "bouncers" : [
+        {
+            "bouncer_addr" : "127.0.0.1",
+            "bouncer_port" : 3001,
+            "fcgi_workers" : [
+                "127.0.0.1:9000"
+                ]
+        }
+    ]
+}
+
