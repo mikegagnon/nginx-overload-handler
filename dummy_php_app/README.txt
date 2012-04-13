@@ -24,6 +24,7 @@ Issues:
 
 TODO:
 - Update documentation
+- Use variables defined in env.sh files as much as practical
 
 ==== Running ====
 
