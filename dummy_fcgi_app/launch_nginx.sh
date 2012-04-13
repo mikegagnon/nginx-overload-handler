@@ -15,8 +15,8 @@
 #  limitations under the License.
 #
 
-NGINX=/usr/local/nginx/sbin/nginx
+source ../dependencies/env.sh
 
-$NGINX -s stop
-$NGINX
+$NGINX_BIN -s stop
+$NGINX_BIN
 

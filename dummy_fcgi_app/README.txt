@@ -41,8 +41,8 @@ PREREQUISITE:
 
 In five separate terminals:
 (1) Launch two bouncers (which also launches the FastCGI workers)
-    bouncer_for_dummy_app.py bouncer_config.json 127.0.0.1 3001
-    bouncer_for_dummy_app.py bouncer_config.json 127.0.0.1 3002
+    ./bouncer_for_dummy_app.py bouncer_config.json 127.0.0.1 3001
+    ./bouncer_for_dummy_app.py bouncer_config.json 127.0.0.1 3002
 (2) Launch the Alert Router:
     ../bouncer/alert_router.py bouncer_config.json
 (3) Launch nginx

@@ -17,8 +17,13 @@ from cgi import parse_qs, escape
 import sys, os
 import time
 
-dirname = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(dirname, "..", "flup-1.0.2"))
+
+DIRNAME = os.path.dirname(os.path.realpath(__file__))
+
+# FLUP_PATH must == FLUP_LOCAL_PATH as defined in ../dependencies/env.sh
+FLUP_PATH  = os.path.join(DIRNAME, "..", "dependencies", "downloads", "flup-1.0.2")
+
+sys.path.append(FLUP_PATH)
 
 from flup.server.fcgi_fork import WSGIServer
 

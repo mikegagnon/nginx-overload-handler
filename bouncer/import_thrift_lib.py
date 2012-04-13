@@ -35,7 +35,8 @@ import os
 
 dirname = os.path.dirname(os.path.realpath(__file__))
 
-path_filename = os.path.join(dirname, "..", "thrift_compile", "python_thrift_lib", "path.txt")
+# NOTE: path_filename must == THRIFT_PYTHON_LIB_INSTALL_PATH_FILE as defined in ../dependencies/env.sh
+path_filename = os.path.join(dirname, "..", "dependencies", "thrift_compile", "python_thrift_lib", "path.txt")
 
 with open(path_filename) as f:
     python_thrift_lib_path = f.readline().rstrip()
