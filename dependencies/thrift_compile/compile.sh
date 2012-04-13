@@ -14,14 +14,14 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== install thrift ====
+# ==== configures and compiles thrift ====
 #
 
-CWD=`pwd`
+source ../env.sh
 
-COMPILE_DIR=$CWD/compiled_thrift
+cd $THRIFT_LOCAL_PATH
 
-cd $COMPILE_DIR
+./configure --with-python PY_PREFIX=$THRIFT_PYTHON_LIB_INSTALL
 
-make install
+make
 

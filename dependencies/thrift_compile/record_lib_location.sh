@@ -14,23 +14,15 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== configures and compiles thrift ====
+# ==== Record the location of thrift's python library ====
 #
 
-CWD=`pwd`
+source ../env.sh
 
-THRIFT_SOURCE_ORIG=../thrift-0.8.0/*
-COMPILE_DIR=$CWD/compiled_thrift
-PYTHON_LIB_INSTALL=$CWD/python_thrift_lib
-
-mkdir -p $COMPILE_DIR
-mkdir -p $PYTHON_LIB_INSTALL
-
-cp -r $THRIFT_SOURCE_ORIG $COMPILE_DIR
-
-cd $COMPILE_DIR
-
-./configure --with-python PY_PREFIX=$PYTHON_LIB_INSTALL
-
-make
+# the make script installs the python thrift library somewhere
+# in $THRIFT_PYTHON_LIB_INSTALL. Find it, and save it in
+# the file $THRIFT_PYTHON_LIB_INSTALL_PATH_FILE so that way the python
+# scripts (that use thrift) can know where to import the thrift scripts from
+PYTHON_THRIFT_LIB=`find $THRIFT_PYTHON_LIB_INSTALL -name site-packages`
+echo $PYTHON_THRIFT_LIB > $THRIFT_PYTHON_LIB_INSTALL_PATH_FILE
 

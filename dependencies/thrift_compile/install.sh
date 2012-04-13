@@ -14,17 +14,12 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== Record the location of thrift's python library ====
+# ==== install thrift ====
 #
 
-CWD=`pwd`
+source ../env.sh
 
-PYTHON_LIB_INSTALL=$CWD/python_thrift_lib
+cd $THRIFT_LOCAL_PATH
 
-# the make script installs the python thrift library somewhere
-# in PYTHON_LIB_INSTALL. Find it, and save it in path.txt
-# so that way the python scripts (that use thrift) can know
-# where to import the thrift scripts from
-PYTHON_THRIFT_LIB=`find $PYTHON_LIB_INSTALL -name site-packages`
-echo $PYTHON_THRIFT_LIB > $PYTHON_LIB_INSTALL/path.txt
+make install
 
