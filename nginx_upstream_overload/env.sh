@@ -14,22 +14,16 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== Configures and compiles nginx with upstream_overload module ====
+# ==== env.sh ====
 #
-# PREREQ: download nginx according to ../dependencies/download.sh
-#
-# USAGE: ./compile.sh
+# defines some shell variables
 #
 
-source ../dependencies/env.sh
-source env.sh
+# $DIR is the absolute path for the directory containing this bash script
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-cd $NGINX_LOCAL_PATH
+OVERLOAD_MODULE_DIR=$DIR
+NGINX_USERNAME=nginx_user
+NGINX_HOME_DIR=/home/$NGINX_USERNAME
 
-./configure \
-    --prefix=/usr/local/nginx \
-    --with-debug \
-    --add-module=$OVERLOAD_MODULE_DIR
-
-make
 

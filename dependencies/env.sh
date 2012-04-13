@@ -21,8 +21,8 @@
 
 # $DIR is the absolute path for the directory containing this bash script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 DOWNLOAD_DIR="$DIR/downloads"
-echo $THIS_DIR
 
 NGINX_DL_REMOTE_PATH="http://nginx.org/download/nginx-1.0.12.tar.gz"
 NGINX_DL_LOCAL_PATH="$DOWNLOAD_DIR/nginx-1.0.12.tar.gz"
@@ -41,3 +41,4 @@ THRIFT_DL_LOCAL_PATH="$DOWNLOAD_DIR/thrift-0.8.0.tar.gz"
 THRIFT_LOCAL_PATH="$DOWNLOAD_DIR/thrift-0.8.0"
 THRIFT_PYTHON_LIB_INSTALL="$DIR/thrift_compile/python_thrift_lib"
 THRIFT_PYTHON_LIB_INSTALL_PATH_FILE="$THRIFT_PYTHON_LIB_INSTALL/path.txt"
+

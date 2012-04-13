@@ -21,12 +21,11 @@
 #
 ###############################################################################
 
+source ../dependencies/env.sh
+source env.sh
 
 # Create the nginx user (and home dir) if it does not exist
 ###############################################################################
-
-NGINX_USERNAME=nginx_user
-HOME_DIR=/home/$NGINX_USERNAME
 
 USER_EXISTS=`grep "^${NGINX_USERNAME}:" /etc/passwd`
 if [ ! -n "$USER_EXISTS" ]
@@ -36,8 +35,8 @@ then
     if [ -n "$USER_EXISTS" ]
     then
         echo "Created user $NGINX_USERNAME"
-        mkdir $HOME_DIR
-        chown $NGINX_USERNAME:$NGINX_USERNAME $HOME_DIR
+        mkdir $NGINX_HOME_DIR
+        chown $NGINX_USERNAME:$NGINX_USERNAME $NGINX_HOME_DIR
     else
         echo "Could not create user $NGINX_USERNAME. Your probably need to run this script as root."
         exit 1
@@ -47,9 +46,7 @@ fi
 # Install nginx
 ###############################################################################
 
-OVERLOAD_MODULE=`pwd`
-
-cd ../nginx-1.0.12
+cd $NGINX_LOCAL_PATH
 
 make install
 

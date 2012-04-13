@@ -13,16 +13,19 @@ Copyright 2012 HellaSec, LLC
   limitations under the License.
 
 ==== README.txt for dependencies ====
-
 nginx-overload-handler depends on a few 3rd party software packages.
 This directory (dependencies) contains scripts to download,
 compile, and install thrird-party software pacakges
 
 ==== downloading packages ====
-
 ./download.sh
 
-==== compiling and installing thrift ====
+==== compiling and installing nginx ====
+see nginx_upstream_overload/README.txt
 
+==== compiling and installing flup ====
+no need to install flup; we can use its *.py files directly
+
+==== compiling and installing thrift ====
 see thrift_compile/README.txt
 
