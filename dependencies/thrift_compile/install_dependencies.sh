@@ -16,10 +16,12 @@
 #
 # ==== installs thrift's dependencies ====
 #
+# USAGE: sudo ./install_dependencies.sh
+#
 # Assumes you're running Ubuntu
 #
 
-sudo apt-get install \
+apt-get install \
     libboost-dev \
     libboost-test-dev \
     libboost-program-options-dev \

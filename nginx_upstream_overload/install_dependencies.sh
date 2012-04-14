@@ -14,17 +14,12 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== How to install ====
+# ==== installs nginx's dependencies ====
 #
-# USAGE: sudo ./install.sh
+# USAGE: sudo ./install_dependencies.sh
+#
+# Assumes you're running Ubuntu
 #
 
-# $DIR is the absolute path for the directory containing this bash script
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../dependencies/env.sh
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-
-cd $NGINX_LOCAL_PATH
-
-make install
+apt-get build-dep nginx
 

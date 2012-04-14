@@ -14,6 +14,14 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+# ==== launch_fastcgi_workers.sh ====
+# 
+# Launches four FastCGI workers for the dummy app, each listening on a
+# different port 
+#
+
+# $DIR is the absolute path for the directory containing this bash script
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # Kill any running workers
 ###############################################################################
@@ -23,8 +31,8 @@ pkill -f "fcgi_worker_process.py"
 # Launch the workers
 ###############################################################################
 
-python fcgi_worker_process.py 9000 &
-python fcgi_worker_process.py 9001 &
-python fcgi_worker_process.py 9002 &
-python fcgi_worker_process.py 9003 &
+python $DIR/fcgi_worker_process.py 9000 &
+python $DIR/fcgi_worker_process.py 9001 &
+python $DIR/fcgi_worker_process.py 9002 &
+python $DIR/fcgi_worker_process.py 9003 &
 

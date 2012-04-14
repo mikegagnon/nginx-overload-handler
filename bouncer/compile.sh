@@ -18,6 +18,11 @@
 #
 # compiles to python stubs located in gen-py
 #
+# USAGE: ./compile.sh
+#
 
-thrift -gen py BouncerService.thrift
+# $DIR is the absolute path for the directory containing this bash script
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+thrift -gen py -o $DIR $DIR/BouncerService.thrift
 

@@ -17,7 +17,10 @@
 # ==== Record the location of thrift's python library ====
 #
 
-source ../env.sh
+# $DIR is the absolute path for the directory containing this bash script
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/../env.sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # the make script installs the python thrift library somewhere
 # in $THRIFT_PYTHON_LIB_INSTALL. Find it, and save it in

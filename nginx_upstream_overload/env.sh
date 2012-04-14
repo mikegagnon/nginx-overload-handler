@@ -23,7 +23,10 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 OVERLOAD_MODULE_DIR=$DIR
-NGINX_USERNAME=nginx_user
-NGINX_HOME_DIR=/home/$NGINX_USERNAME
+NGINX_USER=nginx_user
+NGINX_GROUP=$NGINX_USER
+NGINX_HOME_DIR=/home/$NGINX_USER
 
+# the upstream_overload module will send alerts to this pipe
+ALERT_PIPE_PATH=$NGINX_HOME_DIR/alert_pipe
 

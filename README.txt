@@ -49,3 +49,23 @@ See dummy_py_app/README.txt
 
 Definintely not. It is highly experimental.
 
+==== Installation and testing on localhost ====
+
+Download dependencies
+    ./dependencies/download.sh
+
+Compile and install thrift
+    sudo ./dependencies/thrift_compile/install_dependencies.sh
+    ./dependencies/thrift_compile/compile.sh
+    sudo ./dependencies/thrift_compile/install.sh
+    ./dependencies/thrift_compile/record_lib_location.sh
+
+Compile and install nginx with the upstream_overload module (together)
+    sudo ./nginx_upstream_overload/install_dependencies.sh
+    sudo ./nginx_upstream_overload/useradd.sh
+    sudo ./nginx_upstream_overload/install_named_pipe.sh
+    ./nginx_upstream_overload/compile.sh
+    sudo ./nginx_upstream_overload/install.sh
+
+Setup and run a dummy FastCGI app written in Python
+    sudo ./dummy_py_app/install.sh

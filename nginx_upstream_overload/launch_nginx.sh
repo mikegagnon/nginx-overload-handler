@@ -15,7 +15,10 @@
 #  limitations under the License.
 #
 
-source ../dependencies/env.sh
+# $DIR is the absolute path for the directory containing this bash script
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/../dependencies/env.sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 $NGINX_BIN -s stop
 $NGINX_BIN

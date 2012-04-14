@@ -17,7 +17,10 @@
 # ==== install thrift ====
 #
 
-source ../env.sh
+# $DIR is the absolute path for the directory containing this bash script
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/../env.sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 cd $THRIFT_LOCAL_PATH
 

@@ -18,8 +18,11 @@
 #
 # USAGE: sudo ./install.sh
 
-source ../dependencies/env.sh
-source env.sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/../dependencies/env.sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/env.sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # Create the nginx user (and home dir) if it does not exist
 ###############################################################################

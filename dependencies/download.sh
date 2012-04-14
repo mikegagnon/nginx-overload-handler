@@ -17,14 +17,12 @@
 # ==== download.sh downloads 3rd party software dependencies ====
 #
 
-source env.sh
+# $DIR is the absolute path for the directory containing this bash script
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/env.sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 cd $DOWNLOAD_DIR
-
-wget --output-document=$RUBY_VULN_DL_LOCAL_PATH $RUBY_VULN_DL_REMOTE_PATH
-tar -xvf $RUBY_VULN_DL_LOCAL_PATH
-
-exit 1
 
 wget --output-document=$NGINX_DL_LOCAL_PATH $NGINX_DL_REMOTE_PATH
 tar -xvf $NGINX_DL_LOCAL_PATH
@@ -38,4 +36,6 @@ tar -xvf $THRIFT_DL_LOCAL_PATH
 wget --output-document=$MEDIA_WIKI_DL_LOCAL_PATH $MEDIA_WIKI_DL_REMOTE_PATH
 tar -xvf $MEDIA_WIKI_DL_LOCAL_PATH
 
+wget --output-document=$RUBY_VULN_DL_LOCAL_PATH $RUBY_VULN_DL_REMOTE_PATH
+tar -xvf $RUBY_VULN_DL_LOCAL_PATH
 

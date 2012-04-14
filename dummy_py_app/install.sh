@@ -14,34 +14,17 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+# ==== install.sh for dummy_py_app ====
+#
+# Just installs this app's nginx.conf
+#
 
-CONFIG_INSTALLED=/usr/local/nginx/conf/nginx.conf
-CONFIG_INSTALLED_BACKUP=/usr/local/nginx/conf/nginx.conf.bak
-CONFIG_LOCAL=nginx.conf
-NAMED_PIPE=/home/nginx_user/alert_pipe
-NGINX_USER=nginx_user
+# $DIR is the absolute path for the directory containing this bash script
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/../dependencies/env.sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-# First, install the configuration file
-###############################################################################
+CONFIG_LOCAL=$DIR/nginx.conf
 
-# Crete a backup of the current config if it doesn't already exist
-if [ -e "$CONFIG_INSTALLED" ]
-then
-    if [ ! -e "$CONFIG_INSTALLED_BACKUP" ]
-    then
-        cp $CONFIG_INSTALLED $CONFIG_INSTALLED_BACKUP
-        chmod -w $CONFIG_INSTALLED_BACKUP
-    fi
-fi
+cp $CONFIG_LOCAL $NGINX_CONF
 
-cp $CONFIG_LOCAL $CONFIG_INSTALLED
-
-# Second, create the named pipe if necessary
-###############################################################################
-
-if [ ! -e "$NAMED_PIPE" ]
-then
-    mkfifo $NAMED_PIPE
-    chown $NGINX_USER:$NGINX_USER $NAMED_PIPE
-    chmod 644 $NAMED_PIPE
-fi

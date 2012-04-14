@@ -39,7 +39,7 @@ PREREQUISITE:
     See ../nginx_upstream_overload/README.txt
 (2) Build bouncer dependencies. SEe ../bouncer/README.txt
 
-In five separate terminals:
+In separate terminals:
 (1) Launch two bouncers (which also launches the FastCGI workers)
     ./bouncer_for_dummy_app.py bouncer_config.json 127.0.0.1 3001
     ./bouncer_for_dummy_app.py bouncer_config.json 127.0.0.1 3002

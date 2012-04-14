@@ -4,7 +4,7 @@
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
+#  You may obCONFIG_INSTALLED_BACKUPtain a copy of the License at
 #
 #      http://www.apache.org/licenses/LICENSE-2.0
 #
@@ -14,17 +14,26 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== How to install ====
+# ==== install_named_pipe.sh ====
 #
-# USAGE: sudo ./install.sh
+# The upstream_overload module sends alerts to a named pipe.
+# This script creates that named pipe (if it doesn't already exist)
+#
+# USAGE: sudo ./install_named_pipe.sh
 #
 
 # $DIR is the absolute path for the directory containing this bash script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../dependencies/env.sh
+source $DIR/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-cd $NGINX_LOCAL_PATH
-
-make install
+if [ ! -e "$ALERT_PIPE_PATH" ]
+then
+    echo "Creating named pipe: $ALERT_PIPE_PATH"
+    mkfifo $ALERT_PIPE_PATH
+    chown $NGINX_USER:$NGINX_GROUP $ALERT_PIPE_PATH
+    chmod 644 $ALERT_PIPE_PATH
+else
+    echo "Named pipe already exists: $ALERT_PIPE_PATH" 
+fi
 

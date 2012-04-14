@@ -28,11 +28,8 @@ NGINX_DL_REMOTE_PATH="http://nginx.org/download/nginx-1.0.12.tar.gz"
 NGINX_DL_LOCAL_PATH="$DOWNLOAD_DIR/nginx-1.0.12.tar.gz"
 NGINX_LOCAL_PATH="$DOWNLOAD_DIR/nginx-1.0.12"
 NGINX_BIN=/usr/local/nginx/sbin/nginx
-NGINX_CONF=/usr/local/nginx/conf/nginx.conf
-
-MEDIA_WIKI_DL_REMOTE_PATH="http://download.wikimedia.org/mediawiki/1.18/mediawiki-1.18.2.tar.gz"
-MEDIA_WIKI_DL_LOCAL_PATH="$DOWNLOAD_DIR/mediawiki-1.18.2.tar.gz"
-MEDIA_WIKI_LOCAL_PATH="$DOWNLOAD_DIR/mediawiki-1.18.2"
+NGINX_CONF_DIR=/usr/local/nginx/conf
+NGINX_CONF=$NGINX_CONF_DIR/nginx.conf
 
 FLUP_DL_REMOTE_PATH="http://pypi.python.org/packages/source/f/flup/flup-1.0.2.tar.gz"
 FLUP_DL_LOCAL_PATH="$DOWNLOAD_DIR/flup-1.0.2.tar.gz"
@@ -44,6 +41,10 @@ THRIFT_LOCAL_PATH="$DOWNLOAD_DIR/thrift-0.8.0"
 THRIFT_PYTHON_LIB_INSTALL="$DIR/thrift_compile/python_thrift_lib"
 THRIFT_PYTHON_LIB_INSTALL_PATH_FILE="$THRIFT_PYTHON_LIB_INSTALL/path.txt"
 
+MEDIA_WIKI_DL_REMOTE_PATH="http://download.wikimedia.org/mediawiki/1.18/mediawiki-1.18.2.tar.gz"
+MEDIA_WIKI_DL_LOCAL_PATH="$DOWNLOAD_DIR/mediawiki-1.18.2.tar.gz"
+MEDIA_WIKI_LOCAL_PATH="$DOWNLOAD_DIR/mediawiki-1.18.2"
+
 # This version of Ruby is vulnerable to HashDos (which is useful for testing purposes)
 RUBY_VULN_DL_REMOTE_PATH="http://ftp.ruby-lang.org/pub/ruby/1.8/ruby-1.8.7-p352.tar.gz"
 RUBY_VULN_DL_LOCAL_PATH="$DOWNLOAD_DIR/ruby-1.8.7-p352.tar.gz"
@@ -51,3 +52,4 @@ RUBY_VULN_LOCAL_PATH="$DOWNLOAD_DIR/ruby-1.8.7-p352"
 RUBY_VULN_INSTALL="$DIR/ruby_vuln/install"
 RUBY_VULN_BIN="$RUBY_VULN_INSTALL/bin/ruby"
 export RUBY_VULN_BIN
+
