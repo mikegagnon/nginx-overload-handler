@@ -55,35 +55,25 @@
 //      the various event handlers during development.
 // the dd_logX macros are just aliases for the nginx ngx_log_debugX macros (which also
 //      invoke the ddX macros). These are useful for acutally writing messages to logs
+
 #if FINE_DEBUG == 1
-    #define dd0(format) \
-        printf ("[" MODULE_NAME_STR "] " format "\n")
-    #define dd1(format, a) \
-        printf ("[" MODULE_NAME_STR "] " format "\n", a)
-    #define dd2(format, a, b) \
-        printf ("[" MODULE_NAME_STR "] " format "\n", a, b)
-    #define dd3(format, a, b, c) \
-        printf ("[" MODULE_NAME_STR "] " format "\n", a, b, c)
-    #define dd4(format, a, b, c, d) \
-        printf ("[" MODULE_NAME_STR "] " format "\n", a, b, c, d)
-    #define dd5(format, a, b, c, d, e) \
-        printf ("[" MODULE_NAME_STR "] " format "\n", a, b, c, d, e)
-    #define dd6(format, a, b, c, d, e, f) \
-        printf ("[" MODULE_NAME_STR "] " format "\n", a, b, c, d, e, f)
-    #define dd7(format, a, b, c, d, e, f, g) \
-        printf ("[" MODULE_NAME_STR "] " format "\n", a, b, c, d, e, f, g)
     #define dd_list(list, name, peers, log) ngx_upstream_overload_print_list(list, name, peers, log)
 #else
-    #define dd0(format)
-    #define dd1(format, a)
-    #define dd2(format, a, b)
-    #define dd3(format, a, b, c)
-    #define dd4(format, a, b, c, d)
-    #define dd5(format, a, b, c, d, e)
-    #define dd6(format, a, b, c, d, e, f)
-    #define dd7(format, a, b, c, d, e, f, g)
     #define dd_list(list, name, peers, log)
 #endif
+
+// Right now printf doesn't work because ngx_uint_t has different sizes on 32-bit and 64-bit
+// TODO: If I get something like printf to work, then if FINE_DEBUG is on, then have ddX
+// call the printf like function. This is only really useful for doing logging when there is no
+// log object.
+#define dd0(format)
+#define dd1(format, a)
+#define dd2(format, a, b)
+#define dd3(format, a, b, c)
+#define dd4(format, a, b, c, d)
+#define dd5(format, a, b, c, d, e)
+#define dd6(format, a, b, c, d, e, f)
+#define dd7(format, a, b, c, d, e, f, g)
 
 // Set to 1 to slow down the module, which helps with testing correct shared
 // memory usage
@@ -491,7 +481,7 @@ ngx_upstream_overload_print_peer_state(
     ngx_uint_t i;
 
     for (i = 0; i < state->num_peers; i++) {
-        printf("[" MODULE_NAME_STR "] [peers] peer[%d] this=%p\n", i, &state->peer[i]);
+        dd2("[peers] peer[%d] this=%p\n", i, &state->peer[i]);
     }
 }
 
