@@ -14,28 +14,16 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== download.sh downloads 3rd party software dependencies ====
+# ==== configures and compiles a vulnerable version of ruby ====
+#
+# USAGE: ./compile.sh
 #
 
-source env.sh
+source ../env.sh
 
-cd $DOWNLOAD_DIR
+cd $RUBY_VULN_LOCAL_PATH
 
-wget --output-document=$RUBY_VULN_DL_LOCAL_PATH $RUBY_VULN_DL_REMOTE_PATH
-tar -xvf $RUBY_VULN_DL_LOCAL_PATH
+./configure --prefix=$RUBY_VULN_INSTALL
 
-exit 1
-
-wget --output-document=$NGINX_DL_LOCAL_PATH $NGINX_DL_REMOTE_PATH
-tar -xvf $NGINX_DL_LOCAL_PATH
-
-wget --output-document=$FLUP_DL_LOCAL_PATH $FLUP_DL_REMOTE_PATH
-tar -xvf $FLUP_DL_LOCAL_PATH
-
-wget --output-document=$THRIFT_DL_LOCAL_PATH $THRIFT_DL_REMOTE_PATH
-tar -xvf $THRIFT_DL_LOCAL_PATH
-
-wget --output-document=$MEDIA_WIKI_DL_LOCAL_PATH $MEDIA_WIKI_DL_REMOTE_PATH
-tar -xvf $MEDIA_WIKI_DL_LOCAL_PATH
-
+make
 
