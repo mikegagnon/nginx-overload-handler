@@ -32,14 +32,7 @@ sys.path.append(os.path.join(dirname, '..', 'bouncer'))
 import bouncer_process_manager
 from bouncer_process_manager import BouncerProcessManager
 
-SPAWN_FCGI_ARGS = {
-        'php_user' : "www-data",
-        'php_group' : "www-data",
-        'php_bin' : "/usr/bin/php5-cgi"
-    }
-
-PHP_FCGI_CMD_TEMPLATE_STR = Template('/usr/bin/spawn-fcgi -n -a $addr -p $port ' \
-    '-u $php_user -g $php_group $php_bin').safe_substitute(SPAWN_FCGI_ARGS)
+PHP_FCGI_CMD_TEMPLATE_STR = '/usr/bin/php5-cgi -b $addr:$port'
 
 print "PHP_FCGI_CMD_TEMPLATE_STR='%s'" % PHP_FCGI_CMD_TEMPLATE_STR
 
