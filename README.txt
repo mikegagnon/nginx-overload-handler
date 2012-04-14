@@ -13,7 +13,6 @@ Copyright 2012 HellaSec, LLC
   limitations under the License.
 
 ==== README.txt for nginx-overload-handler ====
-
 How does the Nginx webserver handle web-application overloads? It doesn't.
 Instead, Nginx just keeps piping requests to the web application and lets
 them deal with overloads. How do web applications handle overloads? They
@@ -27,7 +26,6 @@ generic, default behavior for web applications that enables them to survive
 overloads.
 
 ==== How is it implemented? ====
-
 Several moving parts:
     (1) A new load balancing module for nginx, upstream_overload.
         See nginx_upstream_overload/README.txt
@@ -41,17 +39,25 @@ Several moving parts:
         Router, it kills one of the workers to help deal with the overload.
         See bouncer/README.txt
 
-==== Want to see it in action? ====
+==== Requirements ====
+Designed and test on Linux (specifically Ubuntu 11.10 32-bit and 64-bit),
+but should be portable to other *nix's with minimal effort.
 
-See dummy_py_app/README.txt
+==== WARNING ====
+Some of these files (particularly the ones that need to be run as sudo)
+might do things you don't want, such as overwriting nginx configuration
+files without backuping up your old ones. If you are considered aboutt this
+sort of thing I recommend viewing the files that require sudo before you
+execute them.
 
 ==== Is this code ready for production? ====
-
 Definintely not. It is highly experimental.
 
 ==== Installation and testing on localhost ====
+Install binary dependencies
+    sudo ./dependencies/install_binary_dependencies.sh
 
-Download dependencies
+Download source dependencies
     ./dependencies/download.sh
 
 Compile and install thrift
@@ -67,5 +73,29 @@ Compile and install nginx with the upstream_overload module (together)
     ./nginx_upstream_overload/compile.sh
     sudo ./nginx_upstream_overload/install.sh
 
-Setup and run a dummy FastCGI app written in Python
+Compile the Bouncer process manager
+    ./bouncer/compile.sh
+
+Install the nginx.conf for the dummy py app
     sudo ./dummy_py_app/install.sh
+
+Launch the Bouncer process managers
+    ./dummy_py_app/bouncer_for_dummy_app.py dummy_py_app/bouncer_config.json 127.0.0.1 3001
+    ./dummy_py_app/bouncer_for_dummy_app.py dummy_py_app/bouncer_config.json 127.0.0.1 3002
+
+Launch the Alert Router
+    ./bouncer/alert_router.py dummy_py_app/bouncer_config.json
+
+Launch nginx
+    sudo ./nginx_upstream_overload/launch_nginx.sh
+
+Try a fast request (should print "Oh hai!")
+    curl -s http://localhost/test.py
+
+Try a slow request (should hang 5 sec then print "Slept for 5.000000 sec.\n Oh hai!"
+    curl -s http://localhost/test.py?sleep=5
+
+Run a mix of fast and slow requests. Observe the fast requests being serviced,
+while the slow requests are evicted by the bouncer.
+    ./dummy_py_app/send_loop.sh
+
