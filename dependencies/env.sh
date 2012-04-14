@@ -44,3 +44,8 @@ THRIFT_LOCAL_PATH="$DOWNLOAD_DIR/thrift-0.8.0"
 THRIFT_PYTHON_LIB_INSTALL="$DIR/thrift_compile/python_thrift_lib"
 THRIFT_PYTHON_LIB_INSTALL_PATH_FILE="$THRIFT_PYTHON_LIB_INSTALL/path.txt"
 
+# This version of Ruby is vulnerable to HashDos (which is useful for testing purposes)
+RUBY_VULN_DL_REMOTE_PATH="http://ftp.ruby-lang.org/pub/ruby/1.8/ruby-1.8.7-p352.tar.gz"
+RUBY_VULN_DL_LOCAL_PATH="$DOWNLOAD_DIR/ruby-1.8.7-p352.tar.gz"
+RUBY_VULN_LOCAL_PATH="$DOWNLOAD_DIR/ruby-1.8.7-p352"
+
