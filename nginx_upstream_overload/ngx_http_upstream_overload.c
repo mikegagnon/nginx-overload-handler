@@ -1162,7 +1162,7 @@ ngx_http_upstream_get_overload_peer(
 
     dd_log4(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): peer_state->idle_list.len=%d, overload_conf.num_spare_backends=%d\n\n",
         pc, request_data, peer_state->idle_list.len, overload_conf.num_spare_backends);
-    if (peer_state->idle_list.len <= overload_conf.num_spare_backends) {
+    if (peer_state->idle_list.len < overload_conf.num_spare_backends) {
         send_overload_alert(peer_state, peer_state->busy_list.head, pc->log);
     }
 
