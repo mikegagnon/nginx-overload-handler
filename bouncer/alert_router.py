@@ -93,6 +93,9 @@ class AlertRouter:
             except Thrift.TException, exception:
                 print "ERROR while requesting heartbeat from Bouncer %s:%d --> %s" % (bouncer.addr, bouncer.port, exception)
 
+    # TODO: Find and fix bug. During one run the boucner hung after
+    # printing "Sending alert" suggesting this method never finished
+    # for some reason.
     def sendAlert(self, bouncer, alert_message):
         # TODO catch remote exception
 
