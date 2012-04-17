@@ -1,5 +1,21 @@
 #!/usr/bin/env python
 #
+# Copyright 2012 HellaSec, LLC
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obCONFIG_INSTALLED_BACKUPtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+# ==== fcgi_worker_process.py ====
+#
 # A simple fastcgi worker for testing purposes
 #
 # Spawn: ./fcgi_worker_process.py [port_num]
@@ -14,6 +30,11 @@
 #   (3) one burn parameterl; i.e. url?burn=11
 #       which will cause the worker to execute 11 slow for loops before responding. i.e.:
 #       curl -s http://localhost/test.py?burn=11
+#
+# TODO:
+#   - Found bug. Is it a bug in Flup? When you the client closes a long running request, the
+#     request keeps running in the background (even though nginx closes the connection
+#     to the backend worker).
 #
 
 from cgi import parse_qs, escape
