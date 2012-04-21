@@ -27,7 +27,7 @@ from string import Template
 
 dirname = os.path.dirname(os.path.realpath(__file__))
 
-sys.path.append(os.path.join(dirname, '..', 'bouncer'))
+sys.path.append(os.path.join(dirname, '..'))
 
 import bouncer_process_manager
 from bouncer_process_manager import BouncerProcessManager

@@ -22,6 +22,9 @@
 # $DIR is the absolute path for the directory containing this bash script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+# path to sudo command
+SUDO="/usr/bin/sudo"
+
 DOWNLOAD_DIR="$DIR/downloads"
 
 NGINX_DL_REMOTE_PATH="http://nginx.org/download/nginx-1.0.12.tar.gz"
