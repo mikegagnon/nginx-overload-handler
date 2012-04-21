@@ -14,11 +14,11 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== install.sh for php_bouncer ====
+# ==== useradd.sh for php_bouncer ====
 #
 # Creates a new user to run php FastCGI workers as (and home dir)
 #
-# USAGE: sudo ./install.sh
+# USAGE: sudo ./useradd.sh
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"

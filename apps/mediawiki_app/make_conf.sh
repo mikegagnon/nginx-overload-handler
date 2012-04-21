@@ -27,12 +27,12 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-cat nginx.conf.template \
+cat $DIR/nginx.conf.template \
     | sed "s@TEMPLATE_ALERT_PIPE_PATH@$ALERT_PIPE_PATH@g" \
     | sed "s@TEMPLATE_MEDIAWIKI_PATH@$INSTALL_MEDIA_WIKI_PATH@g" \
-    > nginx.conf
+    > $DIR/nginx.conf
 
-cat bouncer_config.json.template \
+cat $DIR/bouncer_config.json.template \
     | sed "s@TEMPLATE_ALERT_PIPE_PATH@$ALERT_PIPE_PATH@g" \
-    > bouncer_config.json
+    > $DIR/bouncer_config.json
 

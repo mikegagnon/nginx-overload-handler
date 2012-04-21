@@ -53,7 +53,7 @@ execute them.
 ==== Is this code ready for production? ====
 Definintely not. It is highly experimental.
 
-==== Installation and testing on localhost ====
+==== Installing of nginx-overload-handler on localhost ====
 Install binary dependencies
     sudo ./dependencies/install_binary_dependencies.sh
 
@@ -75,6 +75,25 @@ Compile and install nginx with the upstream_overload module (together)
 
 Compile the Bouncer process manager
     ./bouncer/compile.sh
+
+==== Testing with MediaWiki ====
+
+Create a new user for the FastCGI workers to run as
+    sudo ./bouncer/php_bouncer/useradd.sh
+
+Install MediaWiki
+    sudo ./apps/mediawiki_app/install_dependencies.sh
+    sudo ./apps/mediawiki_app/install_mediawiki.sh
+    ./apps/mediawiki_app/make_conf.sh
+    sudo ./apps/mediawiki_app/install_conf.sh
+
+Start bouncer, alert router, and nginx (in separate terminals)
+    ./apps/mediawiki_app/run_bouncer.sh
+    ./apps/mediawiki_app/run_alert_router.sh
+    sudo ./nginx_upstream_overload/launch_nginx.sh
+
+==== Testing with dummy_py_app ====
+TODO: Update this
 
 Install the nginx.conf for the dummy py app
     sudo ./dummy_py_app/install.sh
