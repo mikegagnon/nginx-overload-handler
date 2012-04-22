@@ -53,62 +53,38 @@ execute them.
 ==== Is this code ready for production? ====
 Definintely not. It is highly experimental.
 
-==== Installing of nginx-overload-handler on localhost ====
-Install binary dependencies
-    sudo ./dependencies/install_binary_dependencies.sh
+==== Installing nginx-overload-handler on localhost ====
+If you're brave, just run:
+    ./install.sh
 
-Download source dependencies
-    ./dependencies/download.sh
-
-Compile and install thrift
-    sudo ./dependencies/thrift_compile/install_dependencies.sh
-    ./dependencies/thrift_compile/compile.sh
-    sudo ./dependencies/thrift_compile/install.sh
-    ./dependencies/thrift_compile/record_lib_location.sh
-
-Compile and install nginx with the upstream_overload module (together)
-    sudo ./nginx_upstream_overload/install_dependencies.sh
-    sudo ./nginx_upstream_overload/useradd.sh
-    sudo ./nginx_upstream_overload/install_named_pipe.sh
-    ./nginx_upstream_overload/compile.sh
-    sudo ./nginx_upstream_overload/install.sh
-
-Compile the Bouncer process manager
-    ./bouncer/compile.sh
+If you're patient, read install.sh and run the commands one at at a time.
 
 ==== Testing with MediaWiki ====
-
-It is useful to test the the system against a vulnerable version of php.
-    ./dependencies/php_vuln/compile.sh
-    ./dependencies/php_vuln/install.sh
-
-NOTE: the install.sh script installs the vulnerable php version in the
-dependencies/php_vuln/install directory so you don't need root to install
-it and you don't need to worry about accidentally using the vulnerable
-version of php (since it doesn't touch /usr/bin and so on)
-
-Create a new user for the FastCGI workers to run as
-    sudo ./bouncer/php_bouncer/useradd.sh
-
-Install MediaWiki
-    sudo ./apps/mediawiki_app/install_dependencies.sh
-    sudo ./apps/mediawiki_app/install_mediawiki.sh
-    ./apps/mediawiki_app/make_conf.sh
-    sudo ./apps/mediawiki_app/install_conf.sh
+Make and install the config files
+    ./apps/mediawiki_app/upstream_overload/make_conf.sh
+    sudo ./apps/mediawiki_app/upstream_overload/install_conf.sh
 
 Start bouncer, alert router, and nginx (in separate terminals)
     ./apps/mediawiki_app/run_bouncer.sh
     ./apps/mediawiki_app/run_alert_router.sh
     sudo ./nginx_upstream_overload/launch_nginx.sh
 
-==== Testing with MediaWiki, without upstream_overload  ====
-
+==== Testing with MediaWiki, without our overload handler ====
 For the sake of comparison, we also include instructions
-for running MediaWiki without the upstream_overload module.
-T
+for running MediaWiki without the overload-handler system.
+
+Make and install the config files
+    ./apps/mediawiki_app/standard/make_conf.sh
+    sudo ./apps/mediawiki_app/standard/install_conf.sh
+
+Start the php FastCGI server and launch nginx (in separate terminals)
+    sudo ./apps/mediawiki_app/standard/run_php.sh 
+    sudo ./nginx_upstream_overload/launch_nginx.sh
+
+Point your browser to http://localhost/index.php?title=Main_Page
 
 ==== Testing with dummy_py_app ====
-TODO: Update this
+TODO: Update this section
 
 Install the nginx.conf for the dummy py app
     sudo ./dummy_py_app/install.sh
