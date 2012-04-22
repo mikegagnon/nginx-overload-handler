@@ -1248,6 +1248,17 @@ ngx_http_upstream_free_overload_peer(
     dd_list(&peer_state->idle_list, "idle_list", peer_state, pc->log);
     dd_list(&peer_state->busy_list, "busy_list", NULL, pc->log);
 
+    // TODO: Address this temporary hack
+    // Right now this module kills every fcgi worker after it receives _free_overload_peer call from nginx.
+    // This is because upstream_overload makes the assumption that whenever _free is called, the peer
+    // is idle. But as it turns, there are many cases where is assumption is false. I.e., the _free is called
+    // where in reality the peer is still busy (see php-fpm's function fastcgi_finish_request) for an example.
+    // The correct solution is to put some real engineering effort into refinding the protocol between
+    // nginx and the fastcgi workers, so that way nginx will always know (with high confidence) when a fastcgi
+    // worker is truly idle. But until, then upstream_overload can ensure workers are truly idle when they
+    // are freed by ---killing the worker after it is freed---
+    send_overload_alert(peer_state, peer, pc->log);
+
     dd_log3(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_free_overload_peer(pc=%p, request_data=%p, connection_state=%d): releasing lock",
         pc, request_data, connection_state);
     ngx_unlock(&peer_state->lock);

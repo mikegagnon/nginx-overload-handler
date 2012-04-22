@@ -1,5 +1,5 @@
 {
-    "alert_pipe" : "/home/nginx_user/alert_pipe",
+    "alert_pipe" : "TEMPLATE_ALERT_PIPE_PATH",
     "bouncers" : [
         {
             "bouncer_addr" : "127.0.0.1",

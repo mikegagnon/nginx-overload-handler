@@ -46,7 +46,7 @@ http {
     # FastCGI requests will be load balanced using the upstream_overload module
 
     num_spare_backends 1;
-    alert_pipe /home/nginx_user/alert_pipe;
+    alert_pipe TEMPLATE_ALERT_PIPE_PATH;
 
     upstream my_backend  {
 
