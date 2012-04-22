@@ -31,8 +31,8 @@
 #       which will cause the worker to execute 11 slow for loops before responding. i.e.:
 #       curl -s http://localhost/test.py?burn=11
 #
-# TODO:
-#   - Found bug. Is it a bug in Flup? When you the client closes a long running request, the
+# TODO: Deal with closed connections.
+#     Found bug. Is it a bug in Flup? When you the client closes a long running request, the
 #     request keeps running in the background (even though nginx closes the connection
 #     to the backend worker).
 #

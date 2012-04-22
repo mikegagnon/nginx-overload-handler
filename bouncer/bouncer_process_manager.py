@@ -33,12 +33,8 @@
 # ==== TODO ====
 #   - The sublcass methods raise exceptions, the superclass should handle them
 #   - Consider event handling models: threaded, event based, ...?
-#   - monitor workers for unexpected crashes. Perhaps run a thread for each popen
-#     object that waits on the popen and when an unxepcted crash occurs, enqueues
-#     a message for the main event loop to handle.
-#       I think the best way to do this is to spawn threads that wait on popen
-#       on objects, then issue thrift RPC calls when the wait finishes
 #
+
 import sys
 import os
 
@@ -187,10 +183,6 @@ class BouncerProcessManager(object):
         # will then restart the worker
 
     def heartbeat(self):
-        # TODO: modify heartbeat so that it returns a list of strings
-        # The first heartbeat a Bouncer receives it sends its list
-        # of workers, so the alert_router can veryify their configs
-        # are in sync. Thereafter it just returns an empty list.
 
         if self.receivedFirstHeartbeat:
             print "Received heartbeat"

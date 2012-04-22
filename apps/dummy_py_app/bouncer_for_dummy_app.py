@@ -18,10 +18,6 @@
 #
 # See ../bouncer/bouncer_process_manager.py for more information
 #
-# ==== TODO ====
-# - When the bouncer kills a flup worker, flup sends debug information as a response.
-#   It needs to return a 502, or something else, or nothing.
-#
 
 import sys
 import os
@@ -40,14 +36,6 @@ DUMMY_FASTCGI_APP_PATH = os.path.join(dirname, 'fcgi_worker_process.py')
 
 class BouncerForDummyFcgi(BouncerProcessManager):
 
-    #def __init__(self, config, addr, port):
-        #BouncerProcessManager.init(self, config, addr, port)
-
-        # TODO: kill any workers laying around for this bouncer
-        #indexed by port of the worker
-        #self.worker_popen = {}
-    #    super(BouncerForDummyFcgi, self).__init__(config, addr, port)
-
     def start_worker(self, addr, port):
         '''Must attempt to launch the specified worker. Should return the popen object for the new worker
            or None, if the worker couldn't be be launched for some reason.'''
@@ -55,19 +43,12 @@ class BouncerForDummyFcgi(BouncerProcessManager):
 
     def kill_worker(self, addr, port, popen_obj):
         '''Must attempt to kill the specified worker. Does not return anything'''
-        #worker = "%s:%d" % (addr, port)
+        # TODO: try terminate then graduate to kill if necessary
+        # TODO: make sure to kill all children
         try:
             popen_obj.terminate()
         except OSError, e:
             print "Error while trying to kill '%s:%d': %s" % (addr, port, e)
-        #if port in self.worker_popen:
-        #    p = self.worker_popen[port]
-        #    # TODO: graduate to p.kill() if terminate doesn't work
-        #    p.terminate()
-        #    # Give terminate some time to take effect
-        #    time.sleep(0.25)
-        #else:
-        #    raise ValueError("worker %s:%d isn't running" % (addr, port))
 
 
 bouncer_process_manager.main(BouncerForDummyFcgi)
