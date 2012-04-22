@@ -1,0 +1,53 @@
+# This configuration does not use the nginx-overload module
+#
+
+worker_processes  1;
+
+user nginx_user;
+
+error_log   logs/debug.log debug;
+
+events {
+    worker_connections  1024;
+}
+
+
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
+
+    # allow 20 MB uploads
+    #client_max_body_size 20m;
+
+    sendfile        on;
+
+    keepalive_timeout  65;
+
+    server {
+        listen       80;
+        server_name  localhost;
+
+        location / {
+            root   html;
+            index  index.html index.htm;
+        }
+
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   html;
+        }
+
+        location ~ \.php$ {
+            include /usr/local/nginx/conf/fastcgi_params;
+            fastcgi_pass my_backend;
+            fastcgi_index index.php;
+            fastcgi_param SCRIPT_FILENAME TEMPLATE_MEDIAWIKI_PATH$fastcgi_script_name;
+        }
+    }
+
+    upstream my_backend  {
+
+        server    localhost:9000;
+    }
+}
+

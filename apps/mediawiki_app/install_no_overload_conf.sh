@@ -14,16 +14,16 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== install_conf.sh for mediawiki_app ====
+# ==== install_no_overload_conf.sh for mediawiki_app ====
 #
-# Installs nginx.conf (with the upstream-overload module enabled)
+# Installs nginx.conf where nginx-overload is disabled
 #
-# USAGE: sudo ./install_conf.sh
+# USAGE: sudo ./install_no_overload_conf.sh
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-cp $DIR/nginx.conf $NGINX_CONF
+cp $DIR/nginx_no_overload.conf $NGINX_CONF
 
