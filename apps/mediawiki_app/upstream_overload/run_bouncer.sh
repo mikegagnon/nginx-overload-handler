@@ -14,30 +14,16 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== make_conf.sh ====
+# ==== run_bouncer.sh for mediawiki_app ====
 #
-# Make config files by filling in values in .template files
-#
-# USAGE: sudo ./make_conf.sh
+# USAGE: ./run_bouncer.sh
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../../nginx_upstream_overload/env.sh
+source $DIR/../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/env.sh
+source $DIR/../../bouncer/php_bouncer/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-cat $DIR/nginx.conf.template \
-    | sed "s@TEMPLATE_ALERT_PIPE_PATH@$ALERT_PIPE_PATH@g" \
-    | sed "s@TEMPLATE_MEDIAWIKI_PATH@$INSTALL_MEDIA_WIKI_PATH@g" \
-    > $DIR/nginx.conf
-
-cat $DIR/nginx_no_overload.conf.template \
-    | sed "s@TEMPLATE_ALERT_PIPE_PATH@$ALERT_PIPE_PATH@g" \
-    | sed "s@TEMPLATE_MEDIAWIKI_PATH@$INSTALL_MEDIA_WIKI_PATH@g" \
-    > $DIR/nginx_no_overload.conf
-
-cat $DIR/bouncer_config.json.template \
-    | sed "s@TEMPLATE_ALERT_PIPE_PATH@$ALERT_PIPE_PATH@g" \
-    > $DIR/bouncer_config.json
+$SUDO -i -u $PHP_FCGI_USER $PHP_BOUNCER $DIR/bouncer_config.json 127.0.0.1 3001
 

@@ -4,7 +4,7 @@
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
-#  You may obCONFIG_INSTALLED_BACKUPtain a copy of the License at
+#  You may obtain a copy of the License at
 #
 #      http://www.apache.org/licenses/LICENSE-2.0
 #
@@ -14,16 +14,19 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== install_no_overload_conf.sh for mediawiki_app ====
+# ==== install a vulnerable version of php5 ====
 #
-# Installs nginx.conf where nginx-overload is disabled
+# USAGE: ./install.sh
 #
-# USAGE: sudo ./install_no_overload_conf.sh
+# Note: does not need to be run as root since it installs to a dir we own
 #
 
+# $DIR is the absolute path for the directory containing this bash script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../../dependencies/env.sh
+source $DIR/../env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-cp $DIR/nginx_no_overload.conf $NGINX_CONF
+cd $PHP_VULN_LOCAL_PATH
+
+make install
 

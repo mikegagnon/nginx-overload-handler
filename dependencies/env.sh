@@ -22,6 +22,9 @@
 # $DIR is the absolute path for the directory containing this bash script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+PHP_FCGI_USER=php_fcgi
+PHP_FCGI_USER_HOME="/home/$PHP_FCGI_USER"
+
 # path to sudo command
 SUDO="/usr/bin/sudo"
 
@@ -55,4 +58,14 @@ RUBY_VULN_LOCAL_PATH="$DOWNLOAD_DIR/ruby-1.8.7-p352"
 RUBY_VULN_INSTALL="$DIR/ruby_vuln/install"
 RUBY_VULN_BIN="$RUBY_VULN_INSTALL/bin/ruby"
 export RUBY_VULN_BIN
+
+# This version of Ruby is vulnerable to HashDos (which is useful for testing purposes)
+PHP_VULN_DL_REMOTE_PATH="http://us3.php.net/distributions/php-5.3.8.tar.gz"
+PHP_VULN_DL_LOCAL_PATH="$DOWNLOAD_DIR/php-5.3.8"
+PHP_VULN_LOCAL_PATH="$DOWNLOAD_DIR/php-5.3.8"
+PHP_VULN_INSTALL="$DIR/php_vuln/install"
+PHP_VULN_BIN="$PHP_VULN_INSTALL/bin/php"
+PHP_FPM_VULN_BIN="$PHP_VULN_INSTALL/sbin/php-fpm"
+export PHP_VULN_BIN
+export PHP_FPM_VULN_BIN
 

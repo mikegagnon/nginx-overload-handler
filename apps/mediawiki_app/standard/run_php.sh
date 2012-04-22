@@ -14,12 +14,15 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== run_alert_router.sh for mediawiki_app ====
+# ==== run_php.sh for mediawiki_app ====
 #
-# USAGE: 
+# USAGE: sudo ./run_php.sh
+#   Needs to be run as root so it can switch to running as php_fcgi user
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/../../../dependencies/env.sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-$DIR/../../bouncer/alert_router.py $DIR/bouncer_config.json
+$PHP_FPM_VULN_BIN
 
