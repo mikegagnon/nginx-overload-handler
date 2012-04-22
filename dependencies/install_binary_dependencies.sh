@@ -21,5 +21,18 @@
 # Assumes you're running Ubuntu
 #
 
-apt-get install curl
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/env.sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+debconf-set-selections <<< "mysql-server-5.1 mysql-server/root_password password $MYSQL_PASSWORD"
+debconf-set-selections <<< "mysql-server-5.1 mysql-server/root_password_again password $MYSQL_PASSWORD"
+
+apt-get install -y curl
+
+# PHP dependencies
+apt-get install -y \
+    mysql-server-5.1 \
+    libxml2-dev \
+    libmysqlclient15-dev
 

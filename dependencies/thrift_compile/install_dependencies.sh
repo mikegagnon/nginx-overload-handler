@@ -21,7 +21,7 @@
 # Assumes you're running Ubuntu
 #
 
-apt-get install \
+apt-get install -y \
     libboost-dev \
     libboost-test-dev \
     libboost-program-options-dev \

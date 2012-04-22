@@ -24,6 +24,11 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 cd $DOWNLOAD_DIR
 
+wget --output-document=$PHP_VULN_DL_LOCAL_PATH $PHP_VULN_DL_REMOTE_PATH
+tar -xvf $PHP_VULN_DL_LOCAL_PATH
+
+exit 1
+
 wget --output-document=$NGINX_DL_LOCAL_PATH $NGINX_DL_REMOTE_PATH
 tar -xvf $NGINX_DL_LOCAL_PATH
 

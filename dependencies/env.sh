@@ -28,6 +28,7 @@ PHP_FCGI_USER_HOME="/home/$PHP_FCGI_USER"
 # path to sudo command
 SUDO="/usr/bin/sudo"
 
+MYSQL_PASSWORD="dummyP@ssw0rd"
 DOWNLOAD_DIR="$DIR/downloads"
 
 NGINX_DL_REMOTE_PATH="http://nginx.org/download/nginx-1.0.12.tar.gz"
