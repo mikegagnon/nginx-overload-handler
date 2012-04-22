@@ -78,6 +78,15 @@ Compile the Bouncer process manager
 
 ==== Testing with MediaWiki ====
 
+It is useful to test the the system against a vulnerable version of php.
+    ./dependencies/php_vuln/compile.sh
+    ./dependencies/php_vuln/install.sh
+
+NOTE: the install.sh script installs the vulnerable php version in the
+dependencies/php_vuln/install directory so you don't need root to install
+it and you don't need to worry about accidentally using the vulnerable
+version of php (since it doesn't touch /usr/bin and so on)
+
 Create a new user for the FastCGI workers to run as
     sudo ./bouncer/php_bouncer/useradd.sh
 
@@ -91,6 +100,12 @@ Start bouncer, alert router, and nginx (in separate terminals)
     ./apps/mediawiki_app/run_bouncer.sh
     ./apps/mediawiki_app/run_alert_router.sh
     sudo ./nginx_upstream_overload/launch_nginx.sh
+
+==== Testing with MediaWiki, without upstream_overload  ====
+
+For the sake of comparison, we also include instructions
+for running MediaWiki without the upstream_overload module.
+T
 
 ==== Testing with dummy_py_app ====
 TODO: Update this
