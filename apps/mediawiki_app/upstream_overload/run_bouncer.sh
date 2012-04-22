@@ -16,13 +16,13 @@
 #
 # ==== run_bouncer.sh for mediawiki_app ====
 #
-# USAGE: ./run_bouncer.sh
-#
+# USAGE: sudo ./run_bouncer.sh
+# Need sudo so it can run as another user
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../../dependencies/env.sh
+source $DIR/../../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../../bouncer/php_bouncer/env.sh
+source $DIR/../../../bouncer/php_bouncer/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 $SUDO -i -u $PHP_FCGI_USER $PHP_BOUNCER $DIR/bouncer_config.json 127.0.0.1 3001

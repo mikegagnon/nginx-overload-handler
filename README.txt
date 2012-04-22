@@ -65,8 +65,8 @@ Make and install the config files
     sudo ./apps/mediawiki_app/upstream_overload/install_conf.sh
 
 Start bouncer, alert router, and nginx (in separate terminals)
-    ./apps/mediawiki_app/run_bouncer.sh
-    ./apps/mediawiki_app/run_alert_router.sh
+    sudo ./apps/mediawiki_app/upstream_overload/run_bouncer.sh
+    ./apps/mediawiki_app/upstream_overload/run_alert_router.sh
     sudo ./nginx_upstream_overload/launch_nginx.sh
 
 ==== Testing with MediaWiki, without our overload handler ====
