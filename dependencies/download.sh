@@ -36,6 +36,12 @@ tar -xvf $THRIFT_DL_LOCAL_PATH
 wget --output-document=$MEDIA_WIKI_DL_LOCAL_PATH $MEDIA_WIKI_DL_REMOTE_PATH
 tar -xvf $MEDIA_WIKI_DL_LOCAL_PATH
 
+wget --output-document=$REDMINE_DL_LOCAL_PATH $REDMINE_DL_REMOTE_PATH
+tar -xvf $REDMINE_DL_LOCAL_PATH
+
+wget --no-check-certificate --output-document=$FCGI_GEM_DL_LOCAL_PATH $FCGI_GEM_DL_REMOTE_PATH
+tar -xvf $FCGI_GEM_DL_LOCAL_PATH
+
 wget --output-document=$RUBY_VULN_DL_LOCAL_PATH $RUBY_VULN_DL_REMOTE_PATH
 tar -xvf $RUBY_VULN_DL_LOCAL_PATH
 

@@ -52,6 +52,14 @@ MEDIA_WIKI_DL_REMOTE_PATH="http://download.wikimedia.org/mediawiki/1.18/mediawik
 MEDIA_WIKI_DL_LOCAL_PATH="$DOWNLOAD_DIR/mediawiki-1.18.2.tar.gz"
 MEDIA_WIKI_LOCAL_PATH="$DOWNLOAD_DIR/mediawiki-1.18.2"
 
+REDMINE_DL_REMOTE_PATH="http://rubyforge.org/frs/download.php/76017/redmine-1.4.0.tar.gz"
+REDMINE_DL_LOCAL_PATH="$DOWNLOAD_DIR/redmine-1.4.0.tar.gz"
+REDMINE_LOCAL_PATH="$DOWNLOAD_DIR/redmine-1.4.0"
+
+FCGI_GEM_DL_REMOTE_PATH="https://rubyforge.org/frs/download.php/69127/fcgi-0.8.8.tgz"
+FCGI_GEM_DL_LOCAL_PATH="$DOWNLOAD_DIR/fcgi-0.8.8.tgz"
+FCGI_GEM_LOCAL_PATH="$DOWNLOAD_DIR/fcgi-0.8.8"
+
 # This version of Ruby is vulnerable to HashDos (which is useful for testing purposes)
 RUBY_VULN_DL_REMOTE_PATH="http://ftp.ruby-lang.org/pub/ruby/1.8/ruby-1.8.7-p352.tar.gz"
 RUBY_VULN_DL_LOCAL_PATH="$DOWNLOAD_DIR/ruby-1.8.7-p352.tar.gz"

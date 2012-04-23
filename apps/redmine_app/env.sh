@@ -14,26 +14,21 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== install general dependencies (for which we do not need source) ====
+# ==== env.sh ====
 #
-# USAGE: sudo ./install_dependencies.sh
+# defines some shell variables
 #
-# Assumes you're running Ubuntu
-#
+# TODO: Replace PHP_FCGI_USER with FCGI_USER
 
+# $DIR is the absolute path for the directory containing this bash script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/env.sh
+source $DIR/../../dependencies/env.sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/../../bouncer/php_bouncer/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-debconf-set-selections <<< "mysql-server-5.1 mysql-server/root_password password $MYSQL_PASSWORD"
-debconf-set-selections <<< "mysql-server-5.1 mysql-server/root_password_again password $MYSQL_PASSWORD"
+REDMINE_VERSION=`basename $REDMINE_LOCAL_PATH`
+INSTALL_REDMINE_PATH="$PHP_FCGI_USER_HOME/$REDMINE_VERSION"
 
-apt-get install -y curl
-
-# PHP dependencies
-apt-get install -y \
-    mysql-server-5.1 \
-    libxml2-dev \
-    mysql-client \
-    libmysqlclient15-dev
+REDMINE_PASSWORD="dummyP@ssw0rd"
 
