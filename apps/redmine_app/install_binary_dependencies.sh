@@ -24,12 +24,13 @@ source $DIR/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 apt-get install -y \
-    ruby-full \
+    ruby1.8 \
     build-essential \
     libfcgi0ldbl \
     libfcgi-dev \
     libopenssl-ruby1.8 \
-    rubygems1.8
+    rubygems1.8 \
+    spawn-fcgi
 
 #sudorubygems \
 #gem install bundler

@@ -26,7 +26,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 cd $RUBY_VULN_LOCAL_PATH
 
-./configure --prefix=$RUBY_VULN_INSTALL
+./configure --prefix=/usr
 
 make
 
