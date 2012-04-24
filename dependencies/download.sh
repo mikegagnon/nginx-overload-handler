@@ -39,6 +39,7 @@ tar -xvf $MEDIA_WIKI_DL_LOCAL_PATH
 wget --output-document=$REDMINE_DL_LOCAL_PATH $REDMINE_DL_REMOTE_PATH
 tar -xvf $REDMINE_DL_LOCAL_PATH
 
+# gem install doesn't really work for this gem
 wget --no-check-certificate --output-document=$FCGI_GEM_DL_LOCAL_PATH $FCGI_GEM_DL_REMOTE_PATH
 tar -xvf $FCGI_GEM_DL_LOCAL_PATH
 

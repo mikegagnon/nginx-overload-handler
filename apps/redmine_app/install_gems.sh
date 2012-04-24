@@ -14,22 +14,18 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== compile_fcgi.sh for redmine_app ====
+# ==== install_dependencies.sh for redmine_app ====
 #
-# PREREQs:
-#    ./install_binary_dependencies.sh
-#
-# USAGE: ./compile_fcgi.sh
-#
+# USAGE: sudo ./install_dependencies.sh
 #
 
-#DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-#source $DIR/../../dependencies/env.sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# For $GEM_HOME and $RUBY_LIB
+source $DIR/../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-cd $FCGI_GEM_LOCAL_PATH
-ruby setup.rb config 
-ruby setup.rb setup 
+gem install bundler -v '1.1.3'
+gem install mysql -v '2.8.1'
 

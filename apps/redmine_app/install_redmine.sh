@@ -44,20 +44,22 @@ chown -R $PHP_FCGI_USER:$PHP_FCGI_USER $INSTALL_REDMINE_PATH
 cd $INSTALL_REDMINE_PATH
 bundle install --without development test postgresql sqlite rmagick
 
+
 TMP_FILE=/tmp/$RANDOM
 cat config/database.yml.example | sed "s/password:/password: $REDMINE_PASSWORD/g" > $TMP_FILE
 mv $TMP_FILE config/database.yml
 
 rake generate_session_store
 
-#RAILS_ENV=production rake db:migrate
-RAILS_ENV="production rake redmine:load_default_data"
+RAILS_ENV=production rake db:migrate
+RAILS_ENV=production rake redmine:load_default_data
 
 cp public/dispatch.fcgi.example public/dispatch.fcgi
 
 # nginx will serve static file, hence:
-chmod -R 755 files log tmp public/plugin_assets
-chown -R $NGINX_USER:$NGINX_GROUP files log tmp public/plugin_assets
+chmod -R 755 files log tmp
+#chmod -R 755 files log tmp public/plugin_assets
+#chown -R $NGINX_USER:$NGINX_GROUP files log tmp public/plugin_assets
 
 
 

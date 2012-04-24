@@ -19,22 +19,13 @@
 # USAGE: sudo ./install_dependencies.sh
 #
 
+#DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# For $GEM_HOME and $RUBY_LIB
+#source $DIR/../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-apt-get install -y \
-    ruby-full \
-    build-essential \
-    libfcgi0ldbl \
-    libfcgi-dev \
-    libopenssl-ruby1.8
-
-#sudorubygems \
-gem install bundler
-gem install mysql -v '2.8.1'
-
 cd $FCGI_GEM_LOCAL_PATH
 ruby setup.rb install
-
 

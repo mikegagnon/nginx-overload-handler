@@ -68,6 +68,13 @@ RUBY_VULN_INSTALL="$DIR/ruby_vuln/install"
 RUBY_VULN_BIN="$RUBY_VULN_INSTALL/bin/ruby"
 export RUBY_VULN_BIN
 
+GEM_HOME="$DIR/gems"
+RUBY_LIB="$RUBY_VULN_INSTALL/lib/ruby"
+RUBY_LIB_PATH="$RUBY_LIB:$RUBY_LIB/site_ruby/1.8"
+export GEM_HOME
+export RUBY_LIB
+export RUBY_LIB_PATH
+
 # This version of Ruby is vulnerable to HashDos (which is useful for testing purposes)
 PHP_VULN_DL_REMOTE_PATH="http://us3.php.net/distributions/php-5.3.8.tar.gz"
 PHP_VULN_DL_LOCAL_PATH="$DOWNLOAD_DIR/php-5.3.8"
