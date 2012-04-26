@@ -57,12 +57,12 @@ subdirectories. For now, there is just a "standard" configuration, which
 does not use the nginx-overload-handler.
 
 Make and install standard configuration
-    standard/make_conf.sh
-    sudo standard/install_conf.sh
+    ./standard/make_conf.sh
+    sudo ./standard/install_conf.sh
 
 Launch redmine in standard configuration
 
-    sudo standard/launch_redmine.sh
+    sudo ./standard/launch_redmine.sh
 
 Use Redmine
 
