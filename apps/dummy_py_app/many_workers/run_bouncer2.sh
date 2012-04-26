@@ -23,5 +23,5 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/../../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-$SUDO -i -u $PHP_FCGI_USER $DIR/../bouncer_for_dummy_app.py $DIR/bouncer_config.json 127.0.0.1 3002
+$SUDO -i -u $FCGI_USER $DIR/../bouncer_for_dummy_app.py $DIR/bouncer_config.json 127.0.0.1 3002
 

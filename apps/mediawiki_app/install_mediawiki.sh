@@ -36,7 +36,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 # Copy mediawiki files into installation location
 mkdir -p $INSTALL_MEDIA_WIKI_PATH
 cp -r $MEDIA_WIKI_LOCAL_PATH/* $INSTALL_MEDIA_WIKI_PATH
-chown -R $PHP_FCGI_USER:$PHP_FCGI_USER $INSTALL_MEDIA_WIKI_PATH
+chown -R $FCGI_USER:$FCGI_USER $INSTALL_MEDIA_WIKI_PATH
 
 # Run installation script
 php $INSTALL_MEDIA_WIKI_PATH/maintenance/install.php \

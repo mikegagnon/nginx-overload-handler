@@ -18,7 +18,6 @@
 #
 # defines some shell variables
 #
-# TODO: Replace PHP_FCGI_USER with FCGI_USER
 
 # $DIR is the absolute path for the directory containing this bash script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -28,7 +27,7 @@ source $DIR/../../bouncer/php_bouncer/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 REDMINE_VERSION=`basename $REDMINE_LOCAL_PATH`
-INSTALL_REDMINE_PATH="$PHP_FCGI_USER_HOME/$REDMINE_VERSION"
+INSTALL_REDMINE_PATH="$FCGI_USER_HOME/$REDMINE_VERSION"
 export INSTALL_REDMINE_PATH
 
 PATH="$PATH:$GEM_HOME/bin"

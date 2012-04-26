@@ -22,8 +22,8 @@
 # $DIR is the absolute path for the directory containing this bash script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-PHP_FCGI_USER=php_fcgi
-PHP_FCGI_USER_HOME="/home/$PHP_FCGI_USER"
+FCGI_USER=fcgi_user
+FCGI_USER_HOME="/home/$FCGI_USER"
 
 # path to sudo command
 SUDO="/usr/bin/sudo"

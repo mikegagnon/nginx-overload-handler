@@ -24,31 +24,12 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-# Create the nginx user (and home dir) if it does not exist
-###############################################################################
-
-USER_EXISTS=`grep "^${PHP_FCGI_USER}:" /etc/passwd`
-if [ ! -n "$USER_EXISTS" ]
-then
-    useradd $PHP_FCGI_USER
-    USER_EXISTS=`grep "^${PHP_FCGI_USER}:" /etc/passwd`
-    if [ -n "$USER_EXISTS" ]
-    then
-        echo "Created user $PHP_FCGI_USER"
-        mkdir $PHP_FCGI_USER_HOME
-        chown $PHP_FCGI_USER:$PHP_FCGI_USER $PHP_FCGI_USER_HOME
-    else
-        echo "Could not create user $PHP_FCGI_USER. Your probably need to run this script as root."
-        exit 1
-    fi
-fi
-
 # Copy the php code into the public_html directory
 ###############################################################################
 
 mkdir -p $APP_DIR
 cp $DIR/*.php $APP_DIR/
-chown -R $PHP_FCGI_USER:$PHP_FCGI_USER $APP_DIR
+chown -R $FCGI_USER:$FCGI_USER $APP_DIR
 
 # Copy the nginx config
 ###############################################################################

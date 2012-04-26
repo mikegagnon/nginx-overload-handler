@@ -30,4 +30,4 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 export RAILS_ENV=production
 umask 22
 
-exec spawn-fcgi -n -a 127.0.0.1 -p $1 -u $PHP_FCGI_USER -f "$INSTALL_REDMINE_PATH/public/dispatch.fcgi"
+exec spawn-fcgi -n -a 127.0.0.1 -p $1 -u $FCGI_USER -f "$INSTALL_REDMINE_PATH/public/dispatch.fcgi"

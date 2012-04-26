@@ -1,3 +1,5 @@
+
+
 #!/usr/bin/env bash
 #
 # Copyright 2012 HellaSec, LLC
@@ -23,8 +25,6 @@
 #   (1) sudo ./install_dependencies.sh
 #
 # USAGE: sudo ./install_redmine.sh
-#
-# TODO: replace PHP_FCGI_USER with FCGI_USER
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -59,5 +59,5 @@ mkdir -p files log tmp public/plugin_assets
 touch log/production.log
 chmod -R 755 files log tmp public/plugin_assets
 chmod 0666 log/production.log
-chown -R $PHP_FCGI_USER:$PHP_FCGI_USER $INSTALL_REDMINE_PATH
+chown -R $FCGI_USER:$FCGI_USER $INSTALL_REDMINE_PATH
 

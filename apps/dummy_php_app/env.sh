@@ -22,7 +22,10 @@
 # $DIR is the absolute path for the directory containing this bash script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-PHP_FCGI_USER=www-data
-PHP_FCGI_USER_HOME=/home/$PHP_FCGI_USER
+# TODO: Make sure that commenting this out is fine
+#FCGI_USER=www-data
+#FCGI_USER_HOME=/home/$FCGI_USER
+
+# TODO FIX THIS
 APP_DIR=/data/public_html/dummy_php_app
 

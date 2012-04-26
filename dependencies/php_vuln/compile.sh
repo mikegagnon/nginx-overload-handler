@@ -31,8 +31,8 @@ cd $PHP_VULN_LOCAL_PATH
     --exec-prefix=$PHP_VULN_INSTALL \
     --with-mysql \
     --enable-fpm \
-    --with-fpm-user=$PHP_FCGI_USER \
-    --with-fpm-group=$PHP_FCGI_USER
+    --with-fpm-user=$FCGI_USER \
+    --with-fpm-group=$FCGI_USER
 
 make
 
