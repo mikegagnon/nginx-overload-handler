@@ -14,17 +14,14 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== compile_fcgi.sh for redmine_app ====
+# ==== compile_dependencies.sh for redmine app==== 
 #
 # PREREQs:
 #    ./install_binary_dependencies.sh
 #
-# USAGE: ./compile_fcgi.sh
-#
+# USAGE: ./compile_dependencies.sh
 #
 
-#DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-#source $DIR/../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"

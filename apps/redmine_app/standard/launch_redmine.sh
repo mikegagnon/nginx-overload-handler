@@ -14,27 +14,13 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== install_redmine.sh ====
+# ==== launch_redmine.sh ====
 #
-# Installs MediaWiki
-#
-# PREREQs:
-#   (1) ./compile_dependencies.sh
-#   (1) sudo ./install_dependencies.sh
-#
-# USAGE: sudo ./install_redmine.sh
-#
-# TODO: replace PHP_FCGI_USER with FCGI_USER
+# USAGE: sudo ./launch_redmine.sh 
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../../dependencies/env.sh
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/env.sh
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-export RAILS_ENV=production
-umask 22
-exec spawn-fcgi -n -a 127.0.0.1 -p 9000 -u $PHP_FCGI_USER -f "$INSTALL_REDMINE_PATH/public/dispatch.fcgi"
-#exec spawn-fcgi -n -a 127.0.0.1 -p 9000 -u $PHP_FCGI_USER "/home/beergarden/nginx-overload-handler/apps/redmine_app/launch.sh"
-
+$DIR/../../../nginx_upstream_overload/launch_nginx.sh
+$DIR/../redmine.sh 9000
+ 

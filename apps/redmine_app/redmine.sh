@@ -14,21 +14,20 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== make_conf.sh ====
+# ==== redmine.sh ====
 #
-# Make config files by filling in values in .template files
+# Launches redmine on a particular port
 #
-# USAGE: ./make_conf.sh
+# USAGE: sudo ./redmine port
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../../../nginx_upstream_overload/env.sh
+source $DIR/../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../env.sh
+source $DIR/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-cat $DIR/nginx.conf.template \
-    | sed "s@TEMPLATE_ALERT_PIPE_PATH@$ALERT_PIPE_PATH@g" \
-    | sed "s@TEMPLATE_MEDIAWIKI_PATH@$INSTALL_MEDIA_WIKI_PATH@g" \
-    > $DIR/nginx.conf
+export RAILS_ENV=production
+umask 22
 
+exec spawn-fcgi -n -a 127.0.0.1 -p $1 -u $PHP_FCGI_USER -f "$INSTALL_REDMINE_PATH/public/dispatch.fcgi"

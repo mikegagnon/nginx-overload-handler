@@ -14,21 +14,16 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== make_conf.sh ====
+# ==== install_conf.sh ====
 #
-# Make config files by filling in values in .template files
+# Installs nginx.conf where nginx-overload is disabled
 #
-# USAGE: ./make_conf.sh
+# USAGE: sudo ./install_conf.sh
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../../../nginx_upstream_overload/env.sh
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../env.sh
+source $DIR/../../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-cat $DIR/nginx.conf.template \
-    | sed "s@TEMPLATE_ALERT_PIPE_PATH@$ALERT_PIPE_PATH@g" \
-    | sed "s@TEMPLATE_MEDIAWIKI_PATH@$INSTALL_MEDIA_WIKI_PATH@g" \
-    > $DIR/nginx.conf
+cp $DIR/nginx.conf $NGINX_CONF
 

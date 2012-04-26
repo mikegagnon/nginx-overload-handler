@@ -14,11 +14,11 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== install_no_overload_conf.sh for mediawiki_app ====
+# ==== install_conf.sh for mediawiki_app ====
 #
 # Installs nginx.conf where nginx-overload is disabled
 #
-# USAGE: sudo ./install_no_overload_conf.sh
+# USAGE: sudo ./install_conf.sh
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"

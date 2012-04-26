@@ -14,32 +14,18 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== install_redmine.sh ====
+# ==== make_conf.sh ====
 #
-# Installs MediaWiki
+# Make config files by filling in values in .template files
 #
-# PREREQs:
-#   (1) ./compile_dependencies.sh
-#   (1) sudo ./install_dependencies.sh
-#
-# USAGE: sudo ./install_redmine.sh
-#
-# TODO: replace PHP_FCGI_USER with FCGI_USER
+# USAGE: ./make_conf.sh
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../../dependencies/env.sh
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/env.sh
+source $DIR/../env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-export RAILS_ENV=production
-umask 22
-
-exec spawn-fcgi -n -a 127.0.0.1 -p 9000 -u $PHP_FCGI_USER -f "$INSTALL_REDMINE_PATH/public/dispatch.fcgi"
-# works
-#exec spawn-fcgi -n -a 127.0.0.1 -p 9000 -u $PHP_FCGI_USER -f "$INSTALL_REDMINE_PATH/public/dispatch.fcgi"
-
-# doesn't work
-#exec spawn-fcgi -n -a 127.0.0.1 -p 9000 -u $PHP_FCGI_USER "/home/beergarden/nginx-overload-handler/apps/redmine_app/launch.sh"
+cat $DIR/nginx.conf.template \
+    | sed "s@TEMPLATE_INSTALL_REDMINE_PATH@$INSTALL_REDMINE_PATH@g" \
+    > $DIR/nginx.conf
 

@@ -1,0 +1,48 @@
+
+worker_processes  1;
+
+user nginx_user;
+
+error_log   logs/debug.log debug;
+
+events {
+    worker_connections  1024;
+}
+
+
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
+
+    sendfile        on;
+
+    keepalive_timeout  65;
+
+    server {
+        listen       80;
+        server_name  localhost;
+
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   html;
+        }
+
+        location /images      { root           TEMPLATE_INSTALL_REDMINE_PATH/public/;}
+        location /javascripts { root           TEMPLATE_INSTALL_REDMINE_PATH/public/;}
+        location /stylesheets { root           TEMPLATE_INSTALL_REDMINE_PATH/public/;}
+        location /themes      { root           TEMPLATE_INSTALL_REDMINE_PATH/public/;}
+
+    	location / {
+                root TEMPLATE_INSTALL_REDMINE_PATH/public/;
+        	include fastcgi_params;
+        	fastcgi_pass my_backend;
+        	fastcgi_param SCRIPT_FILENAME TEMPLATE_INSTALL_REDMINE_PATH$fastcgi_script_name;
+    	}
+    }
+
+    upstream my_backend  {
+        server    localhost:9000;
+    }
+}
+
+

@@ -16,11 +16,21 @@
 #
 # ==== install.sh ====
 #
-# Compiles and installs pretty much everything
+# Compiles and installs nginx-overload-handler (and it's dependencies as well
+# as a few demo web apps)
+#
+# Designed for and tested on Ubuntu 11.10 64-bit
+#
+# WARNING: This install.sh script does many things and assumes much about its 
+# operating environment. You are probably better off to use this install script
+# as a guide, and execute its commands by hand.
 #
 # TODO:
 #    - Error checking, and abort when any cmd fails
 #    - Find where apt-get asks for yes's and automate it
+#
+
+set -e
 
 # Install binary dependencies
 sudo ./dependencies/install_binary_dependencies.sh

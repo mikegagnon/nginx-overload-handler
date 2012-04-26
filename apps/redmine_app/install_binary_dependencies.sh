@@ -32,11 +32,3 @@ apt-get install -y \
     rubygems1.8 \
     spawn-fcgi
 
-#sudorubygems \
-#gem install bundler
-#gem install mysql -v '2.8.1'
-
-#cd $FCGI_GEM_LOCAL_PATH
-#ruby setup.rb install
-
-
