@@ -54,22 +54,6 @@ sudo ./nginx_upstream_overload/install.sh
 # Compile the Bouncer process manager
 ./bouncer/compile.sh
 
-# It is useful to test the the system against a vulnerable version of php
-./dependencies/php_vuln/compile.sh
-./dependencies/php_vuln/install.sh
-
-# Create the php_fcgi user
+# Create the fcgi_user; FastCGI workers will run as this user 
 sudo ./dependencies/useradd.sh
-
-# NOTE: the install.sh script installs the vulnerable php version in the
-# dependencies/php_vuln/install directory so you don't need root to install
-# it and you don't need to worry about accidentally using the vulnerable
-# version of php (since it doesn't touch /usr/bin and so on)
-
-# Create a new user for the FastCGI workers to run as
-sudo ./bouncer/php_bouncer/useradd.sh
-
-# Install MediaWiki
-sudo ./apps/mediawiki_app/install_dependencies.sh
-sudo ./apps/mediawiki_app/install_mediawiki.sh
 
