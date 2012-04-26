@@ -69,3 +69,12 @@ Use Redmine
     - Point your browser to http://localhost 
     - Log in as username "admin", password "admin"
 
+==== To do ====
+The current "standard" installation here does not currently represent an
+industry-standard redmine configuration. This condifuration of Redmine can only
+handle one request at a time.
+
+TODO: Use mongrel to host Redmine, which will allow Redmine to handle
+concurrent requests.
+
+
