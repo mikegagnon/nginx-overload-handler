@@ -1,5 +1,3 @@
-
-
 #!/usr/bin/env bash
 #
 # Copyright 2012 HellaSec, LLC
@@ -26,6 +24,8 @@
 #
 # USAGE: sudo ./install_redmine.sh
 #
+
+set -e
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/../../nginx_upstream_overload/env.sh
