@@ -27,7 +27,6 @@
 #
 # TODO:
 #    - Error checking, and abort when any cmd fails
-#    - Find where apt-get asks for yes's and automate it
 #
 
 set -e

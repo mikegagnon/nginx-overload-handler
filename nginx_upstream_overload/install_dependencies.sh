@@ -21,5 +21,5 @@
 # Assumes you're running Ubuntu
 #
 
-apt-get build-dep nginx
+apt-get build-dep -y nginx
 
