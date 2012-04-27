@@ -46,14 +46,18 @@ You can launch MediaWiki in two configurations:
     sudo ../../nginx_upstream_overload/launch_nginx.sh
     sudo ./standard/launch_mediawiki.sh
 
+Point your browser to "http://localhost/index.php"
+
 ==== Launch upstream_overload configuration ====
 
     ./upstream_overload/make_conf.sh
-    ./upstream_overload/install_conf.sh
-    ../../nginx_upstream_overload/launch_nginx.sh
+    sudo ./upstream_overload/install_conf.sh
+    sudo ../../nginx_upstream_overload/launch_nginx.sh
 
 In separate terminals:
 
-    ./upstream_overload/run_bouncer.sh
+    sudo ./upstream_overload/run_bouncer.sh
     ./upstream_overload/run_alert_router.sh
+
+Point your browser to "http://localhost/index.php"
 
