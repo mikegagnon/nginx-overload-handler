@@ -22,15 +22,13 @@ included in this repository.
 Install nginx-overload-handler via ../../install.sh
 WARNING: Read documentation in ../../install.sh before executing it.
 
-Also need to setup user account
-
 ==== Setup ====
 Install binary dependencies
 
     sudo ./install_binary_dependencies.sh
 
 Compile and install vulnerable ruby
-    
+
     ../../dependencies/ruby_vuln/compile.sh
     sudo ../../dependencies/ruby_vuln/install.sh
 
@@ -66,15 +64,14 @@ Launch redmine in standard configuration
 
 Use Redmine
 
-    - Point your browser to http://localhost 
+    - Point your browser to http://localhost
     - Log in as username "admin", password "admin"
 
 ==== To do ====
 The current "standard" installation here does not currently represent an
-industry-standard redmine configuration. This condifuration of Redmine can only
+industry-standard redmine configuration. This configuration of Redmine can only
 handle one request at a time.
 
 TODO: Use mongrel to host Redmine, which will allow Redmine to handle
 concurrent requests.
-
 
