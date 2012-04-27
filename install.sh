@@ -32,6 +32,11 @@
 
 set -e
 
+# $DIR is the absolute path for the directory containing this bash script
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+cd $DIR
+
 # Install binary dependencies
 sudo ./dependencies/install_binary_dependencies.sh
 
@@ -54,6 +59,6 @@ sudo ./nginx_upstream_overload/install.sh
 # Compile the Bouncer process manager
 ./bouncer/compile.sh
 
-# Create the fcgi_user; FastCGI workers will run as this user 
+# Create the fcgi_user; FastCGI workers will run as this user
 sudo ./dependencies/useradd.sh
 
