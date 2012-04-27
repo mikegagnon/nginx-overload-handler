@@ -40,15 +40,16 @@ Several moving parts:
         See bouncer/README.txt
 
 ==== Requirements ====
-Designed and test on Linux (specifically Ubuntu 11.10 32-bit and 64-bit),
+Designed and tested on Linux (specifically Ubuntu 11.10 32-bit and 64-bit),
 but should be portable to other *nix's with minimal effort.
 
 ==== WARNING ====
 Some of these files (particularly the ones that need to be run as sudo)
 might do things you don't want, such as overwriting nginx configuration
-files without backuping up your old ones. If you are considered aboutt this
+files without backuping up your old ones. If you are considered about this
 sort of thing I recommend viewing the files that require sudo before you
-execute them.
+execute them. It's probably best to test nginx-overload-handler in its
+own VM.
 
 ==== Is this code ready for production? ====
 Definintely not. It is highly experimental.
@@ -78,7 +79,7 @@ Make and install the config files
     sudo ./apps/mediawiki_app/standard/install_conf.sh
 
 Start the php FastCGI server and launch nginx (in separate terminals)
-    sudo ./apps/mediawiki_app/standard/run_php.sh 
+    sudo ./apps/mediawiki_app/standard/run_php.sh
     sudo ./nginx_upstream_overload/launch_nginx.sh
 
 Point your browser to http://localhost/index.php?title=Main_Page
