@@ -46,7 +46,7 @@ but should be portable to other *nix's with minimal effort.
 ==== WARNING ====
 Some of these files (particularly the ones that need to be run as sudo)
 might do things you don't want, such as overwriting nginx configuration
-files without backuping up your old ones. If you are considered about this
+files without backuping up your old ones. If you are concerned about this
 sort of thing I recommend viewing the files that require sudo before you
 execute them. It's probably best to test nginx-overload-handler in its
 own VM.
