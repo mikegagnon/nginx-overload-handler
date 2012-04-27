@@ -52,12 +52,12 @@ Point your browser to "http://localhost/index.php"
 
     ./upstream_overload/make_conf.sh
     sudo ./upstream_overload/install_conf.sh
-    sudo ../../nginx_upstream_overload/launch_nginx.sh
 
 In separate terminals:
 
     sudo ./upstream_overload/run_bouncer.sh
     ./upstream_overload/run_alert_router.sh
+    sudo ../../nginx_upstream_overload/launch_nginx.sh
 
 Point your browser to "http://localhost/index.php"
 
