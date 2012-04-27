@@ -15,8 +15,8 @@ daemonize = no
 
 listen = 127.0.0.1:9000
 listen.backlog = 128
-user = php_fcgi
-group = php_fcgi
+user = TEMPLATE_FCGI_USER
+group = TEMPLATE_FCGI_USER
 
 pm = dynamic
 

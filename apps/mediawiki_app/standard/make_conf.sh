@@ -22,6 +22,8 @@
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/../../../dependencies/env.sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/../../../nginx_upstream_overload/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/../env.sh
@@ -31,4 +33,8 @@ cat $DIR/nginx.conf.template \
     | sed "s@TEMPLATE_ALERT_PIPE_PATH@$ALERT_PIPE_PATH@g" \
     | sed "s@TEMPLATE_MEDIAWIKI_PATH@$INSTALL_MEDIA_WIKI_PATH@g" \
     > $DIR/nginx.conf
+
+cat $DIR/php-fpm.conf.template \
+    | sed "s@TEMPLATE_FCGI_USER@$FCGI_USER@g" \
+    > $DIR/php-fpm.conf
 

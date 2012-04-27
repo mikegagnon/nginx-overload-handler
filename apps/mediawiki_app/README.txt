@@ -22,8 +22,6 @@ included in this repository.
 Install nginx-overload-handler via ../../install.sh
 WARNING: Read documentation in ../../install.sh before executing it.
 
-Also need to setup user account
-
 ==== Setup ====
 Compile and install vulnerable version of PHP
 
@@ -44,9 +42,9 @@ You can launch MediaWiki in two configurations:
 ==== Launch standard configuration ====
 
     ./standard/make_conf.sh
-    ./standard/install_conf.sh
-    ../../nginx_upstream_overload/launch_nginx.sh
-    ./standard/launch_mediawiki.sh
+    sudo ./standard/install_conf.sh
+    sudo ../../nginx_upstream_overload/launch_nginx.sh
+    sudo ./standard/launch_mediawiki.sh
 
 ==== Launch upstream_overload configuration ====
 
