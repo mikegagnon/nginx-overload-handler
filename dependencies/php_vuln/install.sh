@@ -30,3 +30,5 @@ cd $PHP_VULN_LOCAL_PATH
 
 make install
 
+cp $DIR/php.ini $PHP_VULN_INSTALL/lib/php.ini
+
