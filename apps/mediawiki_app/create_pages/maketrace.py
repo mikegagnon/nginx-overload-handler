@@ -34,7 +34,7 @@ import random
 
 # the percentage of MediaWiki requests that are for diffs
 # (the other requests are just for page views)
-diff_percent = 0.01
+diff_percent = 0.0
 
 # the number of urls to output
 num_urls = int(sys.argv[1])
@@ -69,9 +69,11 @@ sys.stderr.write("%d pages found\n" % len(titles))
 # for each title included in the trace, page_version[title]
 # maps a list of sorted page ids (ints)
 page_version = {}
+page_titles = []
 for title in titles:
     if not attack_re.search(title):
         page_version[title] = set()
+        page_titles.append(title)
 
 sys.stderr.write("Ignoring %d page(s)\n" % (len(titles) - len(page_version)))
 for title in page_version.keys():
@@ -86,18 +88,19 @@ for title in page_version.keys():
         sys.stderr.write("    ignoring %s\n" % title)
         del(page_version[title])
 
-titles = page_version.keys()
+page_version_titles = page_version.keys()
 for url_i in range(0, num_urls):
-    title = random.choice(titles)
     if random.random() <= diff_percent:
+        title = random.choice(page_version_titles)
         revids = page_version[title]
         first_rev_i = random.randint(0, len(revids) - 2)
         first_rev = revids[first_rev_i]
         second_rev = revids[first_rev_i + 1]
-        url = "%s/index.php?title=%s&action=historysubmit&diff=%d&oldid=%d" % \
-            (root_url, urllib.quote(title), second_rev, first_rev)
+        url = "/index.php?title=%s&action=historysubmit&diff=%d&oldid=%d" % \
+            (urllib.quote(title), second_rev, first_rev)
     else:
-        url = "%s/index.php?title=%s" % \
-            (root_url, urllib.quote(title))
+        title = random.choice(page_titles)
+        url = "/index.php?title=%s" % urllib.quote(title)
 
     print url
+    print
