@@ -46,3 +46,4 @@ php $INSTALL_MEDIA_WIKI_PATH/maintenance/install.php \
     --dbuser root \
     --dbpass $MYSQL_PASSWORD
 
+echo -e '$wgMaxUploadSize = 1024 * 1024 * 100;\n' >> $INSTALL_MEDIA_WIKI_PATH/LocalSettings.php
