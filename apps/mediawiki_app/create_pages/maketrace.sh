@@ -16,7 +16,8 @@
 #
 # ==== maketrace.sh ====
 #
-# Prints a list of URLs, which represent a representative use of MediaWiki
+# Prints a list of URLs, which represents a stream of "legitimate" URL
+# acccesses for MediaWiki.
 #
 # USAGE:
 #   - Make sure that MediaWiki is running
