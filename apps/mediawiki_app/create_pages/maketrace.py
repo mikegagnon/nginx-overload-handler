@@ -103,4 +103,3 @@ for url_i in range(0, num_urls):
         url = "/index.php?title=%s" % urllib.quote(title)
 
     print url
-    print
