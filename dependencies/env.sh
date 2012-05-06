@@ -85,3 +85,8 @@ PHP_FPM_VULN_BIN="$PHP_VULN_INSTALL/sbin/php-fpm"
 export PHP_VULN_BIN
 export PHP_FPM_VULN_BIN
 
+HTTPERF_DL_REMOTE_PATH="http://httperf.googlecode.com/files/httperf-0.9.0.tar.gz"
+HTTPERF_DL_LOCAL_PATH="$DOWNLOAD_DIR/httperf-0.9.0.tar.gz"
+HTTPERF_LOCAL_PATH="$DOWNLOAD_DIR/httperf-0.9.0"
+HTTPERF_PATCHED_LOCAL_PATH="$DOWNLOAD_DIR/httperf-0.9.0-bg"
+

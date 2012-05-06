@@ -1,0 +1,37 @@
+diff -rupN httperf-0.9.0/src/stat/print_reply.c httperf-0.9.0-bg/src/stat/print_reply.c
+--- httperf-0.9.0/src/stat/print_reply.c	2007-04-07 00:01:56.000000000 -0700
++++ httperf-0.9.0-bg/src/stat/print_reply.c	2012-05-06 16:06:16.487005591 -0700
+@@ -124,6 +124,14 @@ print_request (Call *call)
+   size_t hdr_len, h_len, b_len;
+   int i, first, end;
+   char *hdr;
++  char time_buf[100];
++  Time now;
++  int num_chars;
++
++  // when printing out the request, also print out the current time
++  now = timer_now();
++  num_chars = snprintf(time_buf, sizeof(time_buf), "%f\n", now);
++  print_buf (call, "REQUEST_TIME", time_buf, num_chars);
+ 
+   first = IE_CONTENT;
+   end = IE_CONTENT;
+@@ -158,10 +166,18 @@ print_reply_hdr (Call *call, const char
+ {
+   Call_Private_Data *priv = CALL_PRIVATE_DATA (call);
+   const char *eoh;
++  char time_buf[100];
++  Time now;
++  int num_chars;
+ 
+   if (len <= 0 || priv->done_with_reply_hdr)
+     return;
+ 
++  // when printing out the reply header, also print out the current time
++  now = timer_now();
++  num_chars = snprintf(time_buf, sizeof(time_buf), "%f\n", now);
++  print_buf (call, "REPLY_TIME", time_buf, num_chars);
++
+   eoh = strstr (buf, "\r\n\r\n");
+   if (eoh)
+     {

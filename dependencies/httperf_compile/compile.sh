@@ -14,29 +14,16 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== install general dependencies (for which we do not need source) ====
-#
-# USAGE: sudo ./install_dependencies.sh
-#
-# Assumes you're running Ubuntu
+# ==== configures and compiles httperf ====
 #
 
+# $DIR is the absolute path for the directory containing this bash script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/env.sh
+source $DIR/../env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-debconf-set-selections <<< "mysql-server-5.1 mysql-server/root_password password $MYSQL_PASSWORD"
-debconf-set-selections <<< "mysql-server-5.1 mysql-server/root_password_again password $MYSQL_PASSWORD"
+cd $HTTPERF_PATCHED_LOCAL_PATH
 
-apt-get install -y curl
-
-# PHP dependencies
-apt-get install -y \
-    mysql-server-5.1 \
-    libxml2-dev \
-    mysql-client \
-    libmysqlclient15-dev
-
-# trainer dependencies
-apt-get install -y httperf
+./configure --prefix="/usr"
+make
 
