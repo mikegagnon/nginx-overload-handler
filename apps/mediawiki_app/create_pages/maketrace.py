@@ -20,7 +20,7 @@
 #
 # USAGE:
 #   - Make sure that MediaWiki is running
-#   > ./maketrace.sh  num_urls
+#   > ./maketrace.sh  num_urls > legit_trace.txt
 # NOTE that you invoke the .sh file, not the .py file
 #
 
