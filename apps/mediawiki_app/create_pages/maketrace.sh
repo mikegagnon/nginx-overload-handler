@@ -14,29 +14,22 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== env.sh ====
+# ==== maketrace.sh ====
 #
-# defines some shell variables
+# Prints a list of URLs, which represent a representative use of MediaWiki
+#
+# USAGE:
+#   - Make sure that MediaWiki is running
+#   > ./maketrace.sh num_urls
+#
+# The point of the .sh wrapper around the .py file, is to setup environment
+# variables.
 #
 
 # $DIR is the absolute path for the directory containing this bash script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../../dependencies/env.sh
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../../bouncer/php_bouncer/env.sh
+source $DIR/../env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-MEDIAWIKI_VERSION=`basename $MEDIA_WIKI_LOCAL_PATH`
-INSTALL_MEDIA_WIKI_PATH="$FCGI_USER_HOME/$MEDIAWIKI_VERSION"
-
-MEDIAWIKI_ROOT_URL="http://localhost"
-export MEDIAWIKI_ROOT_URL
-
-# A python regular expression. Any page titles that match this RE
-# are considered "attack" pages, and will be excluded from a trace
-# representing legitimate use
-MEDIAWIKI_ATTACK_PAGES_RE="^Foo$"
-export MEDIAWIKI_ATTACK_PAGES_RE
-
-MEDIAWIKI_PASSWORD="dummyP@ssw0rd"
+python maketrace.py $1
 
