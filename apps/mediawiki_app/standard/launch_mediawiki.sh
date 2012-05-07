@@ -14,10 +14,10 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== run_php.sh for mediawiki_app ====
+# ==== launch_mediawiki.sh ====
 #
-# USAGE: sudo ./run_php.sh
-#   Needs to be run as root so it can switch to running as php_fcgi user
+# USAGE: sudo ./launch_mediawiki.sh
+#   Needs to be run as root so it can switch to running as fcgi user
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
