@@ -40,3 +40,5 @@ export MEDIAWIKI_ATTACK_PAGES_RE
 
 MEDIAWIKI_PASSWORD="dummyP@ssw0rd"
 
+DUMMY_VULN_URL="/dummy_vuln.php"
+
