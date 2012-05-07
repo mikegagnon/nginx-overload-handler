@@ -26,4 +26,5 @@ source $DIR/../../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 cp $DIR/nginx.conf $NGINX_CONF
+cp $DIR/restart_fcgi.sh /usr/local/bin/restart_fcgi.sh
 

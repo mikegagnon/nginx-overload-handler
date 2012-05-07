@@ -36,3 +36,8 @@ cat $DIR/bouncer_config.json.template \
     | sed "s@TEMPLATE_ALERT_PIPE_PATH@$ALERT_PIPE_PATH@g" \
     > $DIR/bouncer_config.json
 
+cat $DIR/restart_fcgi.sh.template \
+    | sed "s@TEMPLATE_DIR@$DIR@g" \
+    > $DIR/restart_fcgi.sh
+chmod +x $DIR/restart_fcgi.sh
+
