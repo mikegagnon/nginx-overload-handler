@@ -21,7 +21,7 @@
 #
 # USAGE:
 #   - Make sure that MediaWiki is running
-#   > ./maketrace.sh num_urls > legit_trace.txt
+#   > ./maketrace.sh root_url num_urls > legit_trace.txt
 #
 # The point of the .sh wrapper around the .py file, is to setup environment
 # variables.
@@ -32,5 +32,5 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/../env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-python maketrace.py $1
+python maketrace.py $1 $2
 

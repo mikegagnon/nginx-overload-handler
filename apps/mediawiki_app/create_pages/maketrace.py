@@ -13,14 +13,14 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== maketrace.sh ====
+# ==== maketrace.py ====
 #
 # Prints a list of URLs, which represents a stream of "legitimate" URL
 # acccesses for MediaWiki.
 #
 # USAGE:
 #   - Make sure that MediaWiki is running
-#   > ./maketrace.sh  num_urls > legit_trace.txt
+#   > ./maketrace.sh  root_url num_urls > legit_trace.txt
 # NOTE that you invoke the .sh file, not the .py file
 #
 
@@ -31,13 +31,18 @@ import urllib2
 import json
 import re
 import random
+import httplib
+
 
 # the percentage of MediaWiki requests that are for diffs
 # (the other requests are just for page views)
 diff_percent = 0.0
 
+root_url = sys.argv[1]
+domain = root_url.replace("http://", "")
+
 # the number of urls to output
-num_urls = int(sys.argv[1])
+num_urls = int(sys.argv[2])
 
 def getenv(key):
     try:
@@ -55,16 +60,44 @@ def getjson(url):
         sys.exit(1)
     return json.loads(response.read())
 
-root_url = getenv("MEDIAWIKI_ROOT_URL")
 attack_re_str = getenv("MEDIAWIKI_ATTACK_PAGES_RE")
 attack_re = re.compile(attack_re_str)
 
 sys.stderr.write("Getting list of pages\n")
-url = "%s/api.php?action=query&list=allpages&aplimit=500&format=json" % root_url
+url = "%s/api.php?action=query&list=allpages&aplimit=500&format=json&apfilterredir=nonredirects" % root_url
 response = getjson(url)
 pages = response['query']['allpages']
-titles = [page['title'] for page in pages]
-sys.stderr.write("%d pages found\n" % len(titles))
+unescaped_titles = [page['title'] for page in pages]
+sys.stderr.write("%d pages found\n" % len(unescaped_titles))
+
+# note this titles look like this, for example, "Hapuna BeachState Recreation Area"
+# they need to be escaped, MediaWiki style "Hapuna_Beach_State_Recreation_Area".
+# If you simply do a url ecnoding, then MediaWiki will returns with a 301 redirect
+# with the actual title, which is what we want
+def mwEscape(title):
+    url = "/index.php?title=%s" % urllib.quote(title)
+    conn = httplib.HTTPConnection(domain)
+    conn.request("GET", url)
+    response = conn.getresponse()
+    if response.status == 301:
+        location = response.getheader("Location")
+        escaped_title = location.split("=")[-1]
+        sys.stderr.write("Escaped title to '%s'\n" % escaped_title)
+        url = "/index.php?title=%s" % urllib.quote(escaped_title)
+        conn = httplib.HTTPConnection(domain)
+        conn.request("GET", url)
+        response = conn.getresponse()
+        if response.status != 200:
+            raise ValueError("Escaped title does not lead to status == 200, for '%s'" % escaped_title)
+    elif response.status == 200:
+        escaped_title = title
+        sys.stderr.write("Did not escape title '%s'\n" % escaped_title)
+    else:
+        raise ValueError("Got status %d while requesting '%s'" % title)
+
+    return escaped_title
+
+titles = [mwEscape(title) for title in unescaped_titles]
 
 # for each title included in the trace, page_version[title]
 # maps a list of sorted page ids (ints)
