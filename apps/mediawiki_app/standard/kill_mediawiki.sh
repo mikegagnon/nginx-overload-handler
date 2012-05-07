@@ -17,7 +17,6 @@
 # ==== kill_mediawiki.sh ====
 #
 # USAGE: sudo ./kill_mediawiki.sh
-#   Needs to be run as root so it can switch to running as fcgi user
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
