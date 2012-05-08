@@ -27,41 +27,44 @@
 #   drawn from attack_trace.txt
 #
 
-
 import sys
 
-test_size = int(sys.argv[1])
-num_tests = int(sys.argv[2])
-legit_filename = sys.argv[3]
-attack_filename = sys.argv[4]
+def make_trial_trace(test_size, num_tests, legit_filename, attack_filename,
+    outfile):
 
-with open(legit_filename) as f:
-    contents = f.read()
-    legit = contents.split("\n\n")
-    # get rid of empty strings
-    legit = filter(None, legit)
+    with open(legit_filename) as f:
+        contents = f.read()
+        legit = contents.split("\n\n")
+        # get rid of empty strings
+        legit = filter(None, legit)
 
-with open(attack_filename) as f:
-    contents = f.read()
-    attack = contents.split("\n\n")
-    # get rid of empty strings
-    attack = filter(None, attack)
+    with open(attack_filename) as f:
+        contents = f.read()
+        attack = contents.split("\n\n")
+        # get rid of empty strings
+        attack = filter(None, attack)
 
-def itemgen(items):
-    numitems = len(items)
-    i = 0
-    while True:
-        yield items[i]
-        i = (i + 1) % numitems
+    def itemgen(items):
+        numitems = len(items)
+        i = 0
+        while True:
+            yield items[i]
+            i = (i + 1) % numitems
 
-legit_items = itemgen(legit)
-attack_items = itemgen(attack)
+    legit_items = itemgen(legit)
+    attack_items = itemgen(attack)
 
-for test_i in range(0, num_tests):
-    for test_j in range(0, test_size - 1):
-        print attack_items.next()
-        print
+    for test_i in range(0, num_tests):
+        for test_j in range(0, test_size - 1):
+            outfile.write("%s\n\n" % attack_items.next())
 
-    print legit_items.next()
-    print
+        outfile.write("%s\n\n" % legit_items.next())
+
+if __name__ == "__main__":
+    test_size = int(sys.argv[1])
+    num_tests = int(sys.argv[2])
+    legit_filename = sys.argv[3]
+    attack_filename = sys.argv[4]
+    outfile = sys.stdout
+    make_trial_trace(test_size, num_tests, legit_filename, attack_filename, outfile)
 

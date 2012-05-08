@@ -35,5 +35,5 @@
 #   username ALL=(ALL) NOPASSWD: /usr/local/bin/restart_fcgi.sh
 #
 
-ssh -f $1@$2 "nohup sudo -n restart_fcgi.sh &"
+ssh -f $1@$2 "nohup sudo -n restart_fcgi.sh > /dev/null &"
 sleep 5

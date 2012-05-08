@@ -26,7 +26,6 @@ import math
 
 from scipy import stats
 
-
 class AnalyzeTraceOutput:
 
 
@@ -68,7 +67,7 @@ class AnalyzeTraceOutput:
 
           t2 = reply.get(n, float("inf"))
           latency_val = t2 - t1
-          status_val = status[n]
+          status_val = status.get(n, None)
 
           if status_val in self.latency[reqType]:
             self.latency[reqType][status_val][n] = latency_val
@@ -96,10 +95,12 @@ class AnalyzeTraceOutput:
             print self.legit_latencies
 
     def summary(self, quantiles):
+        quantiles = set(quantiles)
         summary = {
             "completion_rate" : self.completion_rate,
             "quantile" : {}
         }
+        quantiles.add(self.completion_rate)
 
         for q in quantiles:
             summary["quantile"][q] = self.legit_quantile(q)
@@ -143,4 +144,4 @@ if __name__ == "__main__":
     test_size = int(sys.argv[1])
     quantile = float(sys.argv[2])
     analysis = AnalyzeTraceOutput(sys.stdin, test_size, True)
-    print json.dumps(analysis.summary([quantile]), indent=2, sort_keys=True)
+    print json.dumps(analysis.summary(set([quantile])), indent=2, sort_keys=True)
