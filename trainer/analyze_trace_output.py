@@ -94,11 +94,22 @@ class AnalyzeTraceOutput:
         if debug:
             print self.legit_latencies
 
-    def summary(self, quantiles):
+    def throughput(self, period):
+        '''Returns throughput, assuming the proportion of
+        legit requests, L, is 1.0 (ie. 100%). To find
+        the throughput for another value of L, where
+        0 <= L <= 1.0, just do throughput * L'''
+        print "self.completion_rate=%f" % self.completion_rate
+        print "period=%f" % (period)
+        print "1.0/period=%f" % (1.0/period)
+        return self.completion_rate * (1.0/period)
+
+    def summary(self, period, quantiles):
         quantiles = set(quantiles)
         summary = {
             "completion_rate" : self.completion_rate,
-            "quantile" : {}
+            "quantile" : {},
+            "throughput" : self.throughput(period)
         }
         quantiles.add(self.completion_rate)
 
@@ -143,5 +154,6 @@ class AnalyzeTraceOutput:
 if __name__ == "__main__":
     test_size = int(sys.argv[1])
     quantile = float(sys.argv[2])
+    period = float(sys.argv[3])
     analysis = AnalyzeTraceOutput(sys.stdin, test_size, True)
-    print json.dumps(analysis.summary(set([quantile])), indent=2, sort_keys=True)
+    print json.dumps(analysis.summary(period, set([quantile])), indent=2, sort_keys=True)

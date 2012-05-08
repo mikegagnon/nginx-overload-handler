@@ -131,7 +131,7 @@ class Train:
         with open(httperf_stdout_filename, "r") as infile:
             analysis = AnalyzeTraceOutput(infile, self.test_size)
 
-        self.results[period] = analysis.summary(self.quantiles)
+        self.results[period] = analysis.summary(period, self.quantiles)
         return self.results[period]["completion_rate"]
 
     def do_trial(self, period):
