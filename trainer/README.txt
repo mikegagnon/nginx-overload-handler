@@ -19,4 +19,15 @@ configurations and reports on the security guarantees that can be obtained
 from the tested configurations. The only variable that the trainer experiments
 with is I, the inter-arrival time between admitted requests.
 
+==== Running a trial ====
+
+A trial trial consists of one run of httperf. Parts:
+    (1) Setup trial
+        (a) ./maketrace.sh "http://MediaWikiInstance" 1000 > legit_trace.txt
+        (b) ./make_trial_trace.py 4 25 legit_trace.txt attack_trace.txt > trial_trace.txt
+    (2) Execute trial
+        (a) restart the web application to an idle state
+        (c) httperf
+        (d) analyze output
+
 httperf --hog --server=172.16.206.129 --wsesslog=4,1,foo.txt --period=0.25 --print-reply=header --print-request=header
