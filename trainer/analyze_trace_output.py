@@ -23,10 +23,11 @@ import sys
 import re
 import json
 import math
-
+import argparse
 from scipy import stats
 
 class AnalyzeTraceOutput:
+    '''Parses a single httperf output file'''
 
     def __init__(self, infile, test_size, debug = False):
         self.test_size = test_size
@@ -147,24 +148,79 @@ class AnalyzeTraceOutput:
         status_val = int(parts[1])
         return (n, status_val)
 
-def load_results(filenames, test_size, quantiles):
-    results = {}
-    for filename in filenames:
-        with open(filename, "r") as infile:
-            line = infile.readline()
-            parts = line.split()
-            rate = float(filter(lambda x: x.startswith("--rate"), parts)[0].lstrip("--rate="))
-            period = 1.0 / rate
-            analysis = AnalyzeTraceOutput(infile, test_size)
+class AnalyzeResults:
+    '''Analyzes the many httperf output files and reports recommended configs'''
 
-        results[period] = analysis.summary(period, quantiles)
-    return results
+    def __init__(self, completion, quantiles, results=None, filenames=None, test_size=None):
+        self.completion = completion
+        quantiles = set(quantiles)
+        quantiles.add(completion)
+        self.quantiles = quantiles
+        if results==None and filenames==None:
+            raise ValueError("Either results must be given, or filenames, but not neither were given")
+        if results!=None and filenames!=None:
+            raise ValueError("Either results must be given, or filenames, but not both")
+        if filenames != None:
+            if test_size == None:
+                raise ValueError("Missing test_size")
+            if quantiles == None:
+                raise ValueError("Missing quantiles")
+            self.results = self.load_results(filenames, test_size)
+        else:
+            self.results = results
+
+    def load_results(self, filenames, test_size):
+        results = {}
+        for filename in filenames:
+            with open(filename, "r") as infile:
+                line = infile.readline()
+                parts = line.split()
+                rate = float(filter(lambda x: x.startswith("--rate"), parts)[0].lstrip("--rate="))
+                period = 1.0 / rate
+                analysis = AnalyzeTraceOutput(infile, test_size)
+
+            results[period] = analysis.summary(period, self.quantiles)
+        return results
+
+    def print_results(self, only_good=True, outfile=sys.stdout):
+        '''Set only_good=True to print only the good configuration'''
+        # print keys
+        quantile_keys = ["quantile %f" % q for q in sorted(list(self.quantiles))]
+        line = ["period", "completion rate", "throughput"] + quantile_keys
+        line = ",".join(line) + "\n"
+        outfile.write(line)
+
+        for period in sorted(self.results.keys()):
+            result = self.results[period]
+            completion_rate = result["completion_rate"]
+            if only_good and completion_rate < self.completion:
+                continue
+            line = [
+                period,
+                completion_rate,
+                result["throughput"]
+            ]
+
+            for q in sorted(list(self.quantiles)):
+                line.append(result["quantile"][q])
+            line = [str(x) for x in line]
+            line = ",".join(line) + "\n"
+            outfile.write(line)
 
 if __name__ == "__main__":
-    quantiles = [0.25, 0.50, 0.75, 0.95, 0.99, 1.0]
+    import os
+    cwd = os.getcwd()
+
+    default_glob = os.path.join(cwd, "httperf_stdout_*.txt")
+
+    parser = argparse.ArgumentParser(description='Analyzes output of trainer. See source for more info.')
+    completion = 0.95
+    quantiles = set([0.25, 0.50, 0.75, 0.99, 1.0])
     test_size = int(sys.argv[1])
     filenames = sys.argv[2:]
-    results = load_results(filenames, test_size, quantiles)
-    print json.dumps(results, indent=2, sort_keys=True)
+    analysis = AnalyzeResults(completion, quantiles, filenames=filenames, test_size=test_size)
+    analysis.print_results()
+    #results = analysis.results
+    #print json.dumps(results, indent=2, sort_keys=True)
     #analysis = AnalyzeTraceOutput(sys.stdin, test_size, True)
     #print json.dumps(analysis.summary(period, set([quantile])), indent=2, sort_keys=True)
