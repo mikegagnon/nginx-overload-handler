@@ -220,7 +220,4 @@ if __name__ == "__main__":
     filenames = sys.argv[2:]
     analysis = AnalyzeResults(completion, quantiles, filenames=filenames, test_size=test_size)
     analysis.print_results()
-    #results = analysis.results
-    #print json.dumps(results, indent=2, sort_keys=True)
-    #analysis = AnalyzeTraceOutput(sys.stdin, test_size, True)
-    #print json.dumps(analysis.summary(period, set([quantile])), indent=2, sort_keys=True)
+
