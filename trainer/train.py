@@ -51,6 +51,7 @@
 
 import json
 import subprocess
+import urllib2
 from analyze_trace_output import AnalyzeTraceOutput
 
 class TrainError(Exception):
@@ -84,6 +85,12 @@ class Train:
         self.httperf_stderr_template = "httperf_stderr_%03d.txt"
         self.quantiles = set([0.25, 0.5, 0.75, 1.0, self.completion_rate])
 
+        # Find the url that represents a legitimate request
+        with open(self.trace_filename) as f:
+            lines = f.readlines()
+            page = lines[(self.test_size - 1) * 2].strip()
+            self.legit_url = "http://%s%s" % (self.server, page)
+
     def restart_fcgi_workers(self, trial_num):
         #TODO: verify that the restart was successful.
         # idea: grab the first legit request from the trace, and do
@@ -98,6 +105,10 @@ class Train:
         ret = p.wait()
         if ret != 0:
             raise TrainError("restart_remote_fcgi.sh for trial %d returned %d" % (trial_num, ret))
+        try:
+            response = urllib2.urlopen(self.legit_url)
+        except urllib2.URLError:
+            raise TrainError("Error: Could not access %s. Perhaps restart_remote_fcgi.sh did not work.\n\n" % self.legit_url)
 
     def run_httperf(self, period, trial_num):
         '''Executes httperf, adds the results to self.results, and
@@ -212,9 +223,6 @@ if __name__ == "__main__":
     server = "172.16.209.198"
     num_tests = 10
     num_workers = 4
-
-    period = 0.25
-    trial_num = 0
 
     train = Train(
         completion_rate,

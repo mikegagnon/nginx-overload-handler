@@ -56,7 +56,7 @@ def getjson(url):
     try:
         response = urllib2.urlopen(url)
     except urllib2.URLError:
-        sys.stderr.write("Error: Could not access %s. Perhaps you MediaWiki is not running.\n\n" % root_url)
+        sys.stderr.write("Error: Could not access %s. Perhaps MediaWiki is not running.\n\n" % root_url)
         sys.exit(1)
     return json.loads(response.read())
 
