@@ -28,7 +28,6 @@ from scipy import stats
 
 class AnalyzeTraceOutput:
 
-
     def __init__(self, infile, test_size, debug = False):
         self.test_size = test_size
 
@@ -99,9 +98,6 @@ class AnalyzeTraceOutput:
         legit requests, L, is 1.0 (ie. 100%). To find
         the throughput for another value of L, where
         0 <= L <= 1.0, just do throughput * L'''
-        print "self.completion_rate=%f" % self.completion_rate
-        print "period=%f" % (period)
-        print "1.0/period=%f" % (1.0/period)
         return self.completion_rate * (1.0/period)
 
     def summary(self, period, quantiles):
@@ -151,9 +147,24 @@ class AnalyzeTraceOutput:
         status_val = int(parts[1])
         return (n, status_val)
 
+def load_results(filenames, test_size, quantiles):
+    results = {}
+    for filename in filenames:
+        with open(filename, "r") as infile:
+            line = infile.readline()
+            parts = line.split()
+            rate = float(filter(lambda x: x.startswith("--rate"), parts)[0].lstrip("--rate="))
+            period = 1.0 / rate
+            analysis = AnalyzeTraceOutput(infile, test_size)
+
+        results[period] = analysis.summary(period, quantiles)
+    return results
+
 if __name__ == "__main__":
+    quantiles = [0.25, 0.50, 0.75, 0.95, 0.99, 1.0]
     test_size = int(sys.argv[1])
-    quantile = float(sys.argv[2])
-    period = float(sys.argv[3])
-    analysis = AnalyzeTraceOutput(sys.stdin, test_size, True)
-    print json.dumps(analysis.summary(period, set([quantile])), indent=2, sort_keys=True)
+    filenames = sys.argv[2:]
+    results = load_results(filenames, test_size, quantiles)
+    print json.dumps(results, indent=2, sort_keys=True)
+    #analysis = AnalyzeTraceOutput(sys.stdin, test_size, True)
+    #print json.dumps(analysis.summary(period, set([quantile])), indent=2, sort_keys=True)
