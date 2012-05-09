@@ -52,6 +52,7 @@
 import json
 import subprocess
 import urllib2
+import argparse
 from analyze_trace_output import AnalyzeTraceOutput
 
 class TrainError(Exception):
@@ -66,15 +67,14 @@ class Train:
             username,
             server,
             num_tests,
-            num_workers):
+            test_size):
         self.completion_rate = completion_rate
         self.initial_period = intial_period
         self.trace_filename = trace_filename
         self.username = username
         self.server = server
         self.num_tests = num_tests
-        self.num_workers = num_workers
-        self.test_size = self.num_workers + 1
+        self.test_size = test_size
         # there should be self.num_requests sessions in self.trace_filename
         # TODO: assert this assumption
         self.num_requests = self.test_size * num_tests
@@ -216,22 +216,50 @@ class Train:
         self.output()
 
 if __name__ == "__main__":
-    completion_rate = 0.95
-    intial_period = 0.1
-    trace_filename = "trial_trace.txt"
-    username = "beergarden"
-    server = "172.16.209.198"
-    num_tests = 10
-    num_workers = 4
+    import sys
+    import os
+    dirname = os.path.dirname(os.path.realpath(__file__))
+    cwd = os.getcwd()
+
+    default_trace_filename = os.path.join(cwd, "trace.txt")
+
+    parser = argparse.ArgumentParser(description='Trains Beer Garden. See source for more info.')
+    parser.add_argument("-c", "--completion", type=float, required=True,
+                    help="REQUIRED. The minimal completion rate you're willing to accept")
+    parser.add_argument("-p", "--period", type=float, default=0.01,
+                    help="Default=%(default)f. The initial inter-arrival period. Beer Garden should not " \
+                    "reach COMPLETION rate when running with PERIOD.")
+    parser.add_argument("-t", "--trace", type=str, default=default_trace_filename,
+                    help="Default=%(default)s. The trace file (produced by make_trial_trace.py)")
+    parser.add_argument("-u", "--username", type=str, default="beergarden",
+                    help="Default=%(default)s. The username on the server. Used when "\
+                    "invoking restart_remote_fcgi.sh (see its source for PREREQs for username)")
+    parser.add_argument("-s", "--server", type=str, required=True,
+                    help="REQUIRED. The address of the server running Beer Garden.")
+    parser.add_argument("-n", "--num-tests", type=int, required=True,
+                    help="REQUIRED. The number of tests in the trace file (see --trace and make_trial_trace.py)")
+    parser.add_argument("-ts", "--test-size", type=int, required=True,
+                    help="REQUIRED. The size of each test in the trace file (see --trace and make_trial_trace.py)")
+
+    args = parser.parse_args()
+    print json.dumps(args, default=str, indent=2, sort_keys=True)
+
+    try:
+        with open(args.trace, "r") as f:
+            pass
+    except:
+        sys.stderr.write("Error: could not open trace file (%s)\n" % args.trace)
+        sys.exit(1)
 
     train = Train(
-        completion_rate,
-        intial_period,
-        trace_filename,
-        username,
-        server,
-        num_tests,
-        num_workers)
+        args.completion,
+        args.period,
+        args.trace,
+        args.username,
+        args.server,
+        args.num_tests,
+        args.test_size)
     train.train()
 
     print json.dumps(train.results, indent=2, sort_keys=True)
+
