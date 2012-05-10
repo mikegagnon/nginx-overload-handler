@@ -31,8 +31,8 @@ LOGDIR = os.path.realpath(LOGDIR)
 MAX_LOGFILE_BYTES = 1024 * 1024 * 1 # 1 MB
 BACKUP_COUNT = 5
 
-FORMATTER_LOGFILE = logging.Formatter("%(asctime)s - %(levelname)10s - %(process)d - %(filename)s:%(funcName)s - %(message)s")
-FORMATTER_STDERR = logging.Formatter("%(levelname)s - %(filename)s:%(funcName)s - %(message)s")
+FORMATTER_LOGFILE = logging.Formatter("%(asctime)s - %(levelname)10s - %(process)d - %(filename)20s : %(funcName)30s - %(message)s")
+FORMATTER_STDERR = logging.Formatter("%(levelname)s - %(filename)20s : %(funcName)30s - %(message)s")
 
 def getLogger(stderr=None, logfile=None, name=None):
     '''to log to stderr set stderr = a level from logging
