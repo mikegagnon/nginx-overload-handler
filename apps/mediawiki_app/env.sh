@@ -25,11 +25,13 @@ source $DIR/../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/../../bouncer/php_bouncer/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/../../siteconfig.sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 MEDIAWIKI_VERSION=`basename $MEDIA_WIKI_LOCAL_PATH`
 INSTALL_MEDIA_WIKI_PATH="$FCGI_USER_HOME/$MEDIAWIKI_VERSION"
 
-MEDIAWIKI_ROOT_URL="http://localhost"
+MEDIAWIKI_ROOT_URL="http://$SERVER_NAME"
 export MEDIAWIKI_ROOT_URL
 
 # A python regular expression. Any page titles that match this RE
