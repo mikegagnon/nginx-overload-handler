@@ -187,7 +187,7 @@ class AnalyzeResults:
         '''Set only_good=True to print only the good configuration'''
         # print keys
         quantile_keys = ["quantile %f" % q for q in sorted(list(self.quantiles))]
-        line = ["period", "completion rate", "throughput"] + quantile_keys
+        line = ["period", "completion rate", "throughput/legit_portion"] + quantile_keys
         line = ",".join(line) + "\n"
         outfile.write(line)
 
