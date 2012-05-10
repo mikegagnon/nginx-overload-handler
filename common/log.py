@@ -16,8 +16,8 @@
 #
 # ==== log.py ====
 #
-# TODO: provide command-line arg parsing
-#
+# TODO: provide command-line arg parsing. Figure out if there's a way to generically
+# catch all uncaught exceptions, and log them
 
 import logging
 import logging.handlers
