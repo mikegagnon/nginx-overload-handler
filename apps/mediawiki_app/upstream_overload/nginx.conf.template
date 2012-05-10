@@ -24,10 +24,10 @@ http {
 
     server {
         listen       80;
-        server_name  localhost;
+        server_name  TEMPLATE_SERVER_NAME;
 
         location / {
-            root   html;
+            root   TEMPLATE_MEDIAWIKI_PATH;
             index  index.html index.htm;
         }
 
@@ -59,13 +59,6 @@ http {
         server    localhost:9002;
         server    localhost:9003;
         server    localhost:9004;
-        server    localhost:9005;
-        server    localhost:9006;
-        server    localhost:9007;
-        server    localhost:9008;
-        server    localhost:9009;
-        server    localhost:9010;
-        server    localhost:9011;
     }
 }
 

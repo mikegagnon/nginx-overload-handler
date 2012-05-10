@@ -26,8 +26,11 @@ source $DIR/../../../nginx_upstream_overload/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/../env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/../../../siteconfig.sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 cat $DIR/nginx.conf.template \
+    | sed "s@TEMPLATE_SERVER_NAME@$SERVER_NAME@g" \
     | sed "s@TEMPLATE_ALERT_PIPE_PATH@$ALERT_PIPE_PATH@g" \
     | sed "s@TEMPLATE_MEDIAWIKI_PATH@$INSTALL_MEDIA_WIKI_PATH@g" \
     > $DIR/nginx.conf

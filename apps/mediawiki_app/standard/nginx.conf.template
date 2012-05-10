@@ -25,10 +25,10 @@ http {
 
     server {
         listen       80;
-        server_name  localhost;
+        server_name  TEMPLATE_SERVER_NAME;
 
         location / {
-            root   html;
+            root TEMPLATE_MEDIAWIKI_PATH;
             index  index.html index.htm;
         }
 
