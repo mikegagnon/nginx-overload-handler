@@ -168,7 +168,7 @@ class Train:
            raise TrainError("The first trial succeeded. Lower initial_period and try again")
         return (period/2.0, period)
 
-    def find_minimal_period(self, precision=5):
+    def find_minimal_period(self, precision=6):
         # Use explore_initial_period to find a pair of periods (fail, success).
         # Then iteratively refine (fail, success) using a binary search (until
         # we reach a desired level of precision).
@@ -207,7 +207,7 @@ class Train:
                 return
 
     def output(self):
-        pass
+        print json.dumps(train.results, indent=2, sort_keys=True)
 
     def train(self):
         self.trial_num = 0
@@ -218,7 +218,6 @@ class Train:
 if __name__ == "__main__":
     import sys
     import os
-    dirname = os.path.dirname(os.path.realpath(__file__))
     cwd = os.getcwd()
 
     default_trace_filename = os.path.join(cwd, "trace.txt")
@@ -261,5 +260,4 @@ if __name__ == "__main__":
         args.test_size)
     train.train()
 
-    print json.dumps(train.results, indent=2, sort_keys=True)
 

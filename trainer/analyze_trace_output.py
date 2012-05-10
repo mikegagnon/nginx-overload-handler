@@ -182,7 +182,7 @@ class AnalyzeResults:
             results[period] = analysis.summary(period, self.quantiles)
         return results
 
-    def print_results(self, only_good=True, outfile=sys.stdout):
+    def print_csv(self, only_good=True, outfile=sys.stdout):
         '''Set only_good=True to print only the good configuration'''
         # print keys
         quantile_keys = ["quantile %f" % q for q in sorted(list(self.quantiles))]
@@ -214,10 +214,21 @@ if __name__ == "__main__":
     default_glob = os.path.join(cwd, "httperf_stdout_*.txt")
 
     parser = argparse.ArgumentParser(description='Analyzes output of trainer. See source for more info.')
+    parser.add_argument("-c", "--completion", type=float, required=False, default=0.95,
+                    help="Default=%(default)f. The minimal completion rate you're willing to accept")
+
+    parser.add_argument('-q', "--quantiles", type=float, nargs='*', default=[0.25, 0.50, 0.75, 1.0],
+                    help='list of quantiles to measure (0.0 < QUANTILE <= 1.0)')
+
+    args = parser.parse_args()
+    print json.dumps(args, default=str, indent=2, sort_keys=True)
+
+    sys.exit(1)
+
     completion = 0.95
     quantiles = set([0.25, 0.50, 0.75, 0.99, 1.0])
     test_size = int(sys.argv[1])
     filenames = sys.argv[2:]
     analysis = AnalyzeResults(completion, quantiles, filenames=filenames, test_size=test_size)
-    analysis.print_results()
+    analysis.print_csv()
 
