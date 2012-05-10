@@ -25,6 +25,7 @@
 if [ "$1" == "" ]
 then
     echo "Error: You need to specify the CONFIG_DIR. See source code."
+    exit 1
 fi
 
 # get absolute path and strip any trailing slashes
