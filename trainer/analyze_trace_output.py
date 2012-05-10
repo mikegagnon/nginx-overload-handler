@@ -25,6 +25,7 @@ import json
 import math
 import argparse
 from scipy import stats
+import glob
 
 class AnalyzeTraceOutput:
     '''Parses a single httperf output file'''
@@ -212,23 +213,28 @@ if __name__ == "__main__":
     cwd = os.getcwd()
 
     default_glob = os.path.join(cwd, "httperf_stdout_*.txt")
+    default_files = glob.glob(default_glob)
 
     parser = argparse.ArgumentParser(description='Analyzes output of trainer. See source for more info.')
     parser.add_argument("-c", "--completion", type=float, required=False, default=0.95,
                     help="Default=%(default)f. The minimal completion rate you're willing to accept")
-
     parser.add_argument('-q', "--quantiles", type=float, nargs='*', default=[0.25, 0.50, 0.75, 1.0],
-                    help='list of quantiles to measure (0.0 < QUANTILE <= 1.0)')
+                    help='Default=%(default)s. list of quantiles to measure (0.0 < QUANTILE <= 1.0)')
+    parser.add_argument('-f', "--files", type=str, nargs='*', default=default_files,
+                    help='Default=%s. list of httperf_stdout_*.txt files to read' % default_glob)
+    parser.add_argument('-ts', "--test-size", type=int, required=True,
+                    help="REQUIRED. The size of each test in the trace file (see --trace and make_trial_trace.py)")
 
     args = parser.parse_args()
-    print json.dumps(args, default=str, indent=2, sort_keys=True)
 
-    sys.exit(1)
+    if len (args.files) == 0:
+        sys.stderr.write("Error: could not find any httperf_stdout_*.txt files. Did you run the trainer?\n")
+        sys.exit(1)
 
-    completion = 0.95
-    quantiles = set([0.25, 0.50, 0.75, 0.99, 1.0])
-    test_size = int(sys.argv[1])
-    filenames = sys.argv[2:]
-    analysis = AnalyzeResults(completion, quantiles, filenames=filenames, test_size=test_size)
+    analysis = AnalyzeResults(
+        args.completion,
+        args.quantiles,
+        filenames=args.files,
+        test_size=args.test_size)
     analysis.print_csv()
 
