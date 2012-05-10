@@ -54,6 +54,14 @@ import subprocess
 import urllib2
 import argparse
 from analyze_trace_output import AnalyzeTraceOutput
+import os
+import sys
+import logging
+
+dirname = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(dirname, '..', 'common'))
+
+import log
 
 class TrainError(Exception):
     pass
@@ -67,7 +75,9 @@ class Train:
             username,
             server,
             num_tests,
-            test_size):
+            test_size,
+            logger):
+        self.logger = logger
         self.completion_rate = completion_rate
         self.initial_period = intial_period
         self.trace_filename = trace_filename
@@ -97,7 +107,7 @@ class Train:
         # a request for that. This has the added benefit in that
         # it will validate that the trainer is parsing the trace
         # correctly
-        print "restart_fcgi_workers(trial_num=%d)" % (trial_num)
+        self.logger.info("trial_num=%d" % (trial_num))
         cmd = ["/home/mgagnon/workspace/nginx-overload-handler/trainer/restart_remote_fcgi.sh",
             self.username,
             self.server]
@@ -113,7 +123,7 @@ class Train:
     def run_httperf(self, period, trial_num):
         '''Executes httperf, adds the results to self.results, and
         returns the completion rate'''
-        print "run_httperf(period=%f, trial_num=%d)" % (period, trial_num)
+        self.logger.info("period=%f, trial_num=%d" % (period, trial_num))
         cmd = ["httperf",
                 "--hog",
                 "--server=%s" % self.server,
@@ -123,7 +133,7 @@ class Train:
                 "--print-reply=header",
                 "--print-request=header"]
 
-        print " ".join(cmd)
+        self.logger.debug(" ".join(cmd))
         #return
 
         httperf_stdout_filename = self.httperf_stdout_template % trial_num
@@ -159,11 +169,11 @@ class Train:
         period.'''
         period = self.initial_period
         completion_rate = self.do_trial(period)
-        print "First trial with initial_period = %f --> %f" % (period, completion_rate)
+        self.logger.info("First trial with initial_period = %f --> %f" % (period, completion_rate))
         while completion_rate < self.completion_rate:
             period *= 2.0
             completion_rate = self.do_trial(period)
-            print "explore trial with period = %f --> %f" % (period, completion_rate)
+            self.logger.info("explore trial with period = %f --> %f" % (period, completion_rate))
         if period == self.initial_period:
            raise TrainError("The first trial succeeded. Lower initial_period and try again")
         return (period/2.0, period)
@@ -172,14 +182,14 @@ class Train:
         # Use explore_initial_period to find a pair of periods (fail, success).
         # Then iteratively refine (fail, success) using a binary search (until
         # we reach a desired level of precision).
-        print "Finding minimal period"
+        self.logger.info("Finding minimal period")
 
         fail_period, success_period = self.explore_initial_period()
 
         for i in range(0, precision):
             trial_period = (fail_period + success_period) / 2.0
             completion_rate = self.do_trial(trial_period)
-            print "(f=%f, try=%f, s=%f] --> %f" % (fail_period, trial_period, success_period, completion_rate)
+            self.logger.info("(f=%f, try=%f, s=%f] --> %f" % (fail_period, trial_period, success_period, completion_rate))
             if completion_rate < self.completion_rate:
                 fail_period = trial_period
             else:
@@ -188,7 +198,7 @@ class Train:
         return success_period
 
     def explore_alternate_periods(self, period, num_trials=10, increase_rate=1.15):
-        print "Finding alternate periods"
+        self.logger.info("Finding alternate periods")
 
         completion_rate = self.results[period]["completion_rate"]
 
@@ -202,7 +212,7 @@ class Train:
         for i in range(0, num_trials):
             period *= increase_rate
             completion_rate = self.do_trial(period)
-            print "Period %f --> %f" % (period, completion_rate)
+            self.logger.info("Period %f --> %f" % (period, completion_rate))
             if completion_rate == 1.0:
                 return
 
@@ -216,15 +226,13 @@ class Train:
         self.output()
 
 if __name__ == "__main__":
-    import sys
-    import os
     cwd = os.getcwd()
 
     default_trace_filename = os.path.join(cwd, "trace.txt")
 
     parser = argparse.ArgumentParser(description='Trains Beer Garden. See source for more info.')
-    parser.add_argument("-c", "--completion", type=float, required=True,
-                    help="REQUIRED. The minimal completion rate you're willing to accept")
+    parser.add_argument("-c", "--completion", type=float, default=0.95,
+                    help="Default=%(default)f. The minimal completion rate you're willing to accept")
     parser.add_argument("-p", "--period", type=float, default=0.01,
                     help="Default=%(default)f. The initial inter-arrival period. Beer Garden should not " \
                     "reach COMPLETION rate when running with PERIOD.")
@@ -241,13 +249,16 @@ if __name__ == "__main__":
                     help="REQUIRED. The size of each test in the trace file (see --trace and make_trial_trace.py)")
 
     args = parser.parse_args()
-    print json.dumps(args, default=str, indent=2, sort_keys=True)
+
+    logname = os.path.basename(__file__)
+    logger = log.getLogger(stderr=logging.INFO, logfile=logging.INFO, name=logname)
+    logger.info("Command line arguments: %s" % str(args))
 
     try:
         with open(args.trace, "r") as f:
             pass
     except:
-        sys.stderr.write("Error: could not open trace file (%s)\n" % args.trace)
+        logger.critical("Error: could not open trace file (%s)" % args.trace)
         sys.exit(1)
 
     train = Train(
@@ -257,7 +268,7 @@ if __name__ == "__main__":
         args.username,
         args.server,
         args.num_tests,
-        args.test_size)
+        args.test_size,
+        logger)
     train.train()
-
 
