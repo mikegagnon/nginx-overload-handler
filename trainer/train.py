@@ -257,7 +257,6 @@ if __name__ == "__main__":
     log.add_arguments(parser)
     args = parser.parse_args()
     logger = log.getLogger(args)
-
     logger.info("Command line arguments: %s" % str(args))
 
     try:
