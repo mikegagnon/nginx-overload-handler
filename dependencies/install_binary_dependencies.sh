@@ -37,6 +37,3 @@ apt-get install -y \
     mysql-client \
     libmysqlclient15-dev
 
-# trainer dependencies
-apt-get install -y httperf
-

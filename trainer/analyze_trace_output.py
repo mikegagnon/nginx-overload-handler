@@ -24,7 +24,6 @@ import re
 import json
 import math
 import argparse
-from scipy import stats
 import glob
 
 class AnalyzeTraceOutput:
