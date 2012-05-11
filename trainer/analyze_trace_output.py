@@ -44,6 +44,7 @@ class AnalyzeTraceOutput:
 
         # parse httperf_output
         request = {}
+        url = {}
         reply = {}
         status = {}
         for line in infile:
@@ -57,10 +58,18 @@ class AnalyzeTraceOutput:
                 if n in reply:
                     raise ValueError("REPLY_TIME%d already seen" % n)
                 reply[n] = timestamp
+            elif re.match(r"SH[0-9]+:GET .* HTTP/1.1", line):
+                n, url_val = AnalyzeTraceOutput.getUrl(line)
+                self.logger.debug("%d %s", n, url_val)
+                if n in url:
+                    raise ValueError("Url for %d already seen in line '%s'" % (n, line))
+                url[n] = url_val
             elif re.match(r"RH[0-9]+:HTTP/1.1 ", line):
                 n, status_val = AnalyzeTraceOutput.getStatus(line)
                 if n in status:
-                    raise ValueError("Status code for %d already seen" % n)
+                    raise ValueError("Status code for %d already seen in line '%s'" % (n, line))
+                if status_val == 404:
+                    raise ValueError("404 encountered in line '%s'. The trainer run is flawed." % line)
                 status[n] = status_val
 
         # build up the latency struct
@@ -78,11 +87,12 @@ class AnalyzeTraceOutput:
           t2 = reply.get(n, float("inf"))
           latency_val = t2 - t1
           status_val = status.get(n, None)
+          url_val = url[n]
 
           if status_val in self.latency[reqType]:
-            self.latency[reqType][status_val][n] = latency_val
+            self.latency[reqType][status_val][n] = (latency_val, url_val)
           else:
-            self.latency[reqType][status_val] = {n : latency_val}
+            self.latency[reqType][status_val] = {n : (latency_val, url_val)}
 
         self.logger.debug("latency = %s", json.dumps(self.latency, indent=2, sort_keys=True))
 
@@ -155,6 +165,15 @@ class AnalyzeTraceOutput:
         parts = line.split(" ")
         status_val = int(parts[1])
         return (n, status_val)
+
+    @staticmethod
+    def getUrl(line):
+        line = line.replace("SH", "").strip()
+        parts = line.split(":")
+        n = int(parts[0])
+        parts = line.split(" ")
+        url_val = parts[1]
+        return (n, url_val)
 
 class AnalyzeResults:
     '''Analyzes the many httperf output files and reports recommended configs'''
