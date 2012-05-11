@@ -51,6 +51,7 @@ from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 from thrift.server import TServer
+from thrift.Thrift import TException
 
 import socket
 import threading
@@ -89,7 +90,7 @@ class WorkerMonitor(threading.Thread):
 
             transport.close()
 
-        except Thrift.TException, exception:
+        except TException, exception:
             print "ERROR while sending workerTerminated to Bouncer %s:%d --> %s" % (bouncer.addr, bouncer.port, exception)
 
     def run(self):
