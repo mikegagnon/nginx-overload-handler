@@ -115,7 +115,12 @@ class Train:
             self.username,
             self.server,
             str(self.sshport)]
-        p = subprocess.Popen(cmd)
+        p = subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        stdoutLogger = log.FileLoggerThread(self.logger, "restart_fcgi_workers stdout", logging.ERROR, p.stdout)
+        stderrLogger = log.FileLoggerThread(self.logger, "restart_fcgi_workers stderr", logging.ERROR, p.stderr)
+        stdoutLogger.start()
+        stderrLogger.start()
+
         ret = p.wait()
         if ret != 0:
             raise TrainError("restart_remote_fcgi.sh for trial %d returned %d" % (trial_num, ret))
@@ -141,22 +146,25 @@ class Train:
         #return
 
         httperf_stdout_filename = self.httperf_stdout_template % trial_num
-        httperf_stderr_filename = self.httperf_stderr_template % trial_num
-        with open(httperf_stdout_filename, "w") as stdout, \
-             open(httperf_stderr_filename, "w") as stderr:
+        #httperf_stderr_filename = self.httperf_stderr_template % trial_num
+        with open(httperf_stdout_filename, "w") as stdout:#, \
+             #open(httperf_stderr_filename, "w") as stderr:
             p = subprocess.Popen(
                 cmd,
                 bufsize=1,
                 stdout=stdout,
-                stderr=stderr)
+                stderr=subprocess.PIPE)
+            stderrLogger = log.FileLoggerThread(self.logger, "httperf stderr", logging.WARNING, p.stderr)
+            stderrLogger.start()
             ret = p.wait()
             if ret != 0:
                 raise TrainError("httperf for trial %d returned %d" % (trial_num, ret))
 
         with open(httperf_stdout_filename, "r") as infile:
-            analysis = AnalyzeTraceOutput(infile, self.test_size)
+            analysis = AnalyzeTraceOutput(infile, self.test_size, self.logger)
 
         self.results[period] = analysis.summary(period, self.quantiles)
+        self.logger.debug("results[period=%f] = %s", period, json.dumps(self.results[period], indent=2, sort_keys=True))
         return self.results[period]["completion_rate"]
 
     def do_trial(self, period):

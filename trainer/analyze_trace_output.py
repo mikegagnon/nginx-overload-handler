@@ -25,12 +25,22 @@ import json
 import math
 import argparse
 import glob
+import os
+
+import logging
+
+DIRNAME = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(DIRNAME, '..', 'common'))
+
+import log
+
 
 class AnalyzeTraceOutput:
     '''Parses a single httperf output file'''
 
-    def __init__(self, infile, test_size, debug = False):
+    def __init__(self, infile, test_size, logger):
         self.test_size = test_size
+        self.logger = logger
 
         # parse httperf_output
         request = {}
@@ -74,8 +84,7 @@ class AnalyzeTraceOutput:
           else:
             self.latency[reqType][status_val] = {n : latency_val}
 
-        if debug:
-            print json.dumps(self.latency, indent=2, sort_keys=True)
+        self.logger.debug("latency = %s", json.dumps(self.latency, indent=2, sort_keys=True))
 
         # legit_latencies is a list of latencies for legit requests
         # requests that have replies with status != 200 have latency = inf
@@ -91,8 +100,7 @@ class AnalyzeTraceOutput:
         self.legit_latencies.sort()
         self.completion_rate = float(self.completed) / float(len(self.legit_latencies))
 
-        if debug:
-            print self.legit_latencies
+        self.logger.debug("legit_latencies = %s", self.legit_latencies)
 
     def throughput(self, period):
         '''Returns throughput, assuming the proportion of
@@ -151,7 +159,8 @@ class AnalyzeTraceOutput:
 class AnalyzeResults:
     '''Analyzes the many httperf output files and reports recommended configs'''
 
-    def __init__(self, completion, quantiles, results=None, filenames=None, test_size=None):
+    def __init__(self, completion, quantiles, logger, results=None, filenames=None, test_size=None):
+        self.logger = logger
         self.completion = completion
         quantiles = set(quantiles)
         quantiles.add(completion)
@@ -177,7 +186,7 @@ class AnalyzeResults:
                 parts = line.split()
                 rate = float(filter(lambda x: x.startswith("--rate"), parts)[0].lstrip("--rate="))
                 period = 1.0 / rate
-                analysis = AnalyzeTraceOutput(infile, test_size)
+                analysis = AnalyzeTraceOutput(infile, test_size, self.logger)
 
             results[period] = analysis.summary(period, self.quantiles)
         return results
@@ -224,7 +233,10 @@ if __name__ == "__main__":
     parser.add_argument('-ts', "--test-size", type=int, required=True,
                     help="REQUIRED. The size of each test in the trace file (see --trace and make_trial_trace.py)")
 
+    log.add_arguments(parser)
     args = parser.parse_args()
+    logger = log.getLogger(args)
+    logger.info("Command line arguments: %s" % str(args))
 
     if len (args.files) == 0:
         sys.stderr.write("Error: could not find any httperf_stdout_*.txt files. Did you run the trainer?\n")
@@ -233,6 +245,7 @@ if __name__ == "__main__":
     analysis = AnalyzeResults(
         args.completion,
         args.quantiles,
+        logger,
         filenames=args.files,
         test_size=args.test_size)
     analysis.print_csv()
