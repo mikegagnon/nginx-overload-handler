@@ -75,7 +75,8 @@ def getLogger(stderr=None, logfile=None, name=None):
         logger.addHandler(handler)
     logger.setLevel(min_level)
     logger.debug("New logger instance")
-
+    if logfile != None:
+        logger.debug("Recording logs in %s" % filename)
     func = lambda typ, value, traceback: uncaughtException(logger, typ, value, traceback)
     sys.excepthook = func
 
@@ -89,4 +90,3 @@ if __name__ == "__main__":
     log.info("test")
     log.debug("test")
     raise ValueError("foo")
-    print 1
