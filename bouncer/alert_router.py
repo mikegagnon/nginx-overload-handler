@@ -35,11 +35,14 @@
 import sys
 import os
 
-dirname = os.path.dirname(os.path.realpath(__file__))
+DIRNAME = os.path.dirname(os.path.realpath(__file__))
 
-sys.path.append(os.path.join(dirname, 'gen-py'))
+sys.path.append(os.path.join(DIRNAME, 'gen-py'))
+sys.path.append(os.path.join(DIRNAME, '..', 'common'))
 
+import log
 import import_thrift_lib
+import logging
 
 import time
 import json
@@ -55,6 +58,8 @@ from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 
+import time
+
 from bouncer_common import *
 
 # Request a heartbeat every HEART_BEAT_PERIOD seconds
@@ -65,8 +70,9 @@ class GetBouncerException(ValueError):
 
 class AlertRouter:
 
-    def __init__(self, config):
+    def __init__(self, config, logger):
         self.config = config
+        self.logger = logger
 
     def requestHeartbeat(self):
         for bouncer in self.config.bouncer_list:
@@ -83,15 +89,15 @@ class AlertRouter:
                 transport.close()
 
                 if result == []:
-                    print "Bouncer %s:%d heartbeat = OK" % (bouncer.addr, bouncer.port)
+                    self.logger.debug("Bouncer %s:%d heartbeat = OK" % (bouncer.addr, bouncer.port))
                 elif result != self.config.bouncer_map[str(bouncer)]:
-                    print "Error: the bouncer's configuration == %s does not match the " \
-                        "alert_router's configuration == %s" % (result, self.config.bouncer_map[str(bouncer)])
+                    self.logger.error("Error: the bouncer's configuration == %s does not match the " \
+                        "alert_router's configuration == %s" % (result, self.config.bouncer_map[str(bouncer)]))
                 else:
-                    print "Good: the bouncer's configuration and the alert_router's configuration match"
+                    self.logger.info("Good: the bouncer's configuration and the alert_router's configuration match")
 
             except Thrift.TException, exception:
-                print "ERROR while requesting heartbeat from Bouncer %s:%d --> %s" % (bouncer.addr, bouncer.port, exception)
+                self.logger.error("Error while requesting heartbeat from Bouncer %s:%d --> %s" % (bouncer.addr, bouncer.port, exception))
 
     # TODO: Find and fix bug. During one run the boucner hung after
     # printing "Sending alert" suggesting this method never finished
@@ -111,23 +117,20 @@ class AlertRouter:
 
           transport.close()
 
-          print "Successfully sent alert '%s' to Bouncer '%s:%d'" % \
-            (alert_message, bouncer.addr, bouncer.port)
+          self.logger.info("Successfully sent alert '%s' to Bouncer '%s:%d'" % \
+            (alert_message, bouncer.addr, bouncer.port))
 
         except BouncerException, e:
-            print "Bouncer ERROR: %s" % e
-            sys.stdout.flush()
+            self.logger.error("Bouncer ERROR: %s" % e)
         except Thrift.TException, e:
-            print "Thrift exception: %s" % e
-            sys.stdout.flush()
-
+            self.logger.error("Thrift exception: %s" % e)
 
     def getBouncer(self, pipe_message):
         '''Returns a BoucerAddress object for bouncer that should receive the alert.
         Returns None if the pipe_message should be ignored.
         Throws a GetBouncerException exception if there is a problem.'''
         if pipe_message == "init":
-            print "Ignoring 'init' pipe_message"
+            self.logger.debug("Ignoring 'init' pipe_message")
             return None
         else:
             if pipe_message in self.config.worker_map:
@@ -139,43 +142,43 @@ class AlertRouter:
 
         while True:
             try:
-                print "Waiting for pipe to open"
+                self.logger.info("Waiting for pipe to open")
                 with open(self.config.alert_pipe) as alert_pipe:
-                    print "Pipe opened"
+                    self.logger.debug("Pipe opened")
                     self.requestHeartbeat()
                     while True:
-                        print "Waiting for message"
+                        self.logger.info("Waiting for message")
                         rfds, _, _ = select( [alert_pipe], [], [], HEART_BEAT_PERIOD)
                         # if reading alert_pipe timed out
                         if len(rfds) == 0:
                             self.requestHeartbeat()
                         else:
-                            print "Received message (or pipe closed)"
+                            self.logger.debug("Received message (or pipe closed)")
                             pipe_message = alert_pipe.readline()
                             if pipe_message == "":
-                                print "Pipe closed"
+                                self.logger.info("Pipe closed")
                                 break
                             else:
                                 pipe_message = pipe_message.rstrip()
-                                print 'Received from pipe: "%s"' % pipe_message
+                                self.logger.debug('Received from pipe: "%s"' % pipe_message)
                                 try:
-                                    print "Getting bouncer"
+                                    self.logger.debug("Getting bouncer")
                                     bouncer = self.getBouncer(pipe_message)
-                                    print "Got bouncer"
+                                    self.logger.debug("Got bouncer")
                                 except GetBouncerException, e:
-                                    print "ERROR: %s" % e.message
+                                    self.logger.error(e.message)
                                     bouncer = None
 
                                 if bouncer:
-                                    print "Sending alert"
+                                    self.logger.info("Sending alert")
                                     self.sendAlert(bouncer, pipe_message)
-                                    print "Sent alert"
+                                    self.logger.debug("Sent alert")
                                 else:
-                                    print "Not sending alert"
+                                    self.logger.debug("Not sending alert")
 
             except Exception as e:
-                traceback.print_exc()
-                sys.stdout.flush()
+                self.logger.exception("unexpected exception")
+                time.sleep(1)
 
 def print_usage():
     print "Usage: %s [config_filename]" % sys.argv[0]
@@ -183,6 +186,8 @@ def print_usage():
     print ""
 
 if __name__ == "__main__":
+
+    logger = log.getLogger(stderr=logging.INFO, logfile=logging.INFO)
 
     if len(sys.argv) == 2:
         config_filename = sys.argv[1]
@@ -197,7 +202,7 @@ if __name__ == "__main__":
             print
             raise
 
-        alert_router = AlertRouter(config)
+        alert_router = AlertRouter(config, logger)
         alert_router.run()
 
     else:
