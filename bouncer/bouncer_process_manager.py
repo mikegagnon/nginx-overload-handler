@@ -37,10 +37,15 @@
 
 import sys
 import os
+import inspect
+import logging
 
-dirname = os.path.dirname(os.path.realpath(__file__))
+DIRNAME = os.path.dirname(os.path.realpath(__file__))
 
-sys.path.append(os.path.join(dirname, 'gen-py'))
+sys.path.append(os.path.join(DIRNAME, 'gen-py'))
+sys.path.append(os.path.join(DIRNAME, '..', 'common'))
+
+import log
 
 import import_thrift_lib
 
@@ -67,17 +72,18 @@ class WorkerMonitor(threading.Thread):
     '''A thread that watches a worker process and sends workerTerminated
     message when the worker terminates.'''
 
-    def __init__(self, popen_obj, bouncerAddr, worker):
+    def __init__(self, popen_obj, bouncerAddr, worker, logger):
         '''popen_obj is an instance of subprocess.Popen for the worker to be monitored.
         bouncerAddr is the BouncerAddress objcect for this bouncer.
         worker is a string like "127.0.0.1:9001".'''
         self.popen_obj = popen_obj
         self.bouncerAddr = bouncerAddr
         self.worker = worker
+        self.logger = logger
         super(WorkerMonitor, self).__init__()
 
     def sendMessage(self):
-        print "Sending worker-terminated message for worker '%s' to bouncer" % self.worker
+        self.logger.info("Sending worker-terminated message for worker '%s' to bouncer" % self.worker)
         try:
             transport = TSocket.TSocket(self.bouncerAddr.addr, self.bouncerAddr.port)
             transport = TTransport.TBufferedTransport(transport)
@@ -91,12 +97,12 @@ class WorkerMonitor(threading.Thread):
             transport.close()
 
         except TException, exception:
-            print "ERROR while sending workerTerminated to Bouncer %s:%d --> %s" % (self.bouncerAddr.addr, self.bouncerAddr.port, exception)
+            self.logger.error("Error while sending workerTerminated to Bouncer %s:%d --> %s" % (self.bouncerAddr.addr, self.bouncerAddr.port, exception))
 
     def run(self):
-        print "Monitor launched for worker '%s'" % self.worker
+        self.logger.debug("Monitor launched for worker '%s'" % self.worker)
         self.popen_obj.wait()
-        print "Monitor for worker '%s': worker terminated" % self.worker
+        self.logger.info("Monitor for worker '%s': worker terminated" % self.worker)
         self.sendMessage()
 
 class BouncerProcessManager(object):
@@ -122,7 +128,8 @@ class BouncerProcessManager(object):
             raise ValueError("There should be exactly one : in '%s'" % worker)
         return (parts[0], int(parts[1]))
 
-    def __init__(self, config, addr, port):
+    def __init__(self, config, addr, port, logger):
+        self.logger = logger
         self.config = config
         self.bouncerAddr = BouncerAddress(addr, port)
         if str(self.bouncerAddr) not in self.config.bouncer_map:
@@ -139,7 +146,7 @@ class BouncerProcessManager(object):
             except ValueError, e:
                 raise StartWorkerFailed("Could not start worker '%s' because it is malformed" % worker)
 
-            print "Trying to start worker: %s" % worker
+            self.logger.info("Starting worker: %s" % worker)
             popen_obj = self.start_worker(addr, port)
             if (popen_obj == None):
                 raise StartWorkerFailed("Could not start worker '%s' for unknown reason" % worker)
@@ -147,7 +154,7 @@ class BouncerProcessManager(object):
             self.worker_popen_map[worker] = popen_obj
 
             # Launch the WorkerMonitor thread for this worker
-            WorkerMonitor(popen_obj, self.bouncerAddr, worker).start()
+            WorkerMonitor(popen_obj, self.bouncerAddr, worker, self.logger).start()
 
     def start_worker(self, addr, port):
         '''Must attempt to launch the specified worker. Should return the popen object for the new worker
@@ -159,7 +166,7 @@ class BouncerProcessManager(object):
         pass
 
     def alert(self, alert_message):
-        print "Received alert '%s'" % alert_message
+        self.logger.info("Received alert '%s'" % alert_message)
         worker = alert_message
 
         if worker not in self.workers:
@@ -176,7 +183,7 @@ class BouncerProcessManager(object):
         if popen_obj == None:
             raise BouncerException("Worker '%s' does not seem to be running (its popen_obj == None)" % worker)
 
-        print "Killing worker '%s'" % worker
+        self.logger.info("Killing worker '%s'" % worker)
         self.kill_worker(addr, port, popen_obj)
 
         # No need to start worker manually; the WorkerMonitor thread for that worker
@@ -186,28 +193,28 @@ class BouncerProcessManager(object):
     def heartbeat(self):
 
         if self.receivedFirstHeartbeat:
-            print "Received heartbeat"
+            self.logger.debug("Received heartbeat")
             return []
         else:
-            print "Received first heartbeat"
+            self.logger.info("Received first heartbeat")
             self.receivedFirstHeartbeat = True
             return self.workers
 
     def workerTerminated(self, worker):
-        print "Received workerCrashed(%s) message" % worker
+        self.logger.info("Received workerCrashed(%s) message" % worker)
         try:
             addr, port = BouncerProcessManager.parse_worker(worker)
         except ValueError, e:
-            print "Could not handle message because worker '%s' is malformed" % worker
+            self.logger.error("Could not handle message because worker '%s' is malformed" % worker)
             return
-        print "Trying to start the worker"
+        self.logger.debug("Trying to start the worker")
         popen_obj = self.start_worker(addr, port)
         self.worker_popen_map[worker] = popen_obj
         if popen_obj != None:
             # Launch the WorkerMonitor thread for this worker
             WorkerMonitor(popen_obj, self.bouncerAddr, worker).start()
         else:
-            print "Could not start the worker"
+            self.logger.error("Could not start the worker")
 
     def run(self):
         processor = BouncerService.Processor(self)
@@ -217,9 +224,9 @@ class BouncerProcessManager(object):
 
         server = TServer.TSimpleServer(processor, transport, tfactory, pfactory)
 
-        print "Starting Bouncer process manager on port %d" % self.bouncerAddr.port
+        self.logger.info("Starting Bouncer process manager on port %d" % self.bouncerAddr.port)
         server.serve()
-        print "finished"
+        self.logger.info("finished")
 
 def print_usage():
     print "Usage: %s [config_filename] [bouncer_ip_address] [bouncer_port]" % sys.argv[0]
@@ -233,6 +240,11 @@ def main(BouncerSubclass):
             main(FooSubclass)
     which parses command line arguments, instantiates your sublcass, and runs its server.'''
 
+    _,filename,_,_,_,_ = inspect.getouterframes(inspect.currentframe())[1]
+    logname = os.path.basename(filename)
+
+    logger = log.getLogger(stderr=logging.INFO, logfile=logging.INFO, name=logname)
+
     if not issubclass(BouncerSubclass, BouncerProcessManager):
         raise ValueError("The given class, %s, is not a subclass of BouncerProcessManager" % bouncerClass)
 
@@ -243,13 +255,12 @@ def main(BouncerSubclass):
         try:
             with open(config_filename) as f:
                 config = Config(f)
-            bpm = BouncerSubclass(config, addr, port)
+            bpm = BouncerSubclass(config, addr, port, logger)
         except IOError:
-            print "Could not open config file %s" % config_filename
+            logger.critical("Could not open config file %s" % config_filename)
             sys.exit(1)
         except:
-            print "Error while parsing config file. View bouncer/bouncer_common.py for format of config."
-            print
+            logger.critical("Error while parsing config file. View bouncer/bouncer_common.py for format of config.")
             raise
         bpm.run()
 

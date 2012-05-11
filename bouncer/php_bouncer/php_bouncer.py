@@ -34,8 +34,6 @@ from bouncer_process_manager import BouncerProcessManager
 
 PHP_FCGI_CMD_TEMPLATE_STR = '/usr/bin/php5-cgi -b $addr:$port'
 
-print "PHP_FCGI_CMD_TEMPLATE_STR='%s'" % PHP_FCGI_CMD_TEMPLATE_STR
-
 class BouncerForPhp(BouncerProcessManager):
 
     def start_worker(self, addr, port):
@@ -45,7 +43,7 @@ class BouncerForPhp(BouncerProcessManager):
                 addr = addr, \
                 port = str(port) \
             )
-        print "cmd_str='%s'" % cmd_str
+        self.logger.debug("cmd_str='%s'" % cmd_str)
         cmd = cmd_str.split()
         return subprocess.Popen(cmd)
 
@@ -54,7 +52,7 @@ class BouncerForPhp(BouncerProcessManager):
         try:
             popen_obj.kill()
         except OSError, e:
-            print "Error while trying to kill '%s:%d': %s" % (addr, port, e)
+            self.error("Error while trying to kill '%s:%d': %s" % (addr, port, e))
 
 bouncer_process_manager.main(BouncerForPhp)
 
