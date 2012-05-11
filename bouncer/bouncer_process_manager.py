@@ -212,7 +212,7 @@ class BouncerProcessManager(object):
         self.worker_popen_map[worker] = popen_obj
         if popen_obj != None:
             # Launch the WorkerMonitor thread for this worker
-            WorkerMonitor(popen_obj, self.bouncerAddr, worker).start()
+            WorkerMonitor(popen_obj, self.bouncerAddr, worker, self.logger).start()
         else:
             self.logger.error("Could not start the worker")
 
