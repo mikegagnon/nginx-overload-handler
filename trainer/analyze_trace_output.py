@@ -60,7 +60,6 @@ class AnalyzeTraceOutput:
                 reply[n] = timestamp
             elif re.match(r"SH[0-9]+:GET .* HTTP/1.1", line):
                 n, url_val = AnalyzeTraceOutput.getUrl(line)
-                self.logger.debug("%d %s", n, url_val)
                 if n in url:
                     raise ValueError("Url for %d already seen in line '%s'" % (n, line))
                 url[n] = url_val
@@ -103,10 +102,11 @@ class AnalyzeTraceOutput:
         for status_val in self.latency["legit"]:
             for _, latency_val in self.latency["legit"][status_val].items():
                 if status_val == 200:
-                    self.legit_latencies.append(latency_val)
+                #    self.legit_latencies.append(latency_val)
                     self.completed += 1
                 else:
-                    self.legit_latencies.append(float("inf"))
+                    latency_val = (float("inf"), latency_val[1])
+                self.legit_latencies.append(latency_val)
         self.legit_latencies.sort()
         self.completion_rate = float(self.completed) / float(len(self.legit_latencies))
 
@@ -235,6 +235,10 @@ class AnalyzeResults:
             line = ",".join(line) + "\n"
             outfile.write(line)
 
+    def print_json(self, outfile=sys.stdout):
+        '''Set only_good=True to print only the good configuration'''
+        print json.dumps(self.results, indent=2, sort_keys=True)
+
 if __name__ == "__main__":
     import os
     cwd = os.getcwd()
@@ -251,6 +255,8 @@ if __name__ == "__main__":
                     help='Default=%s. list of httperf_stdout_*.txt files to read' % default_glob)
     parser.add_argument('-ts', "--test-size", type=int, required=True,
                     help="REQUIRED. The size of each test in the trace file (see --trace and make_trial_trace.py)")
+    parser.add_argument('-o', "--output", type=str, nargs="+", default="csv", choices=["csv", "json"],
+                    help="Default=%(default)s.")
 
     log.add_arguments(parser)
     args = parser.parse_args()
@@ -267,5 +273,8 @@ if __name__ == "__main__":
         logger,
         filenames=args.files,
         test_size=args.test_size)
-    analysis.print_csv()
+    if "csv" in args.output:
+        analysis.print_csv()
+    if "json" in args.output:
+        analysis.print_json()
 
