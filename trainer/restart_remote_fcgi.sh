@@ -18,7 +18,7 @@
 #
 # executes restart_fcgi.sh on the remote server
 #
-# USAGE: ./restart_remote_fcgi.sh username server
+# USAGE: ./restart_remote_fcgi.sh username server port
 #   where username is the username to log in as (via ssh)
 #   and server is the address of the server to log in to
 #
@@ -35,5 +35,5 @@
 #   username ALL=(ALL) NOPASSWD: /usr/local/bin/restart_fcgi.sh
 #
 
-ssh -f $1@$2 "nohup sudo -n restart_fcgi.sh > /dev/null &"
+ssh -f $1@$2 -p $3 "nohup sudo -n restart_fcgi.sh > /dev/null &"
 sleep 5

@@ -58,8 +58,9 @@ import os
 import sys
 import logging
 
-dirname = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(dirname, '..', 'common'))
+DIRNAME = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(DIRNAME, '..', 'common'))
+RESTART_SCRIPT = os.path.join(DIRNAME, "restart_remote_fcgi.sh")
 
 import log
 
@@ -74,6 +75,7 @@ class Train:
             trace_filename,
             username,
             server,
+            sshport,
             num_tests,
             test_size,
             logger):
@@ -83,6 +85,7 @@ class Train:
         self.trace_filename = trace_filename
         self.username = username
         self.server = server
+        self.sshport = sshport
         self.num_tests = num_tests
         self.test_size = test_size
         # there should be self.num_requests sessions in self.trace_filename
@@ -108,9 +111,10 @@ class Train:
         # it will validate that the trainer is parsing the trace
         # correctly
         self.logger.info("trial_num=%d" % (trial_num))
-        cmd = ["/home/mgagnon/workspace/nginx-overload-handler/trainer/restart_remote_fcgi.sh",
+        cmd = [RESTART_SCRIPT,
             self.username,
-            self.server]
+            self.server,
+            str(self.sshport)]
         p = subprocess.Popen(cmd)
         ret = p.wait()
         if ret != 0:
@@ -243,6 +247,8 @@ if __name__ == "__main__":
                     "invoking restart_remote_fcgi.sh (see its source for PREREQs for username)")
     parser.add_argument("-s", "--server", type=str, required=True,
                     help="REQUIRED. The address of the server running Beer Garden.")
+    parser.add_argument("--sshport", type=int, default=22,
+                    help="Default=%(default)s. The port of the server listens for ssh.")
     parser.add_argument("-n", "--num-tests", type=int, required=True,
                     help="REQUIRED. The number of tests in the trace file (see --trace and make_trial_trace.py)")
     parser.add_argument("-ts", "--test-size", type=int, required=True,
@@ -267,6 +273,7 @@ if __name__ == "__main__":
         args.trace,
         args.username,
         args.server,
+        args.sshport,
         args.num_tests,
         args.test_size,
         logger)
