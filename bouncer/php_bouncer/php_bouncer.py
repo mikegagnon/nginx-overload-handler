@@ -24,11 +24,14 @@ import os
 import subprocess
 import time
 from string import Template
+import logging
 
 dirname = os.path.dirname(os.path.realpath(__file__))
 
 sys.path.append(os.path.join(dirname, '..'))
+sys.path.append(os.path.join(dirname, '..', '..', 'common'))
 
+import log
 import bouncer_process_manager
 from bouncer_process_manager import BouncerProcessManager
 
@@ -45,14 +48,19 @@ class BouncerForPhp(BouncerProcessManager):
             )
         self.logger.debug("cmd_str='%s'" % cmd_str)
         cmd = cmd_str.split()
-        return subprocess.Popen(cmd)
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdoutLogger = log.FileLoggerThread(self.logger, "php5-cgi stdout", logging.INFO, process.stdout)
+        stderrLogger = log.FileLoggerThread(self.logger, "php5-cgi stderr", logging.ERROR, process.stderr)
+        stdoutLogger.start()
+        stderrLogger.start()
+        return process
 
     def kill_worker(self, addr, port, popen_obj):
         '''Must attempt to kill the specified worker. Does not return anything'''
         try:
             popen_obj.kill()
         except OSError, e:
-            self.error("Error while trying to kill '%s:%d': %s" % (addr, port, e))
+            self.logger.error("Error while trying to kill '%s:%d': %s" % (addr, port, e))
 
 bouncer_process_manager.main(BouncerForPhp)
 

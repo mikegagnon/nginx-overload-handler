@@ -16,7 +16,7 @@
 #
 # ==== log.py ====
 #
-# TODO: Re-direct output to stdout / stderr to logger
+# TODO: Re-direct stdout / stderr to logger
 #
 
 import logging
@@ -26,6 +26,7 @@ import os
 import traceback
 import inspect
 import argparse
+import threading
 
 DIRNAME = os.path.dirname(os.path.realpath(__file__))
 LOGDIR = os.path.join(DIRNAME, "..", "log")
@@ -41,6 +42,26 @@ def uncaughtException(logger, typ, value, tb):
     exception_lines = traceback.format_exception(typ, value, tb)
     for line in exception_lines:
         logger.critical(line.strip())
+
+# Example usage:
+#   process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+#   stdoutLogger = log.FileLoggerThread(self.logger, "php5-cgi stdout", logging.INFO, process.stdout)
+#   stdoutLogger.start()
+class FileLoggerThread(threading.Thread):
+
+    def __init__(self, logger, prefix, level, infile):
+        '''Reads lines from infile and logs them to logger.'''
+        super(FileLoggerThread, self).__init__()
+        self.logger = logger
+        self.prefix = prefix
+        self.level = level
+        self.infile = infile
+
+    def run(self):
+        for line in self.infile:
+            line = line.strip()
+            msg = "[%s] %s" % (self.prefix, line)
+            self.logger.log(self.level, msg)
 
 def getLogger(args=None, stderr=None, logfile=None, name=None):
     '''to log to stderr set stderr = a level from logging
@@ -123,5 +144,6 @@ if __name__ == "__main__":
     logger.warning("test")
     logger.info("test")
     logger.debug("test")
+    print 1
     raise ValueError("foo")
 

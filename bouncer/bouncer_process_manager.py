@@ -39,6 +39,7 @@ import sys
 import os
 import inspect
 import logging
+import argparse
 
 DIRNAME = os.path.dirname(os.path.realpath(__file__))
 
@@ -97,7 +98,7 @@ class WorkerMonitor(threading.Thread):
             transport.close()
 
         except TException, exception:
-            self.logger.error("Error while sending workerTerminated to Bouncer %s:%d --> %s" % (self.bouncerAddr.addr, self.bouncerAddr.port, exception))
+            self.logger.exception("Error while sending workerTerminated to Bouncer %s:%d" % (self.bouncerAddr.addr, self.bouncerAddr.port))
 
     def run(self):
         self.logger.debug("Monitor launched for worker '%s'" % self.worker)
@@ -243,28 +244,44 @@ def main(BouncerSubclass):
     _,filename,_,_,_,_ = inspect.getouterframes(inspect.currentframe())[1]
     logname = os.path.basename(filename)
 
-    logger = log.getLogger(stderr=logging.INFO, logfile=logging.INFO, name=logname)
+    cwd = os.getcwd()
+
+    default_config = os.path.join(cwd, "bouncer_config.json")
+
+
+    parser = argparse.ArgumentParser(description='Bouncer process manager for %s' % logname)
+    parser.add_argument("-c", "--config", type=str, default=default_config,
+                        help="Default=%(default)s. The config file. See bouncer/bouncer_common.py for config-file format.")
+    parser.add_argument("-a", "--addr", type=str, default="127.0.0.1",
+                        help="Default=%(default)s. Address where the bouncer listens from")
+    parser.add_argument("-p", "--port", type=int, default=3001,
+                        help="Default=%(default)d. Port where the bouncer listens from")
+
+    log.add_arguments(parser)
+    args = parser.parse_args()
+    logger = log.getLogger(args, name=logname)
+    logger.info("Command line arguments: %s" % str(args))
+
+    try:
+        with open(args.config, "r") as f:
+            pass
+    except:
+        logger.critical("Error: could not open config file (%s)" % args.config)
+        sys.exit(1)
 
     if not issubclass(BouncerSubclass, BouncerProcessManager):
         raise ValueError("The given class, %s, is not a subclass of BouncerProcessManager" % bouncerClass)
 
-    if len(sys.argv) == 4:
-        config_filename = sys.argv[1]
-        addr = sys.argv[2]
-        port = int(sys.argv[3])
-        try:
-            with open(config_filename) as f:
-                config = Config(f)
-            bpm = BouncerSubclass(config, addr, port, logger)
-        except IOError:
-            logger.critical("Could not open config file %s" % config_filename)
-            sys.exit(1)
-        except:
-            logger.critical("Error while parsing config file. View bouncer/bouncer_common.py for format of config.")
-            raise
-        bpm.run()
+    config_filename = args.config
+    addr = args.addr
+    port = args.port
+    try:
+        with open(config_filename) as f:
+            config = Config(f)
+        bpm = BouncerSubclass(config, addr, port, logger)
+    except:
+        logger.critical("Error while parsing config file. View bouncer/bouncer_common.py for format of config.")
+        raise
+    bpm.run()
 
-    else:
-        print_usage()
-        sys.exit(1)
 
