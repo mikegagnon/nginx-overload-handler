@@ -91,7 +91,7 @@ class WorkerMonitor(threading.Thread):
             transport.close()
 
         except TException, exception:
-            print "ERROR while sending workerTerminated to Bouncer %s:%d --> %s" % (bouncer.addr, bouncer.port, exception)
+            print "ERROR while sending workerTerminated to Bouncer %s:%d --> %s" % (self.bouncerAddr.addr, self.bouncerAddr.port, exception)
 
     def run(self):
         print "Monitor launched for worker '%s'" % self.worker
