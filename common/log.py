@@ -16,8 +16,8 @@
 #
 # ==== log.py ====
 #
-# TODO: provide command-line arg parsing. Figure out if there's a way to generically
-# catch all uncaught exceptions, and log them
+# TODO: Re-direct output to stdout / stderr to logger
+#
 
 import logging
 import logging.handlers
@@ -25,6 +25,7 @@ import sys
 import os
 import traceback
 import inspect
+import argparse
 
 DIRNAME = os.path.dirname(os.path.realpath(__file__))
 LOGDIR = os.path.join(DIRNAME, "..", "log")
@@ -41,7 +42,7 @@ def uncaughtException(logger, typ, value, tb):
     for line in exception_lines:
         logger.critical(line.strip())
 
-def getLogger(stderr=None, logfile=None, name=None):
+def getLogger(args=None, stderr=None, logfile=None, name=None):
     '''to log to stderr set stderr = a level from logging
     to log to ../log/foo.log set logfile = a level from logging and
     set name = "foo"'''
@@ -52,8 +53,15 @@ def getLogger(stderr=None, logfile=None, name=None):
         name = os.path.basename(filename)
 
     logger = logging.getLogger(name)
-    if not (stderr != None or logfile != None):
-        raise ValueError("You must set at least one of stderr or logfile to a logging level")
+    # for some readon the expression 'args == None' causes a TypeError (motivating isinstance)
+    if stderr == None and logfile == None and not isinstance(args, argparse.Namespace):
+        raise ValueError("You must set at least one of stderr or logfile to a logging level (or args)")
+    if (stderr != None or logfile != None) and isinstance(args, argparse.Namespace):
+        raise ValueError("You must set (stderr and/or logfile) or args, but not both")
+    if isinstance(args, argparse.Namespace):
+        stderr = loggingMap[args.stderr]
+        logfile = loggingMap[args.logfile]
+
     handlers = []
     if stderr != None:
         handler = logging.StreamHandler(sys.stderr)
@@ -82,11 +90,37 @@ def getLogger(stderr=None, logfile=None, name=None):
 
     return logger
 
+loggingChoices = ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "off"]
+loggingMap = {
+    "CRITICAL" : logging.CRITICAL,
+    "ERROR" : logging.ERROR,
+    "WARNING" : logging.WARNING,
+    "INFO" : logging.INFO,
+    "DEBUG" : logging.DEBUG,
+    "off" : None}
+
+# USAGE:
+#    parser = argparse.ArgumentParser()
+#    log.add_arguments(parser)
+#    args = parser.parse_args()
+#    logger = log.getLogger(args)
+def add_arguments(parser):
+    # TODO: use Action class top convert string to logging level
+    parser.add_argument("--stderr", type=str, default="INFO", choices=loggingChoices,
+                    help="Default=%(default)s. Logging level for stderr.")
+    parser.add_argument("--logfile", type=str, default="INFO", choices=loggingChoices,
+                    help="Default=%(default)s. Logging level for log file.")
+
 if __name__ == "__main__":
-    log = getLogger(stderr=logging.INFO,logfile=logging.DEBUG)
-    log.critical("test")
-    log.error("test")
-    log.warning("test")
-    log.info("test")
-    log.debug("test")
+    parser = argparse.ArgumentParser()
+    add_arguments(parser)
+    args = parser.parse_args()
+    logger = getLogger(args)
+
+    logger.critical("test")
+    logger.error("test")
+    logger.warning("test")
+    logger.info("test")
+    logger.debug("test")
     raise ValueError("foo")
+

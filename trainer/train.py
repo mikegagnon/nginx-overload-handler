@@ -254,10 +254,10 @@ if __name__ == "__main__":
     parser.add_argument("-ts", "--test-size", type=int, required=True,
                     help="REQUIRED. The size of each test in the trace file (see --trace and make_trial_trace.py)")
 
+    log.add_arguments(parser)
     args = parser.parse_args()
+    logger = log.getLogger(args)
 
-    logname = os.path.basename(__file__)
-    logger = log.getLogger(stderr=logging.INFO, logfile=logging.INFO, name=logname)
     logger.info("Command line arguments: %s" % str(args))
 
     try:
