@@ -36,6 +36,8 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 cd $DIR
 
+sudo common/install.sh
+
 # Install binary dependencies
 sudo ./dependencies/install_binary_dependencies.sh
 
