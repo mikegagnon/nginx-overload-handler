@@ -23,6 +23,8 @@ import logging
 import logging.handlers
 import sys
 import os
+import traceback
+import inspect
 
 DIRNAME = os.path.dirname(os.path.realpath(__file__))
 LOGDIR = os.path.join(DIRNAME, "..", "log")
@@ -32,7 +34,12 @@ MAX_LOGFILE_BYTES = 1024 * 1024 * 1 # 1 MB
 BACKUP_COUNT = 5
 
 FORMATTER_LOGFILE = logging.Formatter("%(asctime)s - %(levelname)10s - %(process)d - %(filename)20s : %(funcName)30s - %(message)s")
-FORMATTER_STDERR = logging.Formatter("%(levelname)s - %(filename)20s : %(funcName)30s - %(message)s")
+FORMATTER_STDERR = logging.Formatter("%(levelname)10s - %(filename)20s : %(funcName)30s - %(message)s")
+
+def uncaughtException(logger, typ, value, tb):
+    exception_lines = traceback.format_exception(typ, value, tb)
+    for line in exception_lines:
+        logger.critical(line.strip())
 
 def getLogger(stderr=None, logfile=None, name=None):
     '''to log to stderr set stderr = a level from logging
@@ -40,8 +47,10 @@ def getLogger(stderr=None, logfile=None, name=None):
     set name = "foo"'''
 
     if name == None:
-        # TODO: Get the filename of the caller
-        name = "default"
+        # Get the filename of the caller
+        _,filename,_,_,_,_ = inspect.getouterframes(inspect.currentframe())[1]
+        name = os.path.basename(filename)
+
     logger = logging.getLogger(name)
     if not (stderr != None or logfile != None):
         raise ValueError("You must set at least one of stderr or logfile to a logging level")
@@ -66,6 +75,10 @@ def getLogger(stderr=None, logfile=None, name=None):
         logger.addHandler(handler)
     logger.setLevel(min_level)
     logger.debug("New logger instance")
+
+    func = lambda typ, value, traceback: uncaughtException(logger, typ, value, traceback)
+    sys.excepthook = func
+
     return logger
 
 if __name__ == "__main__":
@@ -75,4 +88,5 @@ if __name__ == "__main__":
     log.warning("test")
     log.info("test")
     log.debug("test")
-
+    raise ValueError("foo")
+    print 1
