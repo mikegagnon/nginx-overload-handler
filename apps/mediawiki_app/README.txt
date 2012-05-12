@@ -19,7 +19,8 @@ nginx-overload-handler's ability to handle HashDoS attacks. Attack code is not
 included in this repository.
 
 ==== Prereq ====
-Install nginx-overload-handler via ../../install.sh
+(1) Edit ../../siteconfig.sh
+(2) Install nginx-overload-handler via ../../install.sh
 WARNING: Read documentation in ../../install.sh before executing it.
 
 ==== Setup ====
