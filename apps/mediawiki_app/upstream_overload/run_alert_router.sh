@@ -21,5 +21,5 @@
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-$DIR/../../../bouncer/alert_router.py $DIR/bouncer_config.json
+$DIR/../../../bouncer/alert_router.py --config $DIR/bouncer_config.json --stderr off --logfile INFO
 

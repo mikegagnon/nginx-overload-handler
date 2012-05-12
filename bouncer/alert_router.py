@@ -34,6 +34,7 @@
 
 import sys
 import os
+import argparse
 
 DIRNAME = os.path.dirname(os.path.realpath(__file__))
 
@@ -180,34 +181,36 @@ class AlertRouter:
                 self.logger.exception("unexpected exception")
                 time.sleep(1)
 
-def print_usage():
-    print "Usage: %s [config_filename]" % sys.argv[0]
-    print "View bouncer/bouncer_common.py for config-file format."
-    print ""
-
 if __name__ == "__main__":
 
-    logger = log.getLogger(stderr=logging.INFO, logfile=logging.INFO)
+    cwd = os.getcwd()
 
-    if len(sys.argv) == 2:
-        config_filename = sys.argv[1]
-        try:
-            with open(config_filename) as f:
-                config = Config(f)
-        except IOError:
-            print "Could not open config file %s" % config_filename
-            sys.exit(1)
-        except:
-            print "Error while parsing config file. View %s for format of config." % sys.argv[0]
-            print
-            raise
+    default_config = os.path.join(cwd, "bouncer_config.json")
 
-        alert_router = AlertRouter(config, logger)
-        alert_router.run()
+    parser = argparse.ArgumentParser(description='Alert router')
+    parser.add_argument("-c", "--config", type=str, default=default_config,
+                        help="Default=%(default)s. The config file. See bouncer/bouncer_common.py for config-file format.")
 
-    else:
-        print_usage()
+    log.add_arguments(parser)
+    args = parser.parse_args()
+    logger = log.getLogger(args)
+    logger.info("Command line arguments: %s" % str(args))
+
+    try:
+        with open(args.config, "r") as f:
+            pass
+    except:
+        logger.critical("Error: could not open config file (%s)" % args.config)
         sys.exit(1)
 
+    try:
+        with open(args.config) as f:
+            config = Config(f)
+    except:
+        print "Error while parsing config file. View %s for format of config." % sys.argv[0]
+        print
+        raise
 
+    alert_router = AlertRouter(config, logger)
+    alert_router.run()
 
