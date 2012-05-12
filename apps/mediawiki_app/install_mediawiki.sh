@@ -20,7 +20,6 @@
 #
 # PREREQs:
 #   (1) ./install_dependencies.sh
-#   (2) ../../bouncer/php_bouncer/install.sh
 #
 # USAGE: sudo ./install_mediawiki.sh
 #
