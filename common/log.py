@@ -40,8 +40,8 @@ FORMATTER_STDERR = logging.Formatter("%(levelname)10s - %(filename)20s : %(funcN
 
 def uncaughtException(logger, typ, value, tb):
     exception_lines = traceback.format_exception(typ, value, tb)
-    for line in exception_lines:
-        logger.critical(line.strip())
+    exception_str = "".join(exception_lines)
+    logger.critical(exception_str)
 
 # Example usage:
 #   process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
