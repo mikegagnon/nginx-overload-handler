@@ -26,16 +26,22 @@ import time
 from string import Template
 import logging
 
-dirname = os.path.dirname(os.path.realpath(__file__))
+DIRNAME = os.path.dirname(os.path.realpath(__file__))
 
-sys.path.append(os.path.join(dirname, '..'))
-sys.path.append(os.path.join(dirname, '..', '..', 'common'))
+sys.path.append(os.path.join(DIRNAME, '..'))
+sys.path.append(os.path.join(DIRNAME, '..', '..', 'common'))
 
 import log
+import env
 import bouncer_process_manager
 from bouncer_process_manager import BouncerProcessManager
 
-PHP_FCGI_CMD_TEMPLATE_STR = '/usr/bin/php5-cgi -b $addr:$port'
+dependencies = os.path.join(DIRNAME, "..", "..", "dependencies", "env.sh")
+
+var = env.env(dependencies)
+
+PHP_CGI_VULN_BIN = var["PHP_CGI_VULN_BIN"]
+PHP_FCGI_CMD_TEMPLATE_STR = '%s -b $addr:$port' % PHP_CGI_VULN_BIN
 
 class BouncerForPhp(BouncerProcessManager):
 

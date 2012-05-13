@@ -81,8 +81,10 @@ PHP_VULN_DL_LOCAL_PATH="$DOWNLOAD_DIR/php-5.3.8"
 PHP_VULN_LOCAL_PATH="$DOWNLOAD_DIR/php-5.3.8"
 PHP_VULN_INSTALL="$DIR/php_vuln/install"
 PHP_VULN_BIN="$PHP_VULN_INSTALL/bin/php"
+PHP_CGI_VULN_BIN="$PHP_VULN_LOCAL_PATH/sapi/cgi/php-cgi"
 PHP_FPM_VULN_BIN="$PHP_VULN_INSTALL/sbin/php-fpm"
 export PHP_VULN_BIN
+export PHP_CGI_VULN_BIN
 export PHP_FPM_VULN_BIN
 
 HTTPERF_DL_REMOTE_PATH="http://httperf.googlecode.com/files/httperf-0.9.0.tar.gz"

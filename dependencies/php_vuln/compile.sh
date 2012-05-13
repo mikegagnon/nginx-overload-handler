@@ -26,6 +26,16 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 cd $PHP_VULN_LOCAL_PATH
 
+# Need to compile PHP twice, once for php-cgi and again for php-fpm
+# See http://serverfault.com/questions/104605/how-to-compile-php-5-3-cgi
+# First make php-cgi
+./configure \
+    --prefix=$PHP_VULN_INSTALL \
+    --exec-prefix=$PHP_VULN_INSTALL \
+    --with-mysql
+make
+
+# Then make php-fpm
 ./configure \
     --prefix=$PHP_VULN_INSTALL \
     --exec-prefix=$PHP_VULN_INSTALL \
