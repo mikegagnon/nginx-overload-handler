@@ -22,4 +22,8 @@
 pkill -f "php_bouncer.py"
 pkill -f "php5-cgi"
 pkill -f "alert_router.py"
+sleep 2
+pkill -9 -f "php_bouncer.py"
+pkill -9 -f "php5-cgi"
+pkill -9 -f "alert_router.py"
 
