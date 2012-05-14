@@ -37,3 +37,6 @@ apt-get install -y \
     mysql-client \
     libmysqlclient15-dev
 
+# The trainer client needs to be able to ssh into the server
+sudo apt-get install -y openssh-server
+
