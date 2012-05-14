@@ -19,4 +19,5 @@
 
 # Change this to your server name
 SERVER_NAME="localhost"
+export SERVER_NAME
 
