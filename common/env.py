@@ -27,7 +27,7 @@ def env(filename):
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, _ = p.communicate()
     if p.returncode != 0:
-        raise ValueError("returncode != 0 == %d" % p.returncode)
+        raise ValueError("returncode != 0 == %d while sourcing %s" % (p.returncode, filename))
     result = {}
     for line in stdout.split("\n")[:-1]:
         try:
