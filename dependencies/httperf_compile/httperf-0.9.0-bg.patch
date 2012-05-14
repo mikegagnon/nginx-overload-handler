@@ -1,6 +1,18 @@
-diff -rupN httperf-0.9.0/src/stat/print_reply.c httperf-0.9.0-bg/src/stat/print_reply.c
+diff -rupN httperf-0.9.0/src/core.c httperf-0.9.0-bg2/src/core.c
+--- httperf-0.9.0/src/core.c	2007-04-07 00:01:56.000000000 -0700
++++ httperf-0.9.0-bg2/src/core.c	2012-05-13 21:06:59.698034162 -0700
+@@ -938,6 +938,8 @@ core_connect (Conn *s)
+ 	  if (myport < 0)
+ 	    goto failure;
+ 
++	  // Bug fix from http://code.google.com/p/httperf/issues/attachmentText?id=15&aid=150000000&name=httperf-0.9.0-hogfix.patch
++	  myaddr.sin_family = AF_INET;
+ 	  myaddr.sin_port = htons (myport);
+ 	  SYSCALL (BIND,
+ 		   result = bind (sd, (struct sockaddr *)&myaddr,
+diff -rupN httperf-0.9.0/src/stat/print_reply.c httperf-0.9.0-bg2/src/stat/print_reply.c
 --- httperf-0.9.0/src/stat/print_reply.c	2007-04-07 00:01:56.000000000 -0700
-+++ httperf-0.9.0-bg/src/stat/print_reply.c	2012-05-06 16:06:16.487005591 -0700
++++ httperf-0.9.0-bg2/src/stat/print_reply.c	2012-05-13 20:48:29.965885341 -0700
 @@ -124,6 +124,14 @@ print_request (Call *call)
    size_t hdr_len, h_len, b_len;
    int i, first, end;
