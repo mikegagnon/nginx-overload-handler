@@ -16,10 +16,10 @@
 #
 # ==== run_alert_router.sh for mediawiki_app ====
 #
-# USAGE: ./run_alert_router.sh
+# USAGE: sudo ./run_alert_router.sh &
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-$DIR/../../../bouncer/alert_router.py --config $DIR/bouncer_config.json --stderr off --logfile INFO
+$SUDO -i -u nginx_user $DIR/../../../bouncer/alert_router.py --config $DIR/bouncer_config.json --stderr off --logfile INFO
 
