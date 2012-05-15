@@ -230,7 +230,7 @@ class AnalyzeResults:
             ]
 
             for q in sorted(list(self.quantiles)):
-                line.append(result["quantile"][q])
+                line.append(result["quantile"][q][0])
             line = [str(x) for x in line]
             line = ",".join(line) + "\n"
             outfile.write(line)

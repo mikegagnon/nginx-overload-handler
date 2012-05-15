@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 #
 # Copyright 2012 HellaSec, LLC
 #
@@ -20,8 +21,7 @@
 #
 # USAGE:
 #   - Make sure that MediaWiki is running
-#   > ./maketrace.sh  root_url num_urls > legit_trace.txt
-# NOTE that you invoke the .sh file, not the .py file
+#   > ./maketrace.py num_urls > legit_trace.txt
 #
 
 import os
@@ -34,37 +34,40 @@ import random
 import httplib
 
 
+DIRNAME = os.path.dirname(os.path.realpath(__file__))
+
+sys.path.append(os.path.join(DIRNAME, '..', '..', '..', 'common'))
+
+import log
+import env
+
+mediawiki_app = os.path.join(DIRNAME, "..", "env.sh")
+var = env.env(mediawiki_app)
+MEDIAWIKI_ATTACK_PAGES_RE = var["MEDIAWIKI_ATTACK_PAGES_RE"]
+attack_re = re.compile(MEDIAWIKI_ATTACK_PAGES_RE)
+
+siteconfig = os.path.join(DIRNAME, "..", "..", "..", "siteconfig.sh")
+var = env.env(siteconfig)
+SERVER_NAME = var["SERVER_NAME"]
+
 # the percentage of MediaWiki requests that are for diffs
 # (the other requests are just for page views)
 diff_percent = 0.0
 
-root_url = sys.argv[1]
-domain = root_url.replace("http://", "")
-
 # the number of urls to output
-num_urls = int(sys.argv[2])
-
-def getenv(key):
-    try:
-        val = os.environ[key]
-    except KeyError:
-        sys.stderr.write("Error: the environment variable %s is not defined. Make sure you invoke the .sh file (not the .py file)\n\n" % key)
-        sys.exit(1)
-    return val
+num_urls = int(sys.argv[1])
 
 def getjson(url):
     try:
         response = urllib2.urlopen(url)
     except urllib2.URLError:
-        sys.stderr.write("Error: Could not access %s. Perhaps MediaWiki is not running.\n\n" % root_url)
+        sys.stderr.write("Error: Could not access %s. Perhaps MediaWiki is not running.\n\n" % SERVER_NAME)
         sys.exit(1)
     return json.loads(response.read())
 
-attack_re_str = getenv("MEDIAWIKI_ATTACK_PAGES_RE")
-attack_re = re.compile(attack_re_str)
 
 sys.stderr.write("Getting list of pages\n")
-url = "%s/api.php?action=query&list=allpages&aplimit=500&format=json&apfilterredir=nonredirects" % root_url
+url = "http://%s/api.php?action=query&list=allpages&aplimit=500&format=json&apfilterredir=nonredirects" % SERVER_NAME
 response = getjson(url)
 pages = response['query']['allpages']
 unescaped_titles = [page['title'] for page in pages]
@@ -75,8 +78,13 @@ sys.stderr.write("%d pages found\n" % len(unescaped_titles))
 # If you simply do a url ecnoding, then MediaWiki will returns with a 301 redirect
 # with the actual title, which is what we want
 def mwEscape(title):
-    url = "/index.php?title=%s" % urllib.quote(title)
-    conn = httplib.HTTPConnection(domain)
+    try:
+        url = "/index.php?title=%s" % urllib.quote(title)
+    except KeyError:
+        # Happens with non-ascii titles, which we ignore for now (by returning None)
+        # TODO: Handle non-ascii titles
+        return None
+    conn = httplib.HTTPConnection(SERVER_NAME)
     conn.request("GET", url)
     response = conn.getresponse()
     if response.status == 301:
@@ -84,7 +92,7 @@ def mwEscape(title):
         escaped_title = location.split("=")[-1]
         sys.stderr.write("Escaped title to '%s'\n" % escaped_title)
         url = "/index.php?title=%s" % urllib.quote(escaped_title)
-        conn = httplib.HTTPConnection(domain)
+        conn = httplib.HTTPConnection(SERVER_NAME)
         conn.request("GET", url)
         response = conn.getresponse()
         if response.status != 200:
@@ -98,6 +106,8 @@ def mwEscape(title):
     return escaped_title
 
 titles = [mwEscape(title) for title in unescaped_titles]
+# Get rid of non-ascii titles
+titles = filter(lambda x: x != None, titles)
 
 # for each title included in the trace, page_version[title]
 # maps a list of sorted page ids (ints)
@@ -111,8 +121,8 @@ for title in titles:
 sys.stderr.write("Ignoring %d page(s)\n" % (len(titles) - len(page_version)))
 for title in page_version.keys():
     sys.stderr.write("Getting revisions for %s pages --> " % title)
-    url = "%s/api.php?action=query&prop=revisions&titles=%s&rvlimit=500&rvprop=ids&format=json" % \
-        (root_url, urllib.quote(title))
+    url = "http://%s/api.php?action=query&prop=revisions&titles=%s&rvlimit=500&rvprop=ids&format=json" % \
+        (SERVER_NAME, urllib.quote(title))
     response = getjson(url)
     revisions = response["query"]["pages"].popitem()[1]["revisions"]
     page_version[title] = sorted([rev["revid"] for rev in revisions])

@@ -57,12 +57,20 @@ from analyze_trace_output import AnalyzeTraceOutput
 import os
 import sys
 import logging
+import time
 
 DIRNAME = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(DIRNAME, '..', 'common'))
 RESTART_SCRIPT = os.path.join(DIRNAME, "restart_remote_fcgi.sh")
 
 import log
+import env
+
+siteconfig = os.path.join(DIRNAME, "..", "siteconfig.sh")
+var = env.env(siteconfig)
+SERVER_NAME = var["SERVER_NAME"]
+
+MAX_RETRIES = 20
 
 class TrainError(Exception):
     pass
@@ -124,10 +132,27 @@ class Train:
         ret = p.wait()
         if ret != 0:
             raise TrainError("restart_remote_fcgi.sh for trial %d returned %d" % (trial_num, ret))
-        try:
-            response = urllib2.urlopen(self.legit_url)
-        except urllib2.URLError:
-            raise TrainError("Error: Could not access %s. Perhaps restart_remote_fcgi.sh did not work.\n\n" % self.legit_url)
+
+        # Keep trying to access self.legit_url until it succeeds (meeing restart_remote_fcgi.sh
+        # has taken effect)
+        success = False
+        for i in range(0, MAX_RETRIES - 1):
+            time.sleep(1)
+            try:
+                response = urllib2.urlopen(self.legit_url)
+                success = True
+                break
+            except urllib2.URLError:
+                pass
+
+        if not success:
+            time.sleep(1)
+            try:
+                response = urllib2.urlopen(self.legit_url)
+                success = True
+            except urllib2.URLError:
+                self.logger.critical("Error: Could not access %s. Perhaps restart_remote_fcgi.sh did not work." % self.legit_url)
+                raise
 
     def run_httperf(self, period, trial_num):
         '''Executes httperf, adds the results to self.results, and
@@ -253,8 +278,8 @@ if __name__ == "__main__":
     parser.add_argument("-u", "--username", type=str, default="beergarden",
                     help="Default=%(default)s. The username on the server. Used when "\
                     "invoking restart_remote_fcgi.sh (see its source for PREREQs for username)")
-    parser.add_argument("-s", "--server", type=str, required=True,
-                    help="REQUIRED. The address of the server running Beer Garden.")
+    parser.add_argument("-s", "--server", type=str, default=SERVER_NAME,
+                    help="Default=%(default)s. The address of the server running Beer Garden.")
     parser.add_argument("--sshport", type=int, default=22,
                     help="Default=%(default)s. The port of the server listens for ssh.")
     parser.add_argument("-n", "--num-tests", type=int, required=True,

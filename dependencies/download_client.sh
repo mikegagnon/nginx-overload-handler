@@ -14,23 +14,16 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== maketrace.sh ====
-#
-# Prints a list of URLs, which represents a stream of "legitimate" URL
-# acccesses for MediaWiki.
-#
-# USAGE:
-#   - Make sure that MediaWiki is running
-#   > ./maketrace.sh root_url num_urls > legit_trace.txt
-#
-# The point of the .sh wrapper around the .py file, is to setup environment
-# variables.
+# ==== download_client.sh downloads 3rd party software dependencies ====
 #
 
 # $DIR is the absolute path for the directory containing this bash script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../env.sh
+source $DIR/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-python maketrace.py $1 $2
+cd $DOWNLOAD_DIR
+
+wget --output-document=$HTTPERF_DL_LOCAL_PATH $HTTPERF_DL_REMOTE_PATH
+tar -xvf $HTTPERF_DL_LOCAL_PATH
 
