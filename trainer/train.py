@@ -71,8 +71,6 @@ siteconfig = os.path.join(DIRNAME, "..", "siteconfig.sh")
 var = env.env(siteconfig)
 SERVER_NAME = var["SERVER_NAME"]
 
-MAX_RETRIES = 20
-
 class TrainError(Exception):
     pass
 
