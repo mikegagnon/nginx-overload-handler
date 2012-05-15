@@ -34,6 +34,9 @@
 # add a line like:
 #   username ALL=(ALL) NOPASSWD: /usr/local/bin/restart_fcgi.sh
 #
+# NOTE: the restart may take some time to take effect.
+# After this script terminates you cannot assume that the restart
+# has taken effect
 
 ssh -f $1@$2 -p $3 "nohup sudo -n restart_fcgi.sh > /dev/null &"
-sleep 5
+

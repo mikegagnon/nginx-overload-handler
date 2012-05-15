@@ -65,6 +65,7 @@ RESTART_SCRIPT = os.path.join(DIRNAME, "restart_remote_fcgi.sh")
 
 import log
 import env
+import restart_remote_fcgi
 
 siteconfig = os.path.join(DIRNAME, "..", "siteconfig.sh")
 var = env.env(siteconfig)
@@ -112,47 +113,14 @@ class Train:
             page = lines[(self.test_size - 1) * 2].strip()
             self.legit_url = "http://%s%s" % (self.server, page)
 
-    def restart_fcgi_workers(self, trial_num):
-        #TODO: verify that the restart was successful.
-        # idea: grab the first legit request from the trace, and do
-        # a request for that. This has the added benefit in that
-        # it will validate that the trainer is parsing the trace
-        # correctly
-        self.logger.info("trial_num=%d" % (trial_num))
-        cmd = [RESTART_SCRIPT,
-            self.username,
-            self.server,
-            str(self.sshport)]
-        p = subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-        stdoutLogger = log.FileLoggerThread(self.logger, "restart_fcgi_workers stdout", logging.ERROR, p.stdout)
-        stderrLogger = log.FileLoggerThread(self.logger, "restart_fcgi_workers stderr", logging.ERROR, p.stderr)
-        stdoutLogger.start()
-        stderrLogger.start()
-
-        ret = p.wait()
-        if ret != 0:
-            raise TrainError("restart_remote_fcgi.sh for trial %d returned %d" % (trial_num, ret))
-
-        # Keep trying to access self.legit_url until it succeeds (meeing restart_remote_fcgi.sh
-        # has taken effect)
-        success = False
-        for i in range(0, MAX_RETRIES - 1):
-            time.sleep(1)
-            try:
-                response = urllib2.urlopen(self.legit_url)
-                success = True
-                break
-            except urllib2.URLError:
-                pass
-
-        if not success:
-            time.sleep(1)
-            try:
-                response = urllib2.urlopen(self.legit_url)
-                success = True
-            except urllib2.URLError:
-                self.logger.critical("Error: Could not access %s. Perhaps restart_remote_fcgi.sh did not work." % self.legit_url)
-                raise
+    def restart_remote_fcgi(self, trial_num):
+        self.logger.info("trial_num=%d", trial_num)
+        restart_remote_fcgi.restart_remote_fcgi( \
+            self.server, \
+            self.username, \
+            self.sshport, \
+            self.legit_url, \
+            self.logger)
 
     def run_httperf(self, period, trial_num):
         '''Executes httperf, adds the results to self.results, and
@@ -193,7 +161,7 @@ class Train:
         return self.results[period]["completion_rate"]
 
     def do_trial(self, period):
-        self.restart_fcgi_workers(self.trial_num)
+        self.restart_remote_fcgi(self.trial_num)
         completion_rate = self.run_httperf(period, self.trial_num)
         self.trial_num += 1
         return completion_rate
