@@ -1,6 +1,6 @@
-diff -rupN httperf-0.9.0/src/core.c httperf-0.9.0-bg4//src/core.c
+diff -rupN httperf-0.9.0/src/core.c httperf-0.9.0-bg4/src/core.c
 --- httperf-0.9.0/src/core.c	2007-04-07 00:01:56.000000000 -0700
-+++ httperf-0.9.0-bg4//src/core.c	2012-05-14 20:12:33.389030045 -0700
++++ httperf-0.9.0-bg4/src/core.c	2012-05-14 20:12:33.389030045 -0700
 @@ -938,6 +938,8 @@ core_connect (Conn *s)
  	  if (myport < 0)
  	    goto failure;
@@ -10,9 +10,9 @@ diff -rupN httperf-0.9.0/src/core.c httperf-0.9.0-bg4//src/core.c
  	  myaddr.sin_port = htons (myport);
  	  SYSCALL (BIND,
  		   result = bind (sd, (struct sockaddr *)&myaddr,
-diff -rupN httperf-0.9.0/src/gen/wsesslog.c httperf-0.9.0-bg4//src/gen/wsesslog.c
+diff -rupN httperf-0.9.0/src/gen/wsesslog.c httperf-0.9.0-bg4/src/gen/wsesslog.c
 --- httperf-0.9.0/src/gen/wsesslog.c	2007-04-07 00:01:56.000000000 -0700
-+++ httperf-0.9.0-bg4//src/gen/wsesslog.c	2012-05-14 20:13:20.269029455 -0700
++++ httperf-0.9.0-bg4/src/gen/wsesslog.c	2012-05-14 20:13:20.269029455 -0700
 @@ -90,7 +90,7 @@
  
  /* Maximum number of sessions that can be defined in the configuration
@@ -22,9 +22,9 @@ diff -rupN httperf-0.9.0/src/gen/wsesslog.c httperf-0.9.0-bg4//src/gen/wsesslog.
  
  #ifndef TRUE
  #define TRUE  (1)
-diff -rupN httperf-0.9.0/src/stat/print_reply.c httperf-0.9.0-bg4//src/stat/print_reply.c
+diff -rupN httperf-0.9.0/src/stat/print_reply.c httperf-0.9.0-bg4/src/stat/print_reply.c
 --- httperf-0.9.0/src/stat/print_reply.c	2007-04-07 00:01:56.000000000 -0700
-+++ httperf-0.9.0-bg4//src/stat/print_reply.c	2012-05-14 20:12:33.393030056 -0700
++++ httperf-0.9.0-bg4/src/stat/print_reply.c	2012-05-14 20:12:33.393030056 -0700
 @@ -124,6 +124,14 @@ print_request (Call *call)
    size_t hdr_len, h_len, b_len;
    int i, first, end;
