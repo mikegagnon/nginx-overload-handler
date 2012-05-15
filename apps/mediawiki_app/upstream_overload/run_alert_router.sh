@@ -18,7 +18,8 @@
 #
 # USAGE: sudo ./run_alert_router.sh &
 #
-
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/../../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 $SUDO -i -u nginx_user $DIR/../../../bouncer/alert_router.py --config $DIR/bouncer_config.json --stderr off --logfile INFO
