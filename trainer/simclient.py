@@ -98,10 +98,8 @@ class SimClient:
 if __name__ == "__main__":
     cwd = os.getcwd()
 
-    default_trace_filename = os.path.join(cwd, "trace.txt")
-        attack_probability, \
-        num_fcgi_workers, \
-        max_threads, \
+    default_legit_trace = os.path.join(cwd, "legit_trace.txt")
+    default_attack_trace = os.path.join(cwd, "attack_trace.txt")
 
     parser = argparse.ArgumentParser(description='Simulates http requests (legit and attack) being funneled through a doorman')
     parser.add_argument("-to", "--timeout", type=float, default=0.5,
@@ -117,12 +115,12 @@ if __name__ == "__main__":
                     help="Default=%(default)s. The address of the server running Beer Garden.")
     parser.add_argument("--sshport", type=int, default=22,
                     help="Default=%(default)s. The port of the server listens for ssh.")
-    parser.add_argument("-r", "--num-requests", type=int, default=default_num_requests,
+    parser.add_argument("-r", "--num-requests", type=int, default=100,
                     help="Default=%(default)d. The number of requests to issue")
     parser.add_argument("-a", "--attack", type=float, default=0.20,
                     help="Default=%(default)f. The probably that a request is an attack")
     parser.add_argument("-w", "--workers", type=int, required=True,
-                    help="REQUIRED. The number of FCGI workers on the server")
+                    help="REQUIRED. The number of (non spare) FCGI workers on the server")
     parser.add_argument("-th", "--threads", type=int, default=None,
                     help="Default=3*WORKERS. The max number of threads")
 
@@ -133,6 +131,9 @@ if __name__ == "__main__":
 
     if args.threads == None:
         args.threads = 3 * args.workers
+
+    args.legit_trace = os.path.realpath(args.legit_trace)
+    args.attack_trace = os.path.realpath(args.attack_trace)
 
     try:
         with open(args.legit_trace, "r") as f:
@@ -145,18 +146,18 @@ if __name__ == "__main__":
         with open(args.attack_trace, "r") as f:
             pass
     except:
-        logger.critical("Error: could not open trace file (%s)" % args.l_trace)
+        logger.critical("Error: could not open trace file (%s)" % args.attack_trace)
         sys.exit(1)
 
-    train = Train(
-        args.completion,
-        args.period,
-        args.trace,
-        args.username,
-        args.server,
-        args.sshport,
-        args.num_tests,
-        args.test_size,
+    simClient = SimClient(
+        args.server, \
+        args.username, \
+        args.sshport, \
+        args.legit_trace, \
+        args.attack_trace, \
+        args.attack, \
+        args.timeout, \
+        args.workers, \
+        args.threads, \
+        args.num_requests, \
         logger)
-    train.train()
-
