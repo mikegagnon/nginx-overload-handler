@@ -19,131 +19,74 @@
 # Prints a list of URLs, which represents a stream of "legitimate" URL
 # acccesses for MediaWiki.
 #
-# USAGE:
-#   - Make sure that MediaWiki is running
-#   > ./maketrace.py num_urls > legit_trace.txt
+# FOR USAGE: ./maketrace.py --help
 #
 
 import os
 import sys
-import urllib
-import urllib2
 import json
-import re
 import random
-import httplib
-
+import argparse
 
 DIRNAME = os.path.dirname(os.path.realpath(__file__))
-
 sys.path.append(os.path.join(DIRNAME, '..', '..', '..', 'common'))
 
 import log
-import env
 
-mediawiki_app = os.path.join(DIRNAME, "..", "env.sh")
-var = env.env(mediawiki_app)
-MEDIAWIKI_ATTACK_PAGES_RE = var["MEDIAWIKI_ATTACK_PAGES_RE"]
-attack_re = re.compile(MEDIAWIKI_ATTACK_PAGES_RE)
+class MakeTrace:
 
-siteconfig = os.path.join(DIRNAME, "..", "..", "..", "siteconfig.sh")
-var = env.env(siteconfig)
-SERVER_NAME = var["SERVER_NAME"]
+    def __init__(self, pages_file, diff, num_urls, logger):
+        with open(pages_file, 'r') as f:
+            self.pages = json.load(f)
+        self.diff = diff
+        self.num_urls = num_urls
+        self.logger = logger
 
-# the percentage of MediaWiki requests that are for diffs
-# (the other requests are just for page views)
-diff_percent = 0.0
+        # create more convenient data structures based off pages
+        self.view_pages = [entry["view"] for _, entry in self.pages.items()]
+        self.diff_pages = [entry["diff"] for _, entry in self.pages.items() if len(entry["diff"])]
 
-# the number of urls to output
-num_urls = int(sys.argv[1])
+    def make(self):
+        for url_i in range(0, self.num_urls):
+            if random.random() <= self.diff:
+                page_list = random.choice(self.diff_pages)
+                url = random.choice(page_list)
+            else:
+                url = random.choice(self.view_pages)
 
-def getjson(url):
+            print url
+            print
+
+
+if __name__ == "__main__":
+    cwd = os.getcwd()
+
+    default_pages_filename = os.path.join(cwd, "pages.json")
+
+    parser = argparse.ArgumentParser(description='Trains Beer Garden. See source for more info.')
+    parser.add_argument("-p", "--pages", type=str, default=default_pages_filename,
+                    help="Default=%(default)s. The JSON file containing output from get_pages.py")
+    parser.add_argument("-d", "--diff", type=float, default=0.0,
+                    help="Default=%(default)f. The proportion of URL accesses that should be diffs")
+    parser.add_argument("-n", "--num-urls", type=int, default=100,
+                    help="Default=%(default)d. The number of URLs to generate")
+
+    log.add_arguments(parser)
+    args = parser.parse_args()
+    logger = log.getLogger(args)
+    logger.info("Command line arguments: %s" % str(args))
+
     try:
-        response = urllib2.urlopen(url)
-    except urllib2.URLError:
-        sys.stderr.write("Error: Could not access %s. Perhaps MediaWiki is not running.\n\n" % SERVER_NAME)
+        with open(args.pages, "r") as f:
+            pass
+    except:
+        logger.critical("Error: could not open pages file (%s)" % args.pages)
         sys.exit(1)
-    return json.loads(response.read())
 
+    mkTrace = MakeTrace( \
+        args.pages, \
+        args.diff, \
+        args.num_urls, \
+        logger)
 
-sys.stderr.write("Getting list of pages\n")
-url = "http://%s/api.php?action=query&list=allpages&aplimit=500&format=json&apfilterredir=nonredirects" % SERVER_NAME
-response = getjson(url)
-pages = response['query']['allpages']
-unescaped_titles = [page['title'] for page in pages]
-sys.stderr.write("%d pages found\n" % len(unescaped_titles))
-
-# note this titles look like this, for example, "Hapuna BeachState Recreation Area"
-# they need to be escaped, MediaWiki style "Hapuna_Beach_State_Recreation_Area".
-# If you simply do a url ecnoding, then MediaWiki will returns with a 301 redirect
-# with the actual title, which is what we want
-def mwEscape(title):
-    try:
-        url = "/index.php?title=%s" % urllib.quote(title)
-    except KeyError:
-        # Happens with non-ascii titles, which we ignore for now (by returning None)
-        # TODO: Handle non-ascii titles
-        return None
-    conn = httplib.HTTPConnection(SERVER_NAME)
-    conn.request("GET", url)
-    response = conn.getresponse()
-    if response.status == 301:
-        location = response.getheader("Location")
-        escaped_title = location.split("=")[-1]
-        sys.stderr.write("Escaped title to '%s'\n" % escaped_title)
-        url = "/index.php?title=%s" % urllib.quote(escaped_title)
-        conn = httplib.HTTPConnection(SERVER_NAME)
-        conn.request("GET", url)
-        response = conn.getresponse()
-        if response.status != 200:
-            raise ValueError("Escaped title does not lead to status == 200, for '%s'" % escaped_title)
-    elif response.status == 200:
-        escaped_title = title
-        sys.stderr.write("Did not escape title '%s'\n" % escaped_title)
-    else:
-        raise ValueError("Got status %d while requesting '%s'" % title)
-
-    return escaped_title
-
-titles = [mwEscape(title) for title in unescaped_titles]
-# Get rid of non-ascii titles
-titles = filter(lambda x: x != None, titles)
-
-# for each title included in the trace, page_version[title]
-# maps a list of sorted page ids (ints)
-page_version = {}
-page_titles = []
-for title in titles:
-    if not attack_re.search(title):
-        page_version[title] = set()
-        page_titles.append(title)
-
-sys.stderr.write("Ignoring %d page(s)\n" % (len(titles) - len(page_version)))
-for title in page_version.keys():
-    sys.stderr.write("Getting revisions for %s pages --> " % title)
-    url = "http://%s/api.php?action=query&prop=revisions&titles=%s&rvlimit=500&rvprop=ids&format=json" % \
-        (SERVER_NAME, urllib.quote(title))
-    response = getjson(url)
-    revisions = response["query"]["pages"].popitem()[1]["revisions"]
-    page_version[title] = sorted([rev["revid"] for rev in revisions])
-    sys.stderr.write("%d revisions\n" % len(page_version[title]))
-    if len(page_version[title]) < 2:
-        sys.stderr.write("    ignoring %s\n" % title)
-        del(page_version[title])
-
-page_version_titles = page_version.keys()
-for url_i in range(0, num_urls):
-    if random.random() <= diff_percent:
-        title = random.choice(page_version_titles)
-        revids = page_version[title]
-        first_rev_i = random.randint(0, len(revids) - 2)
-        first_rev = revids[first_rev_i]
-        second_rev = revids[first_rev_i + 1]
-        url = "/index.php?title=%s&action=historysubmit&diff=%d&oldid=%d" % \
-            (urllib.quote(title), second_rev, first_rev)
-    else:
-        title = random.choice(page_titles)
-        url = "/index.php?title=%s" % urllib.quote(title)
-
-    print url
-    print
+    mkTrace.make()
