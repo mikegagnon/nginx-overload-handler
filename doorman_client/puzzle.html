@@ -2,53 +2,22 @@
     <head>
         <!-- right now assumes only re-directing to get requests -->
         <script type="text/javascript" src="sha.js"></script>
-        <script type="text/javascript">
-function inc_digit(c) {
-    if (c == "9") {
-        return "a";
-    } else if (c == "f") {
-        return "0";
-    } else {
-        return String.fromCharCode(c.charCodeAt() + 1)
-    }
-}
-
-function increment(x) {
-    var i = x.length - 1;
-    var carry;
-    var new_x = x.split("");
-    do {
-        old_digit = x.charAt(i);
-        new_digit = inc_digit(old_digit);
-        new_x[i] = new_digit;
-        if (new_digit == "0") {
-            carry = true;
-            i -= 1;
-        } else {
-            carry = false;
-        }
-        if (i == 0) {
-            carry = false;
-        }
-    } while (carry);
-    return new_x.join("");
-}
-
-function solve_puzzle(request, y, trunc_x, bits) {
-    document.write(hex_sha256(request));
-}
-        </script>
+        <script type="text/javascript" src="puzzle.js"></script>
     </head>
     <body>
         <p>You will be re-directed shortly...</p>
         <script type="text/javascript">
-            //solve_puzzle("abc", 1, 2);
-            var x = "63338a1e5a0447970b78b9153a0ef365b20a8d9152d0f90fe715577821568fdf";
-            document.write(x + "<br>")
-            for (i = 0; i < 20; i++) {
-                x = increment(x)
-                document.write(x + "<br>")
-            }
+            var request = "foo.com/index.php?BEER_KEY="
+            var y = '63338a1e5a0447970b78b9153a0ef365b20a8d9152d0f90fe715577821568fdf';
+            var trunc_x = "97df3588b5a3f24babc3851b372f0ba71a9dcdded43b14b9d06961bfc1707d80";
+            var bits = 5;
+            var burst_len = 1;
+            var sleep_time = 100;
+            var func = function() {
+                solve_puzzle(request, y, trunc_x, bits, burst_len, sleep_time);
+            };
+            setTimeout(func, sleep_time);
         </script>
     </body>
 </html>
+
