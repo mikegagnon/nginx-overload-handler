@@ -14,29 +14,16 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== Configures and compiles nginx with upstream_overload module ====
+# ==== env.sh ====
 #
-# PREREQ: download nginx according to ../dependencies/download.sh
-#
-# USAGE: ./compile.sh
+# defines some shell variables
 #
 
 # $DIR is the absolute path for the directory containing this bash script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../dependencies/env.sh
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/env.sh
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../nginx_doorman/env.sh
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-cd $NGINX_LOCAL_PATH
+DOORMAN_MODULE_DIR=$DIR
 
-./configure \
-    --prefix=/usr/local/nginx \
-    --with-debug \
-    --add-module=$OVERLOAD_MODULE_DIR \
-    --add-module=$DOORMAN_MODULE_DIR
-
-make
+PUZZLE_SSI_PATH="/usr/local/nginx/html/puzzle_ssi"
+PUZZLE_SSI_PATH_NGX="/usr/local/nginx/html"
 

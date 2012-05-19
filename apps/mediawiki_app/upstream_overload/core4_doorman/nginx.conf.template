@@ -43,18 +43,18 @@ http {
 
         location ~ \.php$ {
             ## This must match the URI part related to the MD5 hash and expiration time.
-            secure_link $arg_st,$arg_e;
+            doorman $arg_st,$arg_e;
 
             ## The MD5 hash is built from our secret token, the URI($path in PHP) and our expiration time.
-            secure_link_md5 secret$uri$arg_e;
+            doorman_md5 secret$uri$arg_e;
 
             ## If the hash is incorrect then $secure_link is a null string.
-            if ($secure_link = "") {
+            if ($doorman = "") {
                 rewrite ^.*$ /puzzle_ssi/puzzle.html?foo=$uri ;
             }
 
             ## The current local time is greater than the specified expiration time.
-            if ($secure_link = "0") {
+            if ($doorman = "0") {
                 return 403;
             }
 
