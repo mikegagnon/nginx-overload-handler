@@ -29,4 +29,6 @@ NGINX_HOME_DIR=/home/$NGINX_USER
 
 # the upstream_overload module will send alerts to this pipe
 ALERT_PIPE_PATH=$NGINX_HOME_DIR/alert_pipe
+PUZZLE_SSI_PATH="/usr/local/nginx/html/puzzle_ssi"
+PUZZLE_SSI_PATH_NGX="/usr/local/nginx/html"
 

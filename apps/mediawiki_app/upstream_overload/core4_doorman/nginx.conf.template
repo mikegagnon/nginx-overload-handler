@@ -1,0 +1,85 @@
+
+worker_processes  1;
+
+user nginx_user;
+
+
+error_log   logs/debug.log debug;
+
+events {
+    worker_connections  1024;
+}
+
+
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
+
+    # allow 100 MB uploads
+    client_max_body_size 100m;
+
+    sendfile        on;
+
+    keepalive_timeout  65;
+
+    server {
+        listen       80;
+        server_name  TEMPLATE_SERVER_NAME;
+
+        location / {
+            root   TEMPLATE_MEDIAWIKI_PATH;
+            index  index.html index.htm;
+        }
+
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   html;
+        }
+
+        location /puzzle_ssi/ {
+            ssi on;
+            root   TEMPLATE_PUZZLE_SSI_PATH_NGX;
+        }
+
+        location ~ \.php$ {
+            ## This must match the URI part related to the MD5 hash and expiration time.
+            secure_link $arg_st,$arg_e;
+
+            ## The MD5 hash is built from our secret token, the URI($path in PHP) and our expiration time.
+            secure_link_md5 secret$uri$arg_e;
+
+            ## If the hash is incorrect then $secure_link is a null string.
+            if ($secure_link = "") {
+                rewrite ^.*$ /puzzle_ssi/puzzle.html?foo=$uri ;
+            }
+
+            ## The current local time is greater than the specified expiration time.
+            if ($secure_link = "0") {
+                return 403;
+            }
+
+            include /usr/local/nginx/conf/fastcgi_params;
+            fastcgi_pass my_backend;
+            fastcgi_index index.php;
+            fastcgi_param SCRIPT_FILENAME TEMPLATE_MEDIAWIKI_PATH$fastcgi_script_name;
+        }
+    }
+
+    # FastCGI requests will be load balanced using the upstream_overload module
+
+    num_spare_backends 1;
+    alert_pipe TEMPLATE_ALERT_PIPE_PATH;
+
+    upstream my_backend  {
+
+        #activate the upstream_overload module
+        overload;
+
+        server    localhost:9000;
+        server    localhost:9001;
+        server    localhost:9002;
+        server    localhost:9003;
+        server    localhost:9004;
+    }
+}
+
