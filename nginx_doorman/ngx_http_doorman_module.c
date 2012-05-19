@@ -55,7 +55,6 @@
 typedef struct {
     ngx_http_complex_value_t  *variable;
     ngx_http_complex_value_t  *md5;
-    ngx_str_t                  secret;
 } ngx_http_doorman_conf_t;
 
 
@@ -260,7 +259,6 @@ ngx_http_doorman_create_conf(ngx_conf_t *cf)
      *
      *     conf->variable = NULL;
      *     conf->md5 = NULL;
-     *     conf->secret = { 0, NULL };
      */
 
     return conf;
@@ -272,8 +270,6 @@ ngx_http_doorman_merge_conf(ngx_conf_t *cf, void *parent, void *child)
 {
     ngx_http_doorman_conf_t *prev = parent;
     ngx_http_doorman_conf_t *conf = child;
-
-    ngx_conf_merge_str_value(conf->secret, prev->secret, "");
 
     if (conf->variable == NULL) {
         conf->variable = prev->variable;
