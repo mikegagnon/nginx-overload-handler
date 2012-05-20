@@ -43,17 +43,19 @@ http {
 
         location ~ \.php$ {
             ## This must match the URI part related to the MD5 hash and expiration time.
-            doorman $arg_st,$arg_e;
+            doorman $arg_admitkey,$arg_admitkey_expire;
 
-            ## The MD5 hash is built from our secret token, the URI($path in PHP) and our expiration time.
-            doorman_md5 secret$uri$arg_e;
+            ## The MD5 hash is built from a secret token + uri + args
+            # The doorman module strips the admitkey argument from doorman_md5
+            # For the URL to work properly the admitkey param MUST BE THE LAST param in the URL
+            doorman_md5 secret$uri?$args;
 
-            ## If the hash is incorrect then $secure_link is a null string.
+            ## If the hash is incorrect (or non-existent) then $doorman is a null string.
             if ($doorman = "") {
-                rewrite ^.*$ /puzzle_ssi/puzzle.html?foo=$uri ;
+                rewrite ^.*$ /puzzle_ssi/puzzle.html?uri=$uri;
             }
 
-            ## The current local time is greater than the specified expiration time.
+            ## If they key is expired
             if ($doorman = "0") {
                 return 403;
             }
