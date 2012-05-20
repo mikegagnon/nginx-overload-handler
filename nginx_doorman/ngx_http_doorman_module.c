@@ -60,9 +60,10 @@
  * The mechanism works as follows.
  *   - Let x = hash(s, r), where s is a secret string (only known to the server)
  *     and r is the text of the request
- *   - Let y = hash(x)
+ *   - Let y = hash(x)  (aka meta_hash)
  *   - Let the puzzle be the 4-tuple (r, y, truncate(x), b), where truncate(x) is the
- *     "truncated "version of x, i.e. x but with b bits removed
+ *     "truncated "version of x (aka trunc_hash), i.e. x but with b bits removed (aka
+ *     missing_bits)
  *   - Give the puzzle to the client
  *       - Note, the client does not know the complete value x, but knows an approximate
  *         value of x
@@ -94,11 +95,18 @@
 typedef struct {
     ngx_http_complex_value_t  *variable;
     ngx_http_complex_value_t  *md5;
+    ngx_http_complex_value_t  *orig_uri;
+    ngx_http_complex_value_t  *orig_args;
 } ngx_http_doorman_conf_t;
 
 
 typedef struct {
     ngx_str_t                  expires;
+    ngx_str_t                  orig_uri;
+    ngx_str_t                  orig_args;
+    ngx_str_t                  trunc_hash;
+    ngx_str_t                  meta_hash;
+    ngx_str_t                  missing_bits;
 } ngx_http_doorman_ctx_t;
 
 
@@ -124,6 +132,20 @@ static ngx_command_t  ngx_http_doorman_commands[] = {
       ngx_http_set_complex_value_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_doorman_conf_t, md5),
+      NULL },
+
+    { ngx_string("doorman_orig_uri"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_http_set_complex_value_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_doorman_conf_t, orig_uri),
+      NULL },
+
+    { ngx_string("doorman_orig_args"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_http_set_complex_value_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_doorman_conf_t, orig_args),
       NULL },
 
       ngx_null_command
@@ -162,8 +184,13 @@ ngx_module_t  ngx_http_doorman_module = {
 
 
 static ngx_str_t  ngx_http_doorman_name = ngx_string("doorman");
-static ngx_str_t  ngx_http_doorman_expires_name =
-    ngx_string("doorman_expires");
+static ngx_str_t  ngx_http_doorman_expires_name = ngx_string("doorman_expires");
+// holds $uri?$args
+static ngx_str_t  ngx_http_orig_uri_name = ngx_string("orig_uri");
+static ngx_str_t  ngx_http_orig_args_name = ngx_string("orig_args");
+static ngx_str_t  ngx_http_trunc_hash_name = ngx_string("trunc_hash");
+static ngx_str_t  ngx_http_meta_hash_name = ngx_string("meta_hash");
+static ngx_str_t  ngx_http_missing_bits_name = ngx_string("missing_bits");
 
 // buf points to a u_char array of size DOORMAN_HASH_LEN
 static void
@@ -188,8 +215,41 @@ ngx_http_doorman_variable(ngx_http_request_t *r,
     u_char                        given_hash_buf[DOORMAN_HASH_LEN], actual_hash_buf[DOORMAN_HASH_LEN];
 
     conf = ngx_http_get_module_loc_conf(r, ngx_http_doorman_module);
+    ctx = ngx_pcalloc(r->pool, sizeof(ngx_http_doorman_ctx_t));
+    if (ctx == NULL) {
+        return NGX_ERROR;
+    }
+    ngx_http_set_ctx(r, ctx, ngx_http_doorman_module);
 
-    if (conf->variable == NULL || conf->md5 == NULL) {
+    // parse the orig_uri config variable into an nginx variable
+    if (ngx_http_complex_value(r, conf->orig_uri, &val) != NGX_OK) {
+        return NGX_ERROR;
+    }
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "doorman orig_uri: \"%V\"", &val);
+    ctx->orig_uri.len = val.len;
+    ctx->orig_uri.data = val.data;
+
+    // parse the orig_args variable
+    if (ngx_http_complex_value(r, conf->orig_args, &val) != NGX_OK) {
+        return NGX_ERROR;
+    }
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "doorman orig_args: \"%V\"", &val);
+    ctx->orig_args.len = val.len;
+    ctx->orig_args.data = val.data;
+
+
+    ctx->trunc_hash.len = val.len;
+    ctx->trunc_hash.data = val.data;
+    ctx->meta_hash.len = val.len;
+    ctx->meta_hash.data = val.data;
+    ctx->missing_bits.len = val.len;
+    ctx->missing_bits.data = val.data;
+    ctx->expires.len = val.len;
+    ctx->expires.data = val.data;
+
+    if (conf->variable == NULL || conf->md5 == NULL || conf->orig_uri == NULL || conf->orig_args == NULL) {
         goto not_found;
     }
 
@@ -220,12 +280,6 @@ ngx_http_doorman_variable(ngx_http_request_t *r,
             goto not_found;
         }
 
-        ctx = ngx_pcalloc(r->pool, sizeof(ngx_http_doorman_ctx_t));
-        if (ctx == NULL) {
-            return NGX_ERROR;
-        }
-
-        ngx_http_set_ctx(r, ctx, ngx_http_doorman_module);
 
         ctx->expires.len = last - p;
         ctx->expires.data = p;
@@ -278,6 +332,13 @@ ngx_http_doorman_variable(ngx_http_request_t *r,
 
 not_found:
 
+    // TODO: Create variables for puzzle generation.
+    // We already have the x-value (actual_hash_buf)
+    // Need to calculate and define variables for y,
+    // truncate(x), and b -- so that puzzle SSI
+    // can deliver puzzle to visitor
+
+
     v->not_found = 1;
 
     return NGX_OK;
@@ -305,6 +366,115 @@ ngx_http_doorman_expires_variable(ngx_http_request_t *r,
     return NGX_OK;
 }
 
+static ngx_int_t
+ngx_http_doorman_orig_uri_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+    ngx_http_doorman_ctx_t  *ctx;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_doorman_module);
+
+    if (ctx) {
+        v->len = ctx->orig_uri.len;
+        v->valid = 1;
+        v->no_cacheable = 0;
+        v->not_found = 0;
+        v->data = ctx->orig_uri.data;
+
+    } else {
+        v->not_found = 1;
+    }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_http_doorman_orig_args_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+    ngx_http_doorman_ctx_t  *ctx;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_doorman_module);
+
+    if (ctx) {
+        v->len = ctx->orig_args.len;
+        v->valid = 1;
+        v->no_cacheable = 0;
+        v->not_found = 0;
+        v->data = ctx->orig_args.data;
+
+    } else {
+        v->not_found = 1;
+    }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_http_doorman_trunc_hash_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+    ngx_http_doorman_ctx_t  *ctx;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_doorman_module);
+
+    if (ctx) {
+        v->len = ctx->trunc_hash.len;
+        v->valid = 1;
+        v->no_cacheable = 0;
+        v->not_found = 0;
+        v->data = ctx->trunc_hash.data;
+
+    } else {
+        v->not_found = 1;
+    }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_http_doorman_meta_hash_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+    ngx_http_doorman_ctx_t  *ctx;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_doorman_module);
+
+    if (ctx) {
+        v->len = ctx->meta_hash.len;
+        v->valid = 1;
+        v->no_cacheable = 0;
+        v->not_found = 0;
+        v->data = ctx->meta_hash.data;
+
+    } else {
+        v->not_found = 1;
+    }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_http_doorman_missing_bits_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+    ngx_http_doorman_ctx_t  *ctx;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_doorman_module);
+
+    if (ctx) {
+        v->len = ctx->missing_bits.len;
+        v->valid = 1;
+        v->no_cacheable = 0;
+        v->not_found = 0;
+        v->data = ctx->missing_bits.data;
+
+    } else {
+        v->not_found = 1;
+    }
+
+    return NGX_OK;
+}
 
 static void *
 ngx_http_doorman_create_conf(ngx_conf_t *cf)
@@ -321,6 +491,8 @@ ngx_http_doorman_create_conf(ngx_conf_t *cf)
      *
      *     conf->variable = NULL;
      *     conf->md5 = NULL;
+     *     conf->orig_uri = NULL;
+     *     conf->orig_args = NULL;
      */
 
     return conf;
@@ -339,6 +511,14 @@ ngx_http_doorman_merge_conf(ngx_conf_t *cf, void *parent, void *child)
 
     if (conf->md5 == NULL) {
         conf->md5 = prev->md5;
+    }
+
+    if (conf->orig_uri == NULL) {
+        conf->orig_uri = prev->orig_uri;
+    }
+
+    if (conf->orig_args == NULL) {
+        conf->orig_args = prev->orig_args;
     }
 
     return NGX_CONF_OK;
@@ -363,6 +543,41 @@ ngx_http_doorman_add_variables(ngx_conf_t *cf)
     }
 
     var->get_handler = ngx_http_doorman_expires_variable;
+
+    var = ngx_http_add_variable(cf, &ngx_http_orig_args_name, 0);
+    if (var == NULL) {
+        return NGX_ERROR;
+    }
+
+    var->get_handler = ngx_http_doorman_orig_args_variable;
+
+    var = ngx_http_add_variable(cf, &ngx_http_orig_uri_name, 0);
+    if (var == NULL) {
+        return NGX_ERROR;
+    }
+
+    var->get_handler = ngx_http_doorman_orig_uri_variable;
+
+    var = ngx_http_add_variable(cf, &ngx_http_trunc_hash_name, 0);
+    if (var == NULL) {
+        return NGX_ERROR;
+    }
+
+    var->get_handler = ngx_http_doorman_trunc_hash_variable;
+
+    var = ngx_http_add_variable(cf, &ngx_http_meta_hash_name, 0);
+    if (var == NULL) {
+        return NGX_ERROR;
+    }
+
+    var->get_handler = ngx_http_doorman_meta_hash_variable;
+
+    var = ngx_http_add_variable(cf, &ngx_http_missing_bits_name, 0);
+    if (var == NULL) {
+        return NGX_ERROR;
+    }
+
+    var->get_handler = ngx_http_doorman_missing_bits_variable;
 
     return NGX_OK;
 }

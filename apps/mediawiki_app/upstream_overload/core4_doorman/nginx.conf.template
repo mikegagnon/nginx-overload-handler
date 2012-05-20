@@ -48,11 +48,14 @@ http {
             ## The MD5 hash is built from a secret token + uri + args
             # The doorman module strips the admitkey argument from doorman_md5
             # For the URL to work properly the admitkey param MUST BE THE LAST param in the URL
-            doorman_md5 secret$uri?$args;
+            doorman_md5 secret$uri$arg_admitkey_expire;
+
+            doorman_orig_uri $uri;
+            doorman_orig_args $args;
 
             ## If the hash is incorrect (or non-existent) then $doorman is a null string.
             if ($doorman = "") {
-                rewrite ^.*$ /puzzle_ssi/puzzle.html?uri=$uri;
+                rewrite ^.*$ /puzzle_ssi/puzzle.html;
             }
 
             ## If they key is expired
