@@ -127,6 +127,7 @@ static ngx_str_t  ngx_http_doorman_expires_name =
     ngx_string("doorman_expires");
 
 
+// instantiates the $doorman nginx-variable
 static ngx_int_t
 ngx_http_doorman_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data)
@@ -145,6 +146,10 @@ ngx_http_doorman_variable(ngx_http_request_t *r,
         goto not_found;
     }
 
+    // perform variable substition in $doorman
+    // i.e. if config has doorman $arg_admitkey,$arg_admitkey_expire;
+    // and request is index.php?admitkey=foo&admitkey_expire=bar
+    // then val == "foo,bar"
     if (ngx_http_complex_value(r, conf->variable, &val) != NGX_OK) {
         return NGX_ERROR;
     }
@@ -152,14 +157,17 @@ ngx_http_doorman_variable(ngx_http_request_t *r,
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "doorman link: \"%V\"", &val);
 
+    // point to end of val
     last = val.data + val.len;
 
+    // p points to the comma in val
     p = ngx_strlchr(val.data, last, ',');
     expires = 0;
 
     if (p) {
         val.len = p++ - val.data;
 
+        // parse the expiration string
         expires = ngx_atotm(p, last - p);
         if (expires <= 0) {
             goto not_found;
@@ -176,6 +184,9 @@ ngx_http_doorman_variable(ngx_http_request_t *r,
         ctx->expires.data = p;
     }
 
+    // val now contains just the hash key
+
+    // a hash with more than 24 chars is auotmatically invalid
     if (val.len > 24) {
         goto not_found;
     }
@@ -183,6 +194,7 @@ ngx_http_doorman_variable(ngx_http_request_t *r,
     hash.len = 16;
     hash.data = hash_buf;
 
+    // parse the hash parameter into hash
     if (ngx_decode_base64url(&hash, &val) != NGX_OK) {
         goto not_found;
     }
@@ -191,6 +203,7 @@ ngx_http_doorman_variable(ngx_http_request_t *r,
         goto not_found;
     }
 
+    // perform variable substition in $doorman_md5
     if (ngx_http_complex_value(r, conf->md5, &val) != NGX_OK) {
         return NGX_ERROR;
     }
@@ -198,10 +211,14 @@ ngx_http_doorman_variable(ngx_http_request_t *r,
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "doorman link md5: \"%V\"", &val);
 
+    // TODO: remove the admitkey param from val
+
+    // hash val
     ngx_md5_init(&md5);
     ngx_md5_update(&md5, val.data, val.len);
     ngx_md5_final(md5_buf, &md5);
 
+    // make sure the hash is valid
     if (ngx_memcmp(hash_buf, md5_buf, 16) != 0) {
         goto not_found;
     }
