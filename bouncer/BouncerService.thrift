@@ -22,10 +22,6 @@
  *
  */
 
-exception BouncerException {
-    1: string message
-}
-
 // Bouncer process managers must implement this inteface
 service BouncerService {
 
@@ -39,10 +35,8 @@ service BouncerService {
      * the ip_address and the port of the FastCGI worker to be killed.
      * For example '127.0.0.1:9002' specifies to kill the FastCGI worker
      * that is listening on port 9002.
-     * The Bouncer must throw a BouncerExcpetion if the worker is not
-     * successfully killed
      */
-    void alert(1: string alert_message) throws (1:BouncerException be),
+    oneway void alert(1: string alert_message)
 
     /**
      * Called by alert_router

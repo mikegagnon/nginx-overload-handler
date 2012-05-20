@@ -121,8 +121,6 @@ class AlertRouter:
           self.logger.info("Successfully sent alert '%s' to Bouncer '%s:%d'" % \
             (alert_message, bouncer.addr, bouncer.port))
 
-        except BouncerException, e:
-            self.logger.error("Bouncer ERROR: %s" % e)
         except Thrift.TException, e:
             self.logger.error("Thrift exception: %s" % e)
 
