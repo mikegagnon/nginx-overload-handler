@@ -44,6 +44,42 @@
  *  limitations under the License.
  *
  * ==== doorman module for nginx ====
+ *
+ * Access control for GET requests using the client puzzle algorithm as
+ * described in "Client Puzzles: A Cryptographic Countermeasure Against
+ * Connection Depletion Attacks." http://www.rsa.com/rsalabs/node.asp?id=2050
+ *
+ * The general idea is to rate-limit GET requests by forcing clients to pay
+ * an "admission fee" in order to have a request admitted. Clients pay
+ * admisson by burning their own CPU cycles (in JavaScript). This mechanism
+ * rate limits clients according to their CPU resources. This form of rate
+ * limiting is desirable when other forms of rate limiting (e.g.
+ * HttpLimitReqModule) are undesirable -- such as when the attacker has many IP
+ * addresses or legitimate users are being proxied through a single IP address.
+ *
+ * The mechanism works as follows.
+ *   - Let x = hash(s, r), where s is a secret string (only known to the server)
+ *     and r is the text of the request
+ *   - Let y = hash(x)
+ *   - Let the puzzle be the 4-tuple (r, y, truncate(x), b), where truncate(x) is the
+ *     "truncated "version of x, i.e. x but with b bits removed
+ *   - Give the puzzle to the client
+ *       - Note, the client does not know the complete value x, but knows an approximate
+ *         value of x
+ *   - The client solves the puzzle by guessing various values for the value x,
+ *     (i.e. a brute force search). We'll call a particular guess x'.
+ *   - The client knows they have found the solution when hash(x') = y
+ *   - The client re-sends the request, along with the solution x.
+ *   - The server can quickly check whether a solution is valid by calculating
+ *     hash(s,r); if it matches the given x then the server knows that the
+ *     client has spent the CPU time to brute-force the hash
+ *   - The protocol also uses nonces to prevent replay attacks
+ *
+ * Can be configured to:
+ *  (1) have static puzzle diffuclty, or
+ *  (2) choose dynamic puzzle difficulty depending on the upstream load (as
+ *      determined by the nginx_upstream_overload module)
+ *
  */
 
 #include <ngx_config.h>
@@ -51,6 +87,9 @@
 #include <ngx_http.h>
 #include <ngx_md5.h>
 
+
+// md5 has 16-byte hashes
+#define DOORMAN_HASH_LEN 16
 
 typedef struct {
     ngx_http_complex_value_t  *variable;
@@ -126,6 +165,15 @@ static ngx_str_t  ngx_http_doorman_name = ngx_string("doorman");
 static ngx_str_t  ngx_http_doorman_expires_name =
     ngx_string("doorman_expires");
 
+// buf points to a u_char array of size DOORMAN_HASH_LEN
+static void
+ngx_http_doorman_hash(ngx_str_t * str, u_char * buf)
+{
+    ngx_md5_t md5;
+    ngx_md5_init(&md5);
+    ngx_md5_update(&md5, str->data, str->len);
+    ngx_md5_final(buf, &md5);
+}
 
 // instantiates the $doorman nginx-variable
 static ngx_int_t
@@ -135,10 +183,9 @@ ngx_http_doorman_variable(ngx_http_request_t *r,
     u_char                       *p, *last;
     ngx_str_t                     val, hash;
     time_t                        expires;
-    ngx_md5_t                     md5;
     ngx_http_doorman_ctx_t   *ctx;
     ngx_http_doorman_conf_t  *conf;
-    u_char                        hash_buf[16], md5_buf[16];
+    u_char                        given_hash_buf[DOORMAN_HASH_LEN], actual_hash_buf[DOORMAN_HASH_LEN];
 
     conf = ngx_http_get_module_loc_conf(r, ngx_http_doorman_module);
 
@@ -191,15 +238,15 @@ ngx_http_doorman_variable(ngx_http_request_t *r,
         goto not_found;
     }
 
-    hash.len = 16;
-    hash.data = hash_buf;
+    hash.len = DOORMAN_HASH_LEN;
+    hash.data = given_hash_buf;
 
     // parse the hash parameter into hash
     if (ngx_decode_base64url(&hash, &val) != NGX_OK) {
         goto not_found;
     }
 
-    if (hash.len != 16) {
+    if (hash.len != DOORMAN_HASH_LEN) {
         goto not_found;
     }
 
@@ -214,12 +261,10 @@ ngx_http_doorman_variable(ngx_http_request_t *r,
     // TODO: remove the admitkey param from val
 
     // hash val
-    ngx_md5_init(&md5);
-    ngx_md5_update(&md5, val.data, val.len);
-    ngx_md5_final(md5_buf, &md5);
+    ngx_http_doorman_hash(&val, actual_hash_buf);
 
     // make sure the hash is valid
-    if (ngx_memcmp(hash_buf, md5_buf, 16) != 0) {
+    if (ngx_memcmp(given_hash_buf, actual_hash_buf, DOORMAN_HASH_LEN) != 0) {
         goto not_found;
     }
 
