@@ -112,7 +112,7 @@ class Train:
             self.legit_url = "http://%s%s" % (self.server, page)
 
     def restart_remote_fcgi(self, trial_num):
-        self.logger.info("trial_num=%d", trial_num)
+        self.logger.info("Restarting FCGI workers on server")
         restart_remote_fcgi.restart_remote_fcgi( \
             self.server, \
             self.username, \
@@ -123,7 +123,7 @@ class Train:
     def run_httperf(self, period, trial_num):
         '''Executes httperf, adds the results to self.results, and
         returns the completion rate'''
-        self.logger.info("period=%f, trial_num=%d" % (period, trial_num))
+        self.logger.debug("period=%f, trial_num=%d" % (period, trial_num))
         cmd = ["httperf",
                 "--hog",
                 "--server=%s" % self.server,
@@ -170,38 +170,52 @@ class Train:
         (fail_period, success_period) where success_period is the period with
         the good completion_rate and fail_period was the immediately preceding
         period.'''
+        self.logger.info("[Phase 1/3] Phase begin. Exploring different periods until there is a 'successful' trial")
         period = self.initial_period
+        self.logger.info("[Phase 1/3] Running first trial with period = %f", period)
         completion_rate = self.do_trial(period)
-        self.logger.info("First trial with initial_period = %f --> %f" % (period, completion_rate))
+        self.logger.info("[Phase 1/3] First trial completion rate = %f", completion_rate)
         while completion_rate < self.completion_rate:
             period *= 2.0
+            self.logger.info("[Phase 1/3] Trial #%d beginning. Doubling period to %f", self.trial_num, period)
             completion_rate = self.do_trial(period)
-            self.logger.info("explore trial with period = %f --> %f" % (period, completion_rate))
+            self.logger.info("[Phase 1/3] Trial #%d finished. Completion rate = %f", self.trial_num - 1, completion_rate)
         if period == self.initial_period:
-           raise TrainError("The first trial succeeded. Lower initial_period and try again")
-        return (period/2.0, period)
+           raise TrainError("[Phase 1/3] Aborting because the first trial succeeded. Re-run trainer with a shorter initial period")
+
+        self.logger.info("[Phase 1/3] Phase finished")
+        lower = period / 2.0
+        upper = period
+        self.logger.info("[Phase 1/3] Period lower bound = %f, upper bound = %f", lower, upper)
+
+        return (lower, upper)
 
     def find_minimal_period(self, precision=6):
         # Use explore_initial_period to find a pair of periods (fail, success).
         # Then iteratively refine (fail, success) using a binary search (until
         # we reach a desired level of precision).
-        self.logger.info("Finding minimal period")
 
         fail_period, success_period = self.explore_initial_period()
 
+        self.logger.info("[Phase 2/3] Finding 'minimal period,' i.e. the smallest period with a 'successful' trial")
         for i in range(0, precision):
             trial_period = (fail_period + success_period) / 2.0
+            self.logger.info("[Phase 2/3] Trial #%d, testing with period = %f", self.trial_num, trial_period)
             completion_rate = self.do_trial(trial_period)
-            self.logger.info("(f=%f, try=%f, s=%f] --> %f" % (fail_period, trial_period, success_period, completion_rate))
+            self.logger.info("[Phase 2/3] Trial #%d finished. Completion rate = %f", self.trial_num, completion_rate)
+            self.logger.debug("(f=%f, try=%f, s=%f] --> %f" % (fail_period, trial_period, success_period, completion_rate))
             if completion_rate < self.completion_rate:
+                self.logger.info("[Phase 2/3] Trial #%d was unsuccessful, increasing period next Phase-2 trial", self.trial_num)
                 fail_period = trial_period
             else:
+                self.logger.info("[Phase 2/3] Trial #%d was successful, decreasing period next Phase-2 trial", self.trial_num)
                 success_period = trial_period
 
+        self.logger.info("[Phase 2/3] Phase finished.")
+        self.logger.info("[Phase 2/3] minimal period = %f", success_period)
         return success_period
 
     def explore_alternate_periods(self, period, num_trials=10, increase_rate=1.15):
-        self.logger.info("Finding alternate periods")
 
         completion_rate = self.results[period]["completion_rate"]
 
@@ -210,23 +224,24 @@ class Train:
         # they should be strictly worse (because throughput will increase
         # while everything else stays the same).
         if completion_rate == 1.0:
-            return
-
-        for i in range(0, num_trials):
-            period *= increase_rate
-            completion_rate = self.do_trial(period)
-            self.logger.info("Period %f --> %f" % (period, completion_rate))
-            if completion_rate == 1.0:
-                return
-
-    def output(self):
-        print json.dumps(train.results, indent=2, sort_keys=True)
+            self.logger.info("[Phase 3/3] No need for Phase 3 since minimal period leads to completion rate of 1.0.")
+        else:
+            self.logger.info("[Phase 3/3] Exploring alternate period bigger than the minimal period. These trials should all be successful.")
+            for i in range(0, num_trials):
+                period *= increase_rate
+                self.logger.info("[Phase 3/3] Trial #%d, testing with period = %f", self.trial_num, period)
+                completion_rate = self.do_trial(period)
+                self.logger.info("[Phase 3/3] Trial #%d finished. Completion rate = %f", self.trial_num, completion_rate)
+                if completion_rate == 1.0:
+                    self.logger.info("[Phase 3/3] No need to explore further since, this period leads to completion rate of 1.0.")
+                    break
+        self.logger.info("[Phase 3/3] Phase finished.")
 
     def train(self):
-        self.trial_num = 0
+        self.trial_num = 1
         minimal_period = self.find_minimal_period()
         self.explore_alternate_periods(minimal_period)
-        self.output()
+        self.logger.debug(json.dumps(train.results, indent=2, sort_keys=True))
 
 if __name__ == "__main__":
     cwd = os.getcwd()
@@ -275,5 +290,9 @@ if __name__ == "__main__":
         args.num_tests,
         args.test_size,
         logger)
-    train.train()
+    try:
+        train.train()
+    except TrainError, e:
+        self.logger.exception("Aborting training")
+
 
