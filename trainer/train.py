@@ -119,10 +119,12 @@ class Train:
             self.sshport, \
             self.legit_url, \
             self.logger)
+        self.logger.info("Finished restarting workers")
 
     def run_httperf(self, period, trial_num):
         '''Executes httperf, adds the results to self.results, and
         returns the completion rate'''
+        self.logger.info("Running httperf")
         self.logger.debug("period=%f, trial_num=%d" % (period, trial_num))
         cmd = ["httperf",
                 "--hog",
@@ -249,6 +251,8 @@ if __name__ == "__main__":
     default_trace_filename = os.path.join(cwd, "trace.txt")
 
     parser = argparse.ArgumentParser(description='Trains Beer Garden. See source for more info.')
+    parser.add_argument("--single", action="store_true", help="execute a single trial")
+
     parser.add_argument("-c", "--completion", type=float, default=0.95,
                     help="Default=%(default)f. The minimal completion rate you're willing to accept")
     parser.add_argument("-p", "--period", type=float, default=0.01,
@@ -290,9 +294,15 @@ if __name__ == "__main__":
         args.num_tests,
         args.test_size,
         logger)
-    try:
-        train.train()
-    except TrainError, e:
-        self.logger.exception("Aborting training")
 
+    if args.single:
+        train.logger.info("Executing a single trial with period = %f", args.period)
+        train.trial_num = 1
+        train.do_trial(args.period)
+    else:
+        try:
+            train.train()
+        except TrainError, e:
+            train.logger.critical(e.message)
+            train.logger.critical("Aborting training")
 
