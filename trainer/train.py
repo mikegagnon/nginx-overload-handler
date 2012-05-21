@@ -32,9 +32,9 @@
 # ==== Attack workload generation and definition of PERIOD ====
 # To emulate a worst-case attack, the trainer sends a series of request bursts.
 # Each burst contains N attack requests, followed by one legitimate request,
-# followed by N attack requests, where N = WORKERS = the number of upstream
-# workers. Each request is separated by PERIOD seconds, where PERIOD = WORKERS
-# / TIMEOUT.
+# followed by N attack requests, where N = WORKERS = the number of non-spare
+# upstream workers. Each request is separated by PERIOD seconds, where
+# PERIOD = WORKERS / TIMEOUT.
 #
 # Why this workload? The first N attack requests fill up every upstream worker
 # so that there are no longer any idle workers. Then when the legit request
@@ -352,7 +352,7 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--trial-size", type=int, required=True,
                     help="REQUIRED. The number of legit requests per trial")
     parser.add_argument("-w", "--workers", type=int, required=True,
-                    help="REQUIRED. The number of upstream worker processes.")
+                    help="REQUIRED. The number of non-spare upstream worker processes.")
     parser.add_argument("--single", action="store_true", help="execute a single trial")
     parser.add_argument("-c", "--completion", type=float, default=0.95,
                     help="Default=%(default)f. The minimal completion rate you're willing to accept")
