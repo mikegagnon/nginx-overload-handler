@@ -15,28 +15,24 @@
 #  limitations under the License.
 #
 # ==== train.py (the Trainer) ====
-# The goal of the Trainer is to help the Beer Garden administrator choose a
+# The goal of the Trainer is to help Beer Garden administrators choose a
 # value for the TIMEOUT configuration parameter.
 #
 # The trainer accomplishes this goal by running Beer Garden under various
-# configurations and for each config, measuring Beer Garden's ability to
-# protect the web application from worst-cast high-density attacks. Each
-# configuration test is a different "trial."
+# configurations (specifcally, different values for PERIOD). For each config,
+# the Trainer measures Beer Garden's ability to protect the web application
+# from worst-cast high-density attacks. Each configuration test is a different
+# "trial."
 #
-# For each trial, the trainer produces an output file httperf_stdout_*.txt.
-# Use ./analyze_trace_output.py to analyze these output files and make
-# configuration recommendations.
+# ==== What is TIMEOUT configuration parameter?====
+# Beer Garden evicts the oldest request in the system when (a) there is a new
+# request waiting for admission AND (b) there are no idle upstream workers AND
+# (c) the oldest request has been in the system for at least TIMEOUT seconds.
 #
-# ==== What is TIMEOUT? ====
-# What is the TIMEOUT config param? Beer Garden evicts the oldest request in
-# the system when (a) there is a new request waiting for admission AND (b)
-# there are no idle upstream workers AND (c) the oldest request has been in the
-# system for at least TIMEOUT seconds.
-#
-# ==== Attack workload ====
+# ==== Attack workload generation and definition of PERIOD ====
 # To emulate a worst-case attack, the trainer sends a series of request bursts.
 # Each burst contains N attack requests, followed by one legitimate request,
-# followed by N attack requests. Where N = WORKERS = the number of upstream
+# followed by N attack requests, where N = WORKERS = the number of upstream
 # workers. Each request is separated by PERIOD seconds, where PERIOD = WORKERS
 # / TIMEOUT.
 #
@@ -142,6 +138,7 @@
 # For each trial, the trainer produces an output file httperf_stdout_*.txt.
 # Use ./analyze_trace_output.py to analyze these output files and make
 # configuration recommendations.
+
 #
 
 import json
@@ -373,9 +370,8 @@ if __name__ == "__main__":
     log.add_arguments(parser)
     args = parser.parse_args()
     logger = log.getLogger(args)
-    logger.info("Command line arguments: %s" % str(args))
-
     args.test_size = args.workers + 1
+    logger.info("Command line arguments: %s" % str(args))
 
     try:
         with open(args.legit_trace, "r") as f:
