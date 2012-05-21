@@ -13,39 +13,43 @@ Copyright 2012 HellaSec, LLC
   limitations under the License.
 
 ==== README.txt for create_pages ====
-Adds 12 pages to the local MediaWiki instance (including the history
-of revisions for each page).
+Adds several Wikipedia pages to the local MediaWiki instance. Some pages
+include the history of revisions (which is useful for testing MediaWiki's
+diff feature).
 
 ==== Source of pages ====
-These pages were downloaded from Wikipedia from the "Beaches of Hawaii
-(island)" category. You can access these pages from Wikipedia by visiting
+These pages were downloaded from Wikipedia from the categories:
+
+    - "Beaches of Hawaii (island)" in wikipedia_hawaiian_beaches.xml
+    - "Beer styles" in wikipedia_beer_styles.xml
+
+If you want to download these Wikipedia pages yourself, visit:
 
     http://en.wikipedia.org/wiki/Special:Export
 
-In the "Add pages from category" field enter "Beaches of Hawaii (island)",
-click the add button. Then make sure the field "Include only the current
-revision, not the full history" is checked, then click the "export button."
-
-These pages are licensed under Creative Commons CC BY-SA 3.0.
-
-    http://creativecommons.org/licenses/by-sa/3.0/
+In the "Add pages from category" field enter the name of the category and
+click the add button. These pages are licensed under Creative Commons CC BY-SA
+3.0. http://creativecommons.org/licenses/by-sa/3.0/
 
 ==== Importing pages into local MediaWiki instance ====
 First, log in to MediaWiki as an administrator:
 
-    Visit http://localhost/index.php?title=Special:UserLogin
+    Visit http://$SERVER_NAME/index.php?title=Special:UserLogin
     username: testadmin
     password: $MEDIAWIKI_PASSWORD taken from ../env.sh
 
+NOTE: $SERVER_NAME is defined in nginx-overload-handler/siteconfig.sh
+
 Then, import the pages:
 
-    Visit: http://localhost/index.php?title=Special:Import
-    Upload the file wikipedia_sample_pages.xml
+    Visit: http://$SERVER_NAME/index.php?title=Special:Import
+    Upload one of the wikipedia_*.xml files from this directory
 
-==== Getting list of pages ====
-http://localhost/api.php?action=query&list=allpages&aplimit=500&format=json
+==== Troubleshooting ====
+MediaWiki can take a long time to import large archive files (such as
+wikipedia_hawaiian_beaches.xml). It is possible that it will timeout
+and the import will have only partially completed. That is OK.
 
-==== Getting list of revisions for a page ====
-Replace PAGE_TITLE with a page title in
-http://localhost/api.php?action=query&prop=revisions&titles=PAGE_TITLE&rvlimit=500&rvprop=ids&format=json
+For some of the wikipedia_*.xml archive file
+http://$SERVER_NAME/index.php?title=Special:AllPages
 
