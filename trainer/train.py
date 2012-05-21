@@ -66,6 +66,7 @@ RESTART_SCRIPT = os.path.join(DIRNAME, "restart_remote_fcgi.sh")
 import log
 import env
 import restart_remote_fcgi
+import make_trial_trace
 
 siteconfig = os.path.join(DIRNAME, "..", "siteconfig.sh")
 var = env.env(siteconfig)
@@ -248,18 +249,24 @@ class Train:
 if __name__ == "__main__":
     cwd = os.getcwd()
 
-    default_trace_filename = os.path.join(cwd, "trace.txt")
+    #default_trace_filename = os.path.join(cwd, "trace.txt")
 
     parser = argparse.ArgumentParser(description='Trains Beer Garden. See source for more info.')
-    parser.add_argument("--single", action="store_true", help="execute a single trial")
 
+    parser.add_argument("-l", "--legit-trace", type=str, required=True,
+                    help="REQUIRED. The trace file containing legit URLs")
+    parser.add_argument("-a", "--attack-trace", type=str, required=True,
+                    help="REQUIRED. The trace file containing attack URLs")
+    parser.add_argument("-n", "--num-tests", type=int, required=True,
+                    help="REQUIRED. The number of tests in the trace file (see --trace and make_trial_trace.py)")
+    parser.add_argument("-ts", "--test-size", type=int, required=True,
+                    help="REQUIRED. The size of each test in the trace file (see --trace and make_trial_trace.py)")
+    parser.add_argument("--single", action="store_true", help="execute a single trial")
     parser.add_argument("-c", "--completion", type=float, default=0.95,
                     help="Default=%(default)f. The minimal completion rate you're willing to accept")
     parser.add_argument("-p", "--period", type=float, default=0.01,
                     help="Default=%(default)f. The initial inter-arrival period. Beer Garden should not " \
                     "reach COMPLETION rate when running with PERIOD.")
-    parser.add_argument("-t", "--trace", type=str, default=default_trace_filename,
-                    help="Default=%(default)s. The trace file (produced by make_trial_trace.py)")
     parser.add_argument("-u", "--username", type=str, default="beergarden",
                     help="Default=%(default)s. The username on the server. Used when "\
                     "invoking restart_remote_fcgi.sh (see its source for PREREQs for username)")
@@ -267,10 +274,6 @@ if __name__ == "__main__":
                     help="Default=%(default)s. The address of the server running Beer Garden.")
     parser.add_argument("--sshport", type=int, default=22,
                     help="Default=%(default)s. The port of the server listens for ssh.")
-    parser.add_argument("-n", "--num-tests", type=int, required=True,
-                    help="REQUIRED. The number of tests in the trace file (see --trace and make_trial_trace.py)")
-    parser.add_argument("-ts", "--test-size", type=int, required=True,
-                    help="REQUIRED. The size of each test in the trace file (see --trace and make_trial_trace.py)")
 
     log.add_arguments(parser)
     args = parser.parse_args()
@@ -278,16 +281,33 @@ if __name__ == "__main__":
     logger.info("Command line arguments: %s" % str(args))
 
     try:
-        with open(args.trace, "r") as f:
+        with open(args.legit_trace, "r") as f:
             pass
     except:
-        logger.critical("Error: could not open trace file (%s)" % args.trace)
+        logger.critical("Error: could not open trace file (%s)" % args.legit_trace)
         sys.exit(1)
+
+    try:
+        with open(args.attack_trace, "r") as f:
+            pass
+    except:
+        logger.critical("Error: could not open trace file (%s)" % args.attack_trace)
+        sys.exit(1)
+
+    trace_filename = os.path.join(cwd, "trace.txt")
+
+    with open(trace_filename, "w") as trace_file:
+        make_trial_trace.make_trial_trace( \
+            args.test_size, \
+            args.num_tests, \
+            args.legit_trace, \
+            args.attack_trace, \
+            trace_file)
 
     train = Train(
         args.completion,
         args.period,
-        args.trace,
+        trace_filename,
         args.username,
         args.server,
         args.sshport,
