@@ -60,6 +60,9 @@ def make_trial_trace(test_size, num_tests, legit_filename, attack_filename,
 
         outfile.write("%s\n\n" % legit_items.next())
 
+    for test_j in range(0, test_size - 1):
+        outfile.write("%s\n\n" % attack_items.next())
+
 if __name__ == "__main__":
     test_size = int(sys.argv[1])
     num_tests = int(sys.argv[2])

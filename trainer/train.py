@@ -14,40 +14,135 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== train.py ====
+# ==== train.py (the Trainer) ====
+# The goal of the Trainer is to help the Beer Garden administrator choose a
+# value for the TIMEOUT configuration parameter.
 #
-# USAGE: ./train.py completion period workers username server
-#   where:
-#       completion is the "minimal completion rate" (a number between 0 and 1)
-#       period is the __initial__ interarrival period
-#       workers is the numer of fastcgi workers on the server
-#       usernaname is a user on server who has permission to restart the
-#           the fcgi workers (see restart_remote_fcgi.sh)
-#       server is the address of the server (or domain name)
+# The trainer accomplishes this goal by running Beer Garden under various
+# configurations and for each config, measuring Beer Garden's ability to
+# protect the web application from worst-cast high-density attacks. Each
+# configuration test is a different "trial."
 #
-# The goal is to run the web application under a variety of Beer Garden
-# configurations, and recommend several configurations where at least
-# 'completion' portion of legitimate requests complete. The trainer than
-# reports the performance metrics from the trials, so you can choose the
-# configuration with the "best" performance. "Best" is subjective; there is
-# often a trade space between latency, throughput, and completion rate. The
-# only setting the trainer modifies is 'period', interarrival time between
-# requests.
+# For each trial, the trainer produces an output file httperf_stdout_*.txt.
+# Use ./analyze_trace_output.py to analyze these output files and make
+# configuration recommendations.
 #
-# PREREQs:
-#   (1) create a trace file
+# ==== What is TIMEOUT? ====
+# What is the TIMEOUT config param? Beer Garden evicts the oldest request in
+# the system when (a) there is a new request waiting for admission AND (b)
+# there are no idle upstream workers AND (c) the oldest request has been in the
+# system for at least TIMEOUT seconds.
 #
-# ==== Design ====
+# ==== Attack workload ====
+# To emulate a worst-case attack, the trainer sends a series of request bursts.
+# Each burst contains N attack requests, followed by one legitimate request,
+# followed by N attack requests. Where N = WORKERS = the number of upstream
+# workers. Each request is separated by PERIOD seconds, where PERIOD = WORKERS
+# / TIMEOUT.
 #
-# (1) Find M, the "minimal period." I.e., M is the smallest period that Beer
-# Garden will recommend.
-# (2) Find alternate periods by increasing M by 15% ten times.
-# (3) Report the configurations, each configuration has 3 performance metrics
-#     associated with its performance: throughput, completion rate, latency. Sort
-#     configurations three different ways (according to each metric).
+# Why this workload? The first N attack requests fill up every upstream worker
+# so that there are no longer any idle workers. Then when the legit request
+# arrives Beer Garden must evict an attack request to make room for the legit
+# request. The following N requests fill up the workers again. When the very
+# last request arrives, then at this point the legit request is the oldest
+# request in the system, so Beer Garden evicts it in order to admit the new
+# attack request.
 #
-
-#TODO: make sure all file accesses are absolute and refer to the correct parent dir
+# But why define PERIOD as WORKERS / TIMEOUT? When requests are separated
+# by PERIOD seconds, then it guarantees that there exists a request that has
+# been in the system for approximately TIMEOUT seconds, which implies that
+# every time a request arrives there is a request that has just become
+# eligible for eviction.
+#
+# This workload is therefore "worst case" because it creates maximimum
+# contention for CPU and evicts legitimate requests as soon as they become
+# eligible for eviction.
+#
+# ==== What vulnerability does the trainer exploit? ====
+# To send attack requests there must be a vulnerablity in the web application.
+# You must manually install a vulnerability in the web application. An attack
+# request should exploit this vulnerability to put the upstream_worker in an
+# infinite loop.
+#
+# You should create an attack_trace.txt file that contains at least one URL
+# (following the httperf wsesslog format), that when requested exploits the
+# vulnerability and triggers an infinite loop. Each URL should be followed
+# by two newlines.
+#
+# ==== Concrete example of attack_trace.txt ====
+# Vulnerable code: nginx-overload-handler/apps/mediawiki_app/dummy_vuln.php
+#
+#   <?php while(true); ?>
+#
+# Copy dummy_vuln.php into the MediaWiki installation by using
+# nginx-overload-handler/apps/mediawiki_app/install_dummy_vuln.sh
+#
+# You can trigger an infinite loop in MediaWiki by requesting
+# http://$SERVER_NAME/dummy_vuln.php
+#
+# The attack_trace.txt file (nginx-overload-handler/apps/mediawiki_app/
+# attack_trace.txt) therefore contains:
+#
+#   /dummy_vuln.php\n\n
+#
+# ==== What legit requests does the Trainer use? ====
+# You must create a legit_trace.txt file that contains a series of
+# legitimate URLs (each separated by two newlines). For running the
+# Trainer against a MediaWiki instance you can use the script
+#
+#   nginx-overload-handler/apps/mediawiki_app/create_pages/get_pages.py
+#
+# to get a list of MediaWiki pages, then use the script
+#
+#   nginx-overload-handler/apps/mediawiki_app/create_pages/maketrace.py
+#
+# to generate a number of mutually exclusive legit_trace_*.txt files.
+# The resulting legit_trace.txt are mutually exclusive in the sense that
+# any legit URL that appears in one legit_trace_*.txt file, will not
+# appear in any other legit_trace_*.txt files. This mutual exclusivity
+# is useful for cross-validation testing. I.e. train Beer Garden on one
+# legit trace, then test it the other traces.
+#
+# ==== Operation of Trainer ====
+# See ./train.py --help for complete command-line usage. There are four
+# required arguments to train.py:
+#
+#  -l LEGIT_TRACE, --legit-trace LEGIT_TRACE
+#                        REQUIRED. The trace file containing legit URLs
+#  -a ATTACK_TRACE, --attack-trace ATTACK_TRACE
+#                        REQUIRED. The trace file containing attack URLs
+#  -t TRIAL_SIZE, --trial-size TRIAL_SIZE
+#                        REQUIRED. The number of legit requests per trial
+#  -w WORKERS, --workers WORKERS
+#                        REQUIRED. The number of upstream worker processes.
+#
+# The trainer loads the LEGIT_TRACE and ATTACK_TRACE files and merges
+# them into trace.txt, by taking TRIAL_SIZE requests from LEGIT_TRACE
+# and inserting WORKERS attack requests (taken from ATTACK_TRACE) before
+# and after each legit request URL (two newlines separating each URL). The
+# trace.txt should therefore contain (WORKERS+1) * TRIAL_SIZE + WORKERS
+# requests, and twice as many lines.
+#
+# Each trial, will use the same trace.txt file.
+#
+# There are three phases:
+#   [Phase 1/3] Start off with a period that is sufficiently small such that
+#       it leads to an "unsuccessful" trial. An unsuccessful trial is a trial
+#       where the proportion of legit request that complete is less than
+#       COMPLETION. Then, keep tring new trials (each time doubling period)
+#       until there is a successful trial. The trainer now has a lower and
+#       upper bound for the "minimal period" --- i.e. the smallest period with
+#       that leads to a 'successful' trial.
+#   [Phase 2/3] Find the minimal period by trying periods inbetween the lower
+#       and upper bounds established in Phase 1.
+#   [Phase 3/3] Once you know the minimal period, explore alternative periods
+#       that are bigger than the minimal period. Do 10 more trials, each time
+#       increasing period by 15%.
+#
+# For each trial, the trainer produces an output file httperf_stdout_*.txt.
+# Use ./analyze_trace_output.py to analyze these output files and make
+# configuration recommendations.
+#
 
 import json
 import subprocess
@@ -84,7 +179,7 @@ class Train:
             username,
             server,
             sshport,
-            num_tests,
+            trial_size,
             test_size,
             logger):
         self.logger = logger
@@ -94,11 +189,11 @@ class Train:
         self.username = username
         self.server = server
         self.sshport = sshport
-        self.num_tests = num_tests
+        self.trial_size = trial_size
         self.test_size = test_size
         # there should be self.num_requests sessions in self.trace_filename
         # TODO: assert this assumption
-        self.num_requests = self.test_size * num_tests
+        self.num_requests = self.test_size * trial_size + self.test_size - 1
         # TODO: come up with a principled timeout
         self.timeout = 5
         self.results = {}
@@ -257,10 +352,10 @@ if __name__ == "__main__":
                     help="REQUIRED. The trace file containing legit URLs")
     parser.add_argument("-a", "--attack-trace", type=str, required=True,
                     help="REQUIRED. The trace file containing attack URLs")
-    parser.add_argument("-n", "--num-tests", type=int, required=True,
-                    help="REQUIRED. The number of tests in the trace file (see --trace and make_trial_trace.py)")
-    parser.add_argument("-ts", "--test-size", type=int, required=True,
-                    help="REQUIRED. The size of each test in the trace file (see --trace and make_trial_trace.py)")
+    parser.add_argument("-t", "--trial-size", type=int, required=True,
+                    help="REQUIRED. The number of legit requests per trial")
+    parser.add_argument("-w", "--workers", type=int, required=True,
+                    help="REQUIRED. The number of upstream worker processes.")
     parser.add_argument("--single", action="store_true", help="execute a single trial")
     parser.add_argument("-c", "--completion", type=float, default=0.95,
                     help="Default=%(default)f. The minimal completion rate you're willing to accept")
@@ -279,6 +374,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     logger = log.getLogger(args)
     logger.info("Command line arguments: %s" % str(args))
+
+    args.test_size = args.workers + 1
 
     try:
         with open(args.legit_trace, "r") as f:
@@ -299,7 +396,7 @@ if __name__ == "__main__":
     with open(trace_filename, "w") as trace_file:
         make_trial_trace.make_trial_trace( \
             args.test_size, \
-            args.num_tests, \
+            args.trial_size, \
             args.legit_trace, \
             args.attack_trace, \
             trace_file)
@@ -311,7 +408,7 @@ if __name__ == "__main__":
         args.username,
         args.server,
         args.sshport,
-        args.num_tests,
+        args.trial_size,
         args.test_size,
         logger)
 
