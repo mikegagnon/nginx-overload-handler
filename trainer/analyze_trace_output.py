@@ -214,7 +214,7 @@ class AnalyzeResults:
             self.results = results
 
     def load_results(self, filenames, workers):
-        results = {}
+        results = []
         for filename in filenames:
             with open(filename, "r") as infile:
                 line = infile.readline()
@@ -223,7 +223,7 @@ class AnalyzeResults:
                 period = 1.0 / rate
                 analysis = AnalyzeTraceOutput(infile, workers, self.logger)
 
-            results[period] = analysis.summary(period, self.quantiles)
+            results.append((period, analysis.summary(period, self.quantiles)))
         return results
 
     def print_csv(self, only_good=True, outfile=sys.stdout):
@@ -234,9 +234,8 @@ class AnalyzeResults:
         line = ",".join(line) + "\n"
         outfile.write(line)
 
-        for period in sorted(self.results.keys()):
+        for period, result in sorted(self.results):
             timeout = period * self.workers
-            result = self.results[period]
             completion_rate = result["completion_rate"]
             if only_good and completion_rate < self.completion:
                 continue
