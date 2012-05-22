@@ -327,7 +327,7 @@ class Train:
                 period *= increase_rate
                 self.logger.info("[Phase 3/3] Trial #%d, testing with period = %f", self.trial_num, period)
                 completion_rate = self.do_trial(period)
-                self.logger.info("[Phase 3/3] Trial #%d finished. Completion rate = %f", self.trial_num, completion_rate)
+                self.logger.info("[Phase 3/3] Trial #%d finished. Completion rate = %f", self.trial_num - 1, completion_rate)
                 if completion_rate == 1.0:
                     self.logger.info("[Phase 3/3] No need to explore further since, this period leads to completion rate of 1.0.")
                     break
@@ -354,7 +354,11 @@ if __name__ == "__main__":
                     help="REQUIRED. The number of legit requests per trial")
     parser.add_argument("-w", "--workers", type=int, required=True,
                     help="REQUIRED. The number of non-spare upstream worker processes.")
-    parser.add_argument("--single", action="store_true", help="execute a single trial")
+    parser.add_argument("--single", type=int, default=None,
+                    help="Default=%(default)s. If you specify SINGLE, then trainer will "
+                    "test a single value for PERIOD (without exploring alternates) SINGLE "
+                    "number of times. Useful for testing how reliable results are for a given "
+                    "value for PERIOD.")
     parser.add_argument("-c", "--completion", type=float, default=0.95,
                     help="Default=%(default)f. The minimal completion rate you're willing to accept")
     parser.add_argument("-p", "--period", type=float, default=0.01,
@@ -408,10 +412,14 @@ if __name__ == "__main__":
         args.workers,
         logger)
 
-    if args.single:
-        train.logger.info("Executing a single trial with period = %f", args.period)
+    if args.single != None:
+        train.logger.info("Executing a %d trial(s) with period = %f", args.single, args.period)
         train.trial_num = 1
-        train.do_trial(args.period)
+        for i in range(0, args.single):
+            train.do_trial(args.period)
+            self.logger.info("Trial #%d, testing with period = %f", self.trial_num, period)
+            completion_rate = self.do_trial(args.period)
+            self.logger.info("Trial #%d finished. Completion rate = %f", self.trial_num - 1, completion_rate)
     else:
         try:
             train.train()
