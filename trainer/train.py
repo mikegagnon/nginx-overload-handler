@@ -413,13 +413,13 @@ if __name__ == "__main__":
         logger)
 
     if args.single != None:
-        train.logger.info("Executing a %d trial(s) with period = %f", args.single, args.period)
+        train.logger.info("Executing %d trial(s) with period = %f", args.single, args.period)
         train.trial_num = 1
         for i in range(0, args.single):
             train.do_trial(args.period)
-            self.logger.info("Trial #%d, testing with period = %f", self.trial_num, period)
-            completion_rate = self.do_trial(args.period)
-            self.logger.info("Trial #%d finished. Completion rate = %f", self.trial_num - 1, completion_rate)
+            train.logger.info("Trial #%d, testing with period = %f", train.trial_num, period)
+            completion_rate = train.do_trial(args.period)
+            train.logger.info("Trial #%d finished. Completion rate = %f", train.trial_num - 1, completion_rate)
     else:
         try:
             train.train()
