@@ -294,7 +294,7 @@ if __name__ == "__main__":
         filenames=args.files,
         workers=args.workers)
     if "csv" in args.output:
-        analysis.print_csv(not argsargs.showAll)
+        analysis.print_csv(not args.showAll)
     if "json" in args.output:
         analysis.print_json()
 
