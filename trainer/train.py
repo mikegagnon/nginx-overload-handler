@@ -298,7 +298,7 @@ class Train:
             trial_period = (fail_period + success_period) / 2.0
             self.logger.info("[Phase 2/3] Trial #%d, testing with period = %f", self.trial_num, trial_period)
             completion_rate = self.do_trial(trial_period)
-            self.logger.info("[Phase 2/3] Trial #%d finished. Completion rate = %f", self.trial_num, completion_rate)
+            self.logger.info("[Phase 2/3] Trial #%d finished. Completion rate = %f", self.trial_num - 1, completion_rate)
             self.logger.debug("(f=%f, try=%f, s=%f] --> %f" % (fail_period, trial_period, success_period, completion_rate))
             if completion_rate < self.completion_rate:
                 self.logger.info("[Phase 2/3] Trial #%d was unsuccessful, increasing period next Phase-2 trial", self.trial_num)
