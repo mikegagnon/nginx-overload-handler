@@ -391,7 +391,7 @@ if __name__ == "__main__":
 
     with open(trace_filename, "w") as trace_file:
         make_trial_trace.make_trial_trace( \
-            args.test_size, \
+            args.workers + 1, \
             args.trial_size, \
             args.legit_trace, \
             args.attack_trace, \
