@@ -177,7 +177,7 @@ class Train:
             server,
             sshport,
             trial_size,
-            test_size,
+            workers,
             logger):
         self.logger = logger
         self.completion_rate = completion_rate
@@ -187,10 +187,11 @@ class Train:
         self.server = server
         self.sshport = sshport
         self.trial_size = trial_size
-        self.test_size = test_size
+        self.workers = workers
+        self.test_size = workers + 1
         # there should be self.num_requests sessions in self.trace_filename
         # TODO: assert this assumption
-        self.num_requests = self.test_size * trial_size + self.test_size - 1
+        self.num_requests = self.test_size * trial_size + self.workers
         # TODO: come up with a principled timeout
         self.timeout = 5
         self.results = {}
@@ -201,7 +202,7 @@ class Train:
         # Find the url that represents a legitimate request
         with open(self.trace_filename) as f:
             lines = f.readlines()
-            page = lines[(self.test_size - 1) * 2].strip()
+            page = lines[self.workers * 2].strip()
             self.legit_url = "http://%s%s" % (self.server, page)
 
     def restart_remote_fcgi(self, trial_num):
@@ -247,7 +248,7 @@ class Train:
                 raise TrainError("httperf for trial %d returned %d" % (trial_num, ret))
 
         with open(httperf_stdout_filename, "r") as infile:
-            analysis = AnalyzeTraceOutput(infile, self.test_size, self.logger)
+            analysis = AnalyzeTraceOutput(infile, workers=self.workers, self.logger)
 
         self.results[period] = analysis.summary(period, self.quantiles)
         self.logger.debug("results[period=%f] = %s", period, json.dumps(self.results[period], indent=2, sort_keys=True))
@@ -370,7 +371,6 @@ if __name__ == "__main__":
     log.add_arguments(parser)
     args = parser.parse_args()
     logger = log.getLogger(args)
-    args.test_size = args.workers + 1
     logger.info("Command line arguments: %s" % str(args))
 
     try:
@@ -405,7 +405,7 @@ if __name__ == "__main__":
         args.server,
         args.sshport,
         args.trial_size,
-        args.test_size,
+        args.workers,
         logger)
 
     if args.single:
