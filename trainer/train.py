@@ -248,7 +248,7 @@ class Train:
                 raise TrainError("httperf for trial %d returned %d" % (trial_num, ret))
 
         with open(httperf_stdout_filename, "r") as infile:
-            analysis = AnalyzeTraceOutput(infile, workers=self.workers, self.logger)
+            analysis = AnalyzeTraceOutput(infile, workers=self.workers, logger=self.logger)
 
         self.results[period] = analysis.summary(period, self.quantiles)
         self.logger.debug("results[period=%f] = %s", period, json.dumps(self.results[period], indent=2, sort_keys=True))
