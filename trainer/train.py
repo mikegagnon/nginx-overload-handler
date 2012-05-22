@@ -417,7 +417,7 @@ if __name__ == "__main__":
         train.trial_num = 1
         for i in range(0, args.single):
             train.do_trial(args.period)
-            train.logger.info("Trial #%d, testing with period = %f", train.trial_num, period)
+            train.logger.info("Trial #%d, testing with period = %f", train.trial_num, args.period)
             completion_rate = train.do_trial(args.period)
             train.logger.info("Trial #%d finished. Completion rate = %f", train.trial_num - 1, completion_rate)
     else:
