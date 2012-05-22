@@ -162,7 +162,7 @@ class AnalyzeTraceOutput:
         if index >= 0:
             return values[index]
         else:
-            return 0.0
+            return [0.0, None]
 
     @staticmethod
     def getTimestamp(line, prefix):
