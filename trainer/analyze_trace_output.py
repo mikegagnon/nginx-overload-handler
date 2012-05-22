@@ -265,16 +265,18 @@ if __name__ == "__main__":
     default_files = glob.glob(default_glob)
 
     parser = argparse.ArgumentParser(description='Analyzes output of trainer. See source for more info.')
+    parser.add_argument("-w", "--workers", type=int, required=True,
+                    help="REQUIRED. The number of non-spare upstream worker processes.")
     parser.add_argument("-c", "--completion", type=float, required=False, default=0.95,
                     help="Default=%(default)f. The minimal completion rate you're willing to accept")
     parser.add_argument('-q', "--quantiles", type=float, nargs='*', default=[0.25, 0.50, 0.75, 1.0],
                     help='Default=%(default)s. list of quantiles to measure (0.0 < QUANTILE <= 1.0)')
     parser.add_argument('-f', "--files", type=str, nargs='*', default=default_files,
                     help='Default=%s. list of httperf_stdout_*.txt files to read' % default_glob)
-    parser.add_argument("-w", "--workers", type=int, required=True,
-                    help="REQUIRED. The number of non-spare upstream worker processes.")
     parser.add_argument('-o', "--output", type=str, nargs="+", default="csv", choices=["csv", "json"],
                     help="Default=%(default)s.")
+    parser.add_argument("-a", "--showAll", action="store_true", help="present all results (not just the trials "
+                    "with completion rates higher than COMPLETION.")
 
     log.add_arguments(parser)
     args = parser.parse_args()
@@ -292,7 +294,7 @@ if __name__ == "__main__":
         filenames=args.files,
         workers=args.workers)
     if "csv" in args.output:
-        analysis.print_csv()
+        analysis.print_csv(not argsargs.showAll)
     if "json" in args.output:
         analysis.print_json()
 
