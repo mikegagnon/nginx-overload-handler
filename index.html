@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="Nginx-overload-handler : " />
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>Nginx-overload-handler</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/mikegagnon/nginx-overload-handler">View on GitHub</a>
+
+          <h1 id="project_title">Nginx-overload-handler</h1>
+          <h2 id="project_tagline"></h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/mikegagnon/nginx-overload-handler/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/mikegagnon/nginx-overload-handler/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h3>How does the Nginx web server handle web-application overloads?</h3>
+
+<p>It doesn't.
+Instead, Nginx just keeps piping requests to the web application and lets
+them deal with overloads. How do web applications handle overloads? They
+usually don't.</p>
+
+<h3>That's a problem.</h3>
+
+<p>nginx-overload-handler is an attempt to solve this problem by (1) having nginx
+detect overloads, (2) alerting web applications of overloads, and (3) implementing
+generic, default behavior for web applications that enables them to survive
+overloads.</p>
+
+<h3>How is it implemented?</h3>
+
+<p>Several moving parts:
+    (1) A new load balancing module for nginx, upstream_overload.
+        See nginx_upstream_overload/README.txt
+    (2) An Alert Router receives alerts from upstream_overload (via
+        a named pipe) and forwards these alerts to the appropriate
+        Bouncer (via Thrift RPC).
+        See bouncer/README.txt
+    (3) Each Bouncer manages a group of FastCGI worker process that
+        implements the web application. When one of those workers, dies
+        the Bouncer restarts it. When it receives an alert from the Alert
+        Router, it kills one of the workers to help deal with the overload.
+        See bouncer/README.txt</p>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">Nginx-overload-handler maintained by <a href="https://github.com/mikegagnon">mikegagnon</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
