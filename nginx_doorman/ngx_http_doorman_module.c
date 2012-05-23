@@ -81,6 +81,10 @@
  *  (2) choose dynamic puzzle difficulty depending on the upstream load (as
  *      determined by the nginx_upstream_overload module)
  *
+ * ==== TODO ====
+ * - Make it easier to configure
+ * - Profile under load an optimitize as needed
+ * - Create different error handlers (i.e. goto not_found_foo)
  */
 
 #include <ngx_config.h>
@@ -98,7 +102,6 @@ typedef struct {
     ngx_http_complex_value_t  *orig_uri;
     ngx_http_complex_value_t  *orig_args;
 } ngx_http_doorman_conf_t;
-
 
 typedef struct {
     ngx_str_t                  expires;
@@ -185,7 +188,6 @@ ngx_module_t  ngx_http_doorman_module = {
 
 static ngx_str_t  ngx_http_doorman_name = ngx_string("doorman");
 static ngx_str_t  ngx_http_doorman_expires_name = ngx_string("doorman_expires");
-// holds $uri?$args
 static ngx_str_t  ngx_http_orig_uri_name = ngx_string("orig_uri");
 static ngx_str_t  ngx_http_orig_args_name = ngx_string("orig_args");
 static ngx_str_t  ngx_http_trunc_hash_name = ngx_string("trunc_hash");
