@@ -77,7 +77,7 @@ def restart_remote_fcgi(server, username, sshport, request_url, logger, max_retr
     # ssh username@server -p sshport, then executes restart_fcgi.sh on server
     # after executing restart_fcgi.sh on server, keeps requesting request_url
     # until the request succeeds (up to max_retries)
-    logger.info("Restarting FCGI workers on %s", server)
+    logger.debug("Restarting FCGI workers on %s", server)
     logger.debug("max_retries = %d", max_retries)
     cmd = [RESTART_SCRIPT,
         username,
@@ -118,8 +118,8 @@ def restart_remote_fcgi(server, username, sshport, request_url, logger, max_retr
         except urllib2.URLError:
             logger.critical("Error: Could not access %s. Perhaps restart_remote_fcgi.sh did not work." % request_url)
             raise
-    logger.info("Request succeeded afer %d requests", i + 1)
-    logger.info("Restart FCGI workers success")
+    logger.debug("Request succeeded afer %d requests", i + 1)
+    logger.debug("Restart FCGI workers success")
 
 if __name__ == "__main__":
     cwd = os.getcwd()

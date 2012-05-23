@@ -171,18 +171,22 @@ class BouncerProcessManager(object):
         worker = alert_message
 
         if worker not in self.workers:
-            raise BouncerException("This bouncer is not configured to restart worker '%s'" % worker)
+            self.logger.critical("This bouncer is not configured to restart worker '%s'", worker)
+            return
         try:
             addr, port = BouncerProcessManager.parse_worker(worker)
         except ValueError, e:
-            raise BouncerException("Worker '%s' because is malformed" % worker)
+            self.logger.critical("Worker '%s' because is malformed", worker)
+            return
 
         if worker not in self.worker_popen_map:
-            raise BouncerException("Worker '%s' does not seem to be running (it's not in worker_popen_map)" % worker)
+            self.logger.error("Worker '%s' does not seem to be running (it's not in worker_popen_map)", worker)
+            return
 
         popen_obj = self.worker_popen_map[worker]
         if popen_obj == None:
-            raise BouncerException("Worker '%s' does not seem to be running (its popen_obj == None)" % worker)
+            self.logger.error("Worker '%s' does not seem to be running (its popen_obj == None)", worker)
+            return
 
         self.logger.info("Killing worker '%s'" % worker)
         self.kill_worker(addr, port, popen_obj)
@@ -223,7 +227,7 @@ class BouncerProcessManager(object):
         tfactory = TTransport.TBufferedTransportFactory()
         pfactory = TBinaryProtocol.TBinaryProtocolFactory()
 
-        server = TServer.TSimpleServer(processor, transport, tfactory, pfactory)
+        server = TServer.TThreadPoolServer(processor, transport, tfactory, pfactory)
 
         self.logger.info("Starting Bouncer process manager on port %d" % self.bouncerAddr.port)
         server.serve()

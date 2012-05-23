@@ -16,7 +16,8 @@
 #
 # ==== get_pages.py ====
 #
-# Outputs a JSON structure of "legitimate" URL acccesses for MediaWiki.
+# Asks the MediaWiki instance for a list of its pages and outputs
+# a JSON structure with links to those pages.
 #
 # USAGE:
 #   - Make sure that MediaWiki is running

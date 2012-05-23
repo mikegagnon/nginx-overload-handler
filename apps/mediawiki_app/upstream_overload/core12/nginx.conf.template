@@ -46,7 +46,10 @@ http {
 
     # FastCGI requests will be load balanced using the upstream_overload module
 
-    num_spare_backends 1;
+    # 13 workers - 2 spares = 11 non-spare workers
+    # Nginx has 1 worker process --> 11 + 1 = 12 CPU-bound processes
+    # --> fully utilized CPU
+    num_spare_backends 2;
     alert_pipe TEMPLATE_ALERT_PIPE_PATH;
 
     upstream my_backend  {

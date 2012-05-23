@@ -16,7 +16,19 @@
 #
 # ==== analyze_trace_output.py ====
 #
-# USAGE: cat httperf_output.txt | ./analyze_trace_output.py test_size percentile
+# Analyzes the output of train.py and presents recommended configurations.
+#
+# For complete usage see ./analyze_trace_output.py --help
+#
+# EXAMPLE USAGE:
+#
+#   ./analyze_trace_output.py --files httperf_stdout_00*.txt --workers 4 --completion 0.60
+#
+# Prints a csv summarizing the configurations and associated results for those runs
+# that had a completion rate of at least 0.60.
+#
+# HOT TIP: To pretty print the csv do:
+#   ./analyze_trace_output.py ... | column -s, -t
 #
 
 import sys
@@ -38,8 +50,8 @@ import log
 class AnalyzeTraceOutput:
     '''Parses a single httperf output file'''
 
-    def __init__(self, infile, test_size, logger):
-        self.test_size = test_size
+    def __init__(self, infile, workers, logger):
+        self.test_size = workers + 1
         self.logger = logger
 
         # parse httperf_output
@@ -108,7 +120,10 @@ class AnalyzeTraceOutput:
                     latency_val = (float("inf"), latency_val[1])
                 self.legit_latencies.append(latency_val)
         self.legit_latencies.sort()
-        self.completion_rate = float(self.completed) / float(len(self.legit_latencies))
+        if len(self.legit_latencies) == 0:
+            self.completion_rate = 0.0
+        else:
+            self.completion_rate = float(self.completed) / float(len(self.legit_latencies))
 
         self.logger.debug("legit_latencies = %s", self.legit_latencies)
 
@@ -147,7 +162,7 @@ class AnalyzeTraceOutput:
         if index >= 0:
             return values[index]
         else:
-            return 0.0
+            return [0.0, None]
 
     @staticmethod
     def getTimestamp(line, prefix):
@@ -178,7 +193,7 @@ class AnalyzeTraceOutput:
 class AnalyzeResults:
     '''Analyzes the many httperf output files and reports recommended configs'''
 
-    def __init__(self, completion, quantiles, logger, results=None, filenames=None, test_size=None):
+    def __init__(self, completion, quantiles, logger, results=None, filenames=None, workers=None):
         self.logger = logger
         self.completion = completion
         quantiles = set(quantiles)
@@ -189,41 +204,43 @@ class AnalyzeResults:
         if results!=None and filenames!=None:
             raise ValueError("Either results must be given, or filenames, but not both")
         if filenames != None:
-            if test_size == None:
-                raise ValueError("Missing test_size")
+            if workers == None:
+                raise ValueError("Missing workers")
             if quantiles == None:
                 raise ValueError("Missing quantiles")
-            self.results = self.load_results(filenames, test_size)
+            self.workers = workers
+            self.results = self.load_results(filenames, workers=workers)
         else:
             self.results = results
 
-    def load_results(self, filenames, test_size):
-        results = {}
+    def load_results(self, filenames, workers):
+        results = []
         for filename in filenames:
             with open(filename, "r") as infile:
                 line = infile.readline()
                 parts = line.split()
                 rate = float(filter(lambda x: x.startswith("--rate"), parts)[0].lstrip("--rate="))
                 period = 1.0 / rate
-                analysis = AnalyzeTraceOutput(infile, test_size, self.logger)
+                analysis = AnalyzeTraceOutput(infile, workers, self.logger)
 
-            results[period] = analysis.summary(period, self.quantiles)
+            results.append((period, analysis.summary(period, self.quantiles)))
         return results
 
     def print_csv(self, only_good=True, outfile=sys.stdout):
         '''Set only_good=True to print only the good configuration'''
         # print keys
         quantile_keys = ["quantile %f" % q for q in sorted(list(self.quantiles))]
-        line = ["period", "completion rate", "throughput/legit_portion"] + quantile_keys
+        line = ["TIMEOUT", "period", "completion rate", "throughput/legit_portion"] + quantile_keys
         line = ",".join(line) + "\n"
         outfile.write(line)
 
-        for period in sorted(self.results.keys()):
-            result = self.results[period]
+        for period, result in sorted(self.results):
+            timeout = period * self.workers
             completion_rate = result["completion_rate"]
             if only_good and completion_rate < self.completion:
                 continue
             line = [
+                timeout,
                 period,
                 completion_rate,
                 result["throughput"]
@@ -247,16 +264,18 @@ if __name__ == "__main__":
     default_files = glob.glob(default_glob)
 
     parser = argparse.ArgumentParser(description='Analyzes output of trainer. See source for more info.')
+    parser.add_argument("-w", "--workers", type=int, required=True,
+                    help="REQUIRED. The number of non-spare upstream worker processes.")
     parser.add_argument("-c", "--completion", type=float, required=False, default=0.95,
                     help="Default=%(default)f. The minimal completion rate you're willing to accept")
     parser.add_argument('-q', "--quantiles", type=float, nargs='*', default=[0.25, 0.50, 0.75, 1.0],
                     help='Default=%(default)s. list of quantiles to measure (0.0 < QUANTILE <= 1.0)')
     parser.add_argument('-f', "--files", type=str, nargs='*', default=default_files,
                     help='Default=%s. list of httperf_stdout_*.txt files to read' % default_glob)
-    parser.add_argument('-ts', "--test-size", type=int, required=True,
-                    help="REQUIRED. The size of each test in the trace file (see --trace and make_trial_trace.py)")
     parser.add_argument('-o', "--output", type=str, nargs="+", default="csv", choices=["csv", "json"],
                     help="Default=%(default)s.")
+    parser.add_argument("-a", "--showAll", action="store_true", help="present all results (not just the trials "
+                    "with completion rates higher than COMPLETION.")
 
     log.add_arguments(parser)
     args = parser.parse_args()
@@ -272,9 +291,9 @@ if __name__ == "__main__":
         args.quantiles,
         logger,
         filenames=args.files,
-        test_size=args.test_size)
+        workers=args.workers)
     if "csv" in args.output:
-        analysis.print_csv()
+        analysis.print_csv(not args.showAll)
     if "json" in args.output:
         analysis.print_json()
 
