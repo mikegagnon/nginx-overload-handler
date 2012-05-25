@@ -92,11 +92,21 @@ HTTPERF_DL_LOCAL_PATH="$DOWNLOAD_DIR/httperf-0.9.0.tar.gz"
 HTTPERF_LOCAL_PATH="$DOWNLOAD_DIR/httperf-0.9.0"
 HTTPERF_PATCHED_LOCAL_PATH="$DOWNLOAD_DIR/httperf-0.9.0-bg"
 
+# Note you must manually download and install Java
+# see install_java.sh
+JAVA_DL_LOCAL_PATH="$DOWNLOAD_DIR/jdk-6u22-linux-x64.bin"
+export JAVA_HOME="$DOWNLOAD_DIR/jdk1.6.0_22"
+
 JETTY_DL_REMOTE_PATH="http://dist.codehaus.org/jetty/jetty-6.1.26/jetty-6.1.26.zip"
 JETTY_DL_LOCAL_PATH="$DOWNLOAD_DIR/jetty-6.1.26.zip"
 JETTY_LOCAL_PATH="$DOWNLOAD_DIR/jetty-6.1.26"
 
+TOMCAT_DL_REMOTE_PATH="http://apache.osuosl.org/tomcat/tomcat-6/v6.0.35/bin/apache-tomcat-6.0.35.tar.gz"
+TOMCAT_DL_LOCAL_PATH="$DOWNLOAD_DIR/apache-tomcat-6.0.35"
+TOMCAT_LOCAL_PATH="$DOWNLOAD_DIR/apache-tomcat-6.0.35"
+
 SOLR_DL_REMOTE_PATH="http://apache.mirrors.tds.net/lucene/solr/3.1.0/apache-solr-3.1.0.tgz"
 SOLR_DL_LOCAL_PATH="$DOWNLOAD_DIR/apache-solr-3.1.0.tgz"
 SOLR_LOCAL_PATH="$DOWNLOAD_DIR/apache-solr-3.1.0"
+
 
