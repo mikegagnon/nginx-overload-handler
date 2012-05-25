@@ -49,3 +49,9 @@ tar -xvf $RUBY_VULN_DL_LOCAL_PATH
 wget --output-document=$PHP_VULN_DL_LOCAL_PATH $PHP_VULN_DL_REMOTE_PATH
 tar -xvf $PHP_VULN_DL_LOCAL_PATH
 
+wget --output-document=$SOLR_DL_LOCAL_PATH $SOLR_DL_REMOTE_PATH
+tar -xvf $SOLR_DL_LOCAL_PATH
+
+wget --output-document=$JETTY_DL_LOCAL_PATH $JETTY_DL_REMOTE_PATH
+unzip $JETTY_LOCAL_PATH
+

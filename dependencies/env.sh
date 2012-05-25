@@ -92,3 +92,11 @@ HTTPERF_DL_LOCAL_PATH="$DOWNLOAD_DIR/httperf-0.9.0.tar.gz"
 HTTPERF_LOCAL_PATH="$DOWNLOAD_DIR/httperf-0.9.0"
 HTTPERF_PATCHED_LOCAL_PATH="$DOWNLOAD_DIR/httperf-0.9.0-bg"
 
+JETTY_DL_REMOTE_PATH="http://dist.codehaus.org/jetty/jetty-6.1.26/jetty-6.1.26.zip"
+JETTY_DL_LOCAL_PATH="$DOWNLOAD_DIR/jetty-6.1.26.zip"
+JETTY_LOCAL_PATH="$DOWNLOAD_DIR/jetty-6.1.26"
+
+SOLR_DL_REMOTE_PATH="http://apache.mirrors.tds.net/lucene/solr/3.1.0/apache-solr-3.1.0.tgz"
+SOLR_DL_LOCAL_PATH="$DOWNLOAD_DIR/apache-solr-3.1.0.tgz"
+SOLR_LOCAL_PATH="$DOWNLOAD_DIR/apache-solr-3.1.0"
+
