@@ -28,6 +28,7 @@ FCGI_USER_HOME="/home/$FCGI_USER"
 # path to sudo command
 SUDO="/usr/bin/sudo"
 
+MYSQL_USER="root"
 MYSQL_PASSWORD="dummyP@ssw0rd"
 DOWNLOAD_DIR="$DIR/downloads"
 
@@ -111,4 +112,12 @@ SOLR_DL_LOCAL_PATH="$DOWNLOAD_DIR/apache-solr-3.1.0.tgz"
 SOLR_LOCAL_PATH="$DOWNLOAD_DIR/apache-solr-3.1.0"
 SOLR_LOCAL_PATH_JETTY="$SOLR_LOCAL_PATH-jetty"
 SOLR_LOCAL_PATH_TOMCAT="$SOLR_LOCAL_PATH-tomcat"
+
+DJANGO_DL_REMOTE_PATH="http://pypi.python.org/packages/source/D/Django/Django-1.3.1.tar.gz"
+DJANGO_DL_LOCAL_PATH="$DOWNLOAD_DIR/Django-1.3.1.tar.gz"
+#DJANGO_LOCAL_PATH="$DOWNLOAD_DIR/Django-1.3.1"
+
+OSQA_DL_REMOTE_PATH="http://www.osqa.net/releases/fantasy-island-0.9.0-beta3.tar.gz"
+OSQA_DL_LOCAL_PATH="$DOWNLOAD_DIR/fantasy-island-0.9.0-beta3.tar.gz"
+OSQA_LOCAL_PATH="$DOWNLOAD_DIR/fantasy-island-0.9.0-beta3"
 
