@@ -102,7 +102,7 @@ JETTY_DL_LOCAL_PATH="$DOWNLOAD_DIR/jetty-6.1.26.zip"
 JETTY_LOCAL_PATH="$DOWNLOAD_DIR/jetty-6.1.26"
 
 TOMCAT_DL_REMOTE_PATH="http://apache.osuosl.org/tomcat/tomcat-6/v6.0.35/bin/apache-tomcat-6.0.35.tar.gz"
-TOMCAT_DL_LOCAL_PATH="$DOWNLOAD_DIR/apache-tomcat-6.0.35"
+TOMCAT_DL_LOCAL_PATH="$DOWNLOAD_DIR/apache-tomcat-6.0.35.tar.gz"
 TOMCAT_LOCAL_PATH="$DOWNLOAD_DIR/apache-tomcat-6.0.35"
 export CATALINA_HOME="$TOMCAT_LOCAL_PATH"
 
