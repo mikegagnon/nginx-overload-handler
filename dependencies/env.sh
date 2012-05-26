@@ -104,9 +104,11 @@ JETTY_LOCAL_PATH="$DOWNLOAD_DIR/jetty-6.1.26"
 TOMCAT_DL_REMOTE_PATH="http://apache.osuosl.org/tomcat/tomcat-6/v6.0.35/bin/apache-tomcat-6.0.35.tar.gz"
 TOMCAT_DL_LOCAL_PATH="$DOWNLOAD_DIR/apache-tomcat-6.0.35"
 TOMCAT_LOCAL_PATH="$DOWNLOAD_DIR/apache-tomcat-6.0.35"
+export CATALINA_HOME="$TOMCAT_LOCAL_PATH"
 
 SOLR_DL_REMOTE_PATH="http://apache.mirrors.tds.net/lucene/solr/3.1.0/apache-solr-3.1.0.tgz"
 SOLR_DL_LOCAL_PATH="$DOWNLOAD_DIR/apache-solr-3.1.0.tgz"
 SOLR_LOCAL_PATH="$DOWNLOAD_DIR/apache-solr-3.1.0"
-
+SOLR_LOCAL_PATH_JETTY="$SOLR_LOCAL_PATH-jetty"
+SOLR_LOCAL_PATH_TOMCAT="$SOLR_LOCAL_PATH-tomcat"
 
