@@ -16,7 +16,7 @@
 #
 # ==== env.sh ====
 #
-# defines some shell variables
+# defines some shell variables for osqa
 #
 
 # $DIR is the absolute path for the directory containing this bash script
