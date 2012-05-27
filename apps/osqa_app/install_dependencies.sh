@@ -27,12 +27,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 apt-get install -y \
     syslog-ng \
-    python-setuptools \
-    python-pip \
-    python-mysqldb \
-    python-software-properties \
-
-pip install -Iv $DJANGO_DL_LOCAL_PATH
+    python-mysqldb
 
 for PACKAGE in \
     elementtree \

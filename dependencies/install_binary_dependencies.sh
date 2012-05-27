@@ -40,3 +40,9 @@ apt-get install -y \
 # The trainer client needs to be able to ssh into the server
 sudo apt-get install -y openssh-server
 
+# Needed for Django
+apt-get install -y \
+    python-setuptools \
+    python-pip \
+    python-software-properties \
+
