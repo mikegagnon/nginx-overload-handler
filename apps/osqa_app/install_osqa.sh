@@ -46,10 +46,11 @@ rm /tmp/query
 cat $INSTALL_OSQA_PATH/forum/utils/html.py | sed s'/from django.template import mark_safe/from django.utils.safestring import mark_safe/g' > /tmp/html.py
 mv /tmp/html.py $INSTALL_OSQA_PATH/forum/utils/html.py
 
-chown -R $FCGI_USER:$FCGI_USER $INSTALL_OSQA_PATH
 chmod -R g+w $INSTALL_OSQA_PATH/forum/upfiles $INSTALL_OSQA_PATH/log
 
 cd $INSTALL_OSQA_PATH
 python manage.py syncdb --all --noinput
 python manage.py migrate forum --fake
+
+chown -R $FCGI_USER:$FCGI_USER $INSTALL_OSQA_PATH
 
