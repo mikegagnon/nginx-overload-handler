@@ -4,7 +4,7 @@
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
-#  You may obCONFIG_INSTALLED_BACKUPtain a copy of the License at
+#  You may obtain a copy of the License at
 #
 #      http://www.apache.org/licenses/LICENSE-2.0
 #
@@ -14,37 +14,16 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== install_dependencies.sh for osqa ====
+# ==== env.sh ====
 #
-# USAGE: sudo ./install_dependencies.sh
+# defines some shell variables
 #
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/env.sh
+# $DIR is the absolute path for the directory containing this bash script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-apt-get install -y \
-    syslog-ng \
-    python-setuptools \
-    python-pip \
-    python-mysqldb \
-    python-software-properties \
-
-pip install -Iv $DJANGO_DL_LOCAL_PATH
-
-for PACKAGE in \
-    elementtree \
-    south \
-    markdown \
-    html5lib \
-    python-openid \
-    sphinx \
-    markdown \
-    sphinxsearch \
-    gunicorn
-do
-  pip install $PACKAGE
-done
+OSQA_VERSION=`basename $OSQA_LOCAL_PATH`
+INSTALL_OSQA_PATH="$FCGI_USER_HOME/$OSQA_VERSION"
 

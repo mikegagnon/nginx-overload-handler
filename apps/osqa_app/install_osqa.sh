@@ -14,9 +14,11 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== install_dependencies.sh for osqa ====
+# ==== install_osqa.sh for osqa ====
 #
-# USAGE: sudo ./install_dependencies.sh
+# USAGE: sudo ./install_osqa.sh
+#
+# Instructions taken from http://fartersoft.com/blog/2010/12/12/installing-osqa-with-nginx-uwsgi-and-sqlite3-on-ubuntu-lucid-10-04-minimal/
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -25,26 +27,8 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-apt-get install -y \
-    syslog-ng \
-    python-setuptools \
-    python-pip \
-    python-mysqldb \
-    python-software-properties \
-
-pip install -Iv $DJANGO_DL_LOCAL_PATH
-
-for PACKAGE in \
-    elementtree \
-    south \
-    markdown \
-    html5lib \
-    python-openid \
-    sphinx \
-    markdown \
-    sphinxsearch \
-    gunicorn
-do
-  pip install $PACKAGE
-done
+# Copy osqa files into installation location
+mkdir -p $INSTALL_OSQA_PATH
+cp -r $OSQA_LOCAL_PATH/* $INSTALL_OSQA_PATH
+chown -R $FCGI_USER:$FCGI_USER $INSTALL_OSQA_PATH
 
