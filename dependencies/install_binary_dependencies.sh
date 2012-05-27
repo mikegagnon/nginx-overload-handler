@@ -44,5 +44,5 @@ sudo apt-get install -y openssh-server
 apt-get install -y \
     python-setuptools \
     python-pip \
-    python-software-properties \
+    python-software-properties
 
