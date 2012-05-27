@@ -14,15 +14,14 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== env.sh ====
+# ==== launch_osqa.sh ====
 #
-# defines some shell variables
-#
+# USAGE: ./launch_osqa.sh
 
 # $DIR is the absolute path for the directory containing this bash script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../../dependencies/env.sh
+source $DIR/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-INSTALL_OSQA_PATH="$FCGI_USER_HOME/osqa"
+python $INSTALL_OSQA_PATH/manage.py runserver 0.0.0.0:9000
 

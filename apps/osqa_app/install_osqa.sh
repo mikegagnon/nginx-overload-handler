@@ -18,6 +18,10 @@
 #
 # USAGE: sudo ./install_osqa.sh
 #
+# PREREQ: Install vulnerable version of Django
+#   ../../dependencies/django_vuln/patch.sh
+#   sudo ../../dependencies/django_vuln/install.sh
+#
 # Instructions taken from http://fartersoft.com/blog/2010/12/12/installing-osqa-with-nginx-uwsgi-and-sqlite3-on-ubuntu-lucid-10-04-minimal/
 #
 
@@ -30,5 +34,22 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 # Copy osqa files into installation location
 mkdir -p $INSTALL_OSQA_PATH
 cp -r $OSQA_LOCAL_PATH/* $INSTALL_OSQA_PATH
+
+cp $DIR/settings_local.py $INSTALL_OSQA_PATH/settings_local.py
+cp $DIR/urls.py $INSTALL_OSQA_PATH/forum/urls.py
+
+echo "CREATE DATABASE osqa DEFAULT CHARACTER SET UTF8 COLLATE utf8_general_ci;" > /tmp/query
+mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" < /tmp/query
+rm /tmp/query
+
+# BUG FIX
+cat $INSTALL_OSQA_PATH/forum/utils/html.py | sed s'/from django.template import mark_safe/from django.utils.safestring import mark_safe/g' > /tmp/html.py
+mv /tmp/html.py $INSTALL_OSQA_PATH/forum/utils/html.py
+
 chown -R $FCGI_USER:$FCGI_USER $INSTALL_OSQA_PATH
+chmod -R g+w $INSTALL_OSQA_PATH/forum/upfiles $INSTALL_OSQA_PATH/log
+
+cd $INSTALL_OSQA_PATH
+python manage.py syncdb --all --noinput
+python manage.py migrate forum --fake
 

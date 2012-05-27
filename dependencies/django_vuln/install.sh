@@ -14,15 +14,15 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== env.sh ====
+# ==== installs vulnerable Django ====
 #
-# defines some shell variables
+# sudo ./install.sh
 #
 
 # $DIR is the absolute path for the directory containing this bash script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../../dependencies/env.sh
+source $DIR/../env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-INSTALL_OSQA_PATH="$FCGI_USER_HOME/osqa"
+pip install -e $DJANGO_LOCAL_PATH
 
