@@ -21,7 +21,7 @@
 #
 # Designed for and tested on Ubuntu 11.10 64-bit
 #
-# WARNING: This install.sh script does many things and assumes much about its 
+# WARNING: This install.sh script does many things and assumes much about its
 # operating environment. You are probably better off to use this install script
 # as a guide, and execute its commands by hand.
 #
@@ -30,6 +30,9 @@
 #
 
 set -e
+
+# do a sudo command to cache the password
+sudo echo "beginning install"
 
 # $DIR is the absolute path for the directory containing this bash script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"

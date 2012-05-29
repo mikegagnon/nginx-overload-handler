@@ -53,6 +53,10 @@ MEDIA_WIKI_DL_REMOTE_PATH="http://download.wikimedia.org/mediawiki/1.18/mediawik
 MEDIA_WIKI_DL_LOCAL_PATH="$DOWNLOAD_DIR/mediawiki-1.18.2.tar.gz"
 MEDIA_WIKI_LOCAL_PATH="$DOWNLOAD_DIR/mediawiki-1.18.2"
 
+MEDIA_WIKI_AUTOCONF_REMOTE_PATH="http://pecl.php.net/get/APC-3.1.10.tgz"
+MEDIA_WIKI_APC_REMOTE_PATH="ftp://ftp.gnu.org/gnu/autoconf/autoconf-2.13.tar.gz"
+
+
 REDMINE_DL_REMOTE_PATH="http://rubyforge.org/frs/download.php/76017/redmine-1.4.0.tar.gz"
 REDMINE_DL_LOCAL_PATH="$DOWNLOAD_DIR/redmine-1.4.0.tar.gz"
 REDMINE_LOCAL_PATH="$DOWNLOAD_DIR/redmine-1.4.0"
@@ -120,4 +124,12 @@ DJANGO_LOCAL_PATH="$DOWNLOAD_DIR/Django-1.3.1"
 OSQA_DL_REMOTE_PATH="http://www.osqa.net/releases/fantasy-island-0.9.0-beta3.tar.gz"
 OSQA_DL_LOCAL_PATH="$DOWNLOAD_DIR/fantasy-island-0.9.0-beta3.tar.gz"
 OSQA_LOCAL_PATH="$DOWNLOAD_DIR/fantasy-island-0.9.0-beta3"
+
+AUTOCONF_DL_REMOTE_PATH="ftp://ftp.gnu.org/gnu/autoconf/autoconf-2.13.tar.gz"
+AUTOCONF_DL_LOCAL_PATH="$DOWNLOAD_DIR/autoconf-2.13.tar.gz"
+AUTOCONF_LOCAL_PATH="$DOWNLOAD_DIR/autoconf-2.13"
+
+PHP_APC_DL_REMOTE_PATH="http://pecl.php.net/get/APC-3.1.10.tgz"
+PHP_APC_DL_LOCAL_PATH="$DOWNLOAD_DIR/APC-3.1.10.tgz"
+#PHP_APC_LOCAL_PATH="$PHP_VULN_INSTALL/ext"
 

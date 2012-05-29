@@ -48,3 +48,17 @@ php $INSTALL_MEDIA_WIKI_PATH/maintenance/install.php \
 
 echo -e '$wgMaxUploadSize = 1024 * 1024 * 100;\n' >> $INSTALL_MEDIA_WIKI_PATH/LocalSettings.php
 
+# memcached is auto-started, if not, do
+# sudo /etc/init.d/memcached start
+
+
+# Append mediawiki-performance-settings.txt to LocalSettings.php.
+# Since this re-defined wgMainCacheType and wgMemCachedServers, then
+# remove those from LocalSettings.php first
+cat $INSTALL_MEDIA_WIKI_PATH/LocalSettings.php \
+    | grep -v wgMainCacheType \
+    | grep -v wgMemCachedServers \
+    > /tmp/LocalSettings.php
+cat $DIR/mediawiki-performance-settings.txt >> /tmp/LocalSettings.php
+mv /tmp/LocalSettings.php $INSTALL_MEDIA_WIKI_PATH/LocalSettings.php
+
