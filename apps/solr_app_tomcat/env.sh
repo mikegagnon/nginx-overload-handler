@@ -4,7 +4,7 @@
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
-#  You may obCONFIG_INSTALLED_BACKUPtain a copy of the License at
+#  You may obtain a copy of the License at
 #
 #      http://www.apache.org/licenses/LICENSE-2.0
 #
@@ -14,21 +14,17 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== install_dependencies.sh for mediawiki_app ====
+# ==== env.sh ====
 #
-# USAGE: sudo ./install_dependencies.sh
+# defines some shell variables
 #
 
+# $DIR is the absolute path for the directory containing this bash script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/env.sh
+source $DIR/../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-apt-get install -y \
-    php5-mysql \
-    imagemagick \
-    php-pear \
-    libpcre3-dev \
-    php-apc \
-    libicu-dev \
-    xsltproc \
-    php5-intl
+SOLR_LOCAL_PATH=$SOLR_LOCAL_PATH_TOMCAT
+export SOLR_HOME="$SOLR_LOCAL_PATH/example/solr"
+SOLR_DATA_DIR="$SOLR_HOME/data"
+

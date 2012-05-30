@@ -1,0 +1,17 @@
+# to be auto-catted to LocalSettings.php for performance tuning
+# largely pulled from here:
+# http://www.mediawiki.org/wiki/User:Aaron_Schulz/How_to_make_MediaWiki_fast
+
+$wgMainCacheType = CACHE_MEMCACHED;
+$wgParserCacheType = CACHE_MEMCACHED; # optional
+$wgMessageCacheType = CACHE_MEMCACHED; # optional
+$wgMemCachedServers = array( "127.0.0.1:11211" );
+$wgSessionsInMemcached = true; # optional
+$wgUseGzip = true;
+$wgEnableSidebarCache = true;
+$wgDisableCounters = true;
+$wgMiserMode = true;
+$wgCompressRevisions = true;
+$wgRevisionCacheExpiry = 3*24*3600;
+$wgParserCacheExpireTime = 14*24*3600;
+

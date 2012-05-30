@@ -26,7 +26,6 @@ WARNING: Read documentation in ../../install.sh before executing it.
 ==== Setup ====
 Compile and install vulnerable version of PHP
 
-    ../../dependencies/php_vuln/compile.sh
     ../../dependencies/php_vuln/install.sh
 
 Compile and install MediaWiki
@@ -42,7 +41,7 @@ You can launch MediaWiki in two configurations:
 
 ==== Launch standard configuration ====
 
-    ./standard/make_conf.sh
+    ./standard/make_conf.sh standard/core4/
     sudo ./standard/install_conf.sh
     sudo ../../nginx_upstream_overload/launch_nginx.sh
     sudo ./standard/launch_mediawiki.sh
@@ -51,14 +50,14 @@ Point your browser to "http://localhost/index.php"
 
 ==== Launch upstream_overload configuration ====
 
-    ./upstream_overload/make_conf.sh
-    sudo ./upstream_overload/install_conf.sh
+    cd nginx-overload-handler/apps/mediawiki_app/upstream_overload
+    make_conf.sh core4/
+    sudo install_conf.sh
 
 In separate terminals:
 
-    sudo ./upstream_overload/run_bouncer.sh
-    ./upstream_overload/run_alert_router.sh
-    sudo ../../nginx_upstream_overload/launch_nginx.sh
+    sudo ./launch_mediawiki.sh
+    sudo ../../../nginx_upstream_overload/launch_nginx.sh
 
 Point your browser to "http://localhost/index.php"
 

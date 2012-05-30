@@ -25,6 +25,8 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+apt-get update
+
 debconf-set-selections <<< "mysql-server-5.1 mysql-server/root_password password $MYSQL_PASSWORD"
 debconf-set-selections <<< "mysql-server-5.1 mysql-server/root_password_again password $MYSQL_PASSWORD"
 
@@ -35,8 +37,17 @@ apt-get install -y \
     mysql-server-5.1 \
     libxml2-dev \
     mysql-client \
-    libmysqlclient15-dev
+    libmysqlclient15-dev \
+    memcached
+
+# memcached is auto-started, if not, do sudo /etc/init.d/memcached start
 
 # The trainer client needs to be able to ssh into the server
-sudo apt-get install -y openssh-server
+apt-get install -y openssh-server
+
+# Needed for Django
+apt-get install -y \
+    python-setuptools \
+    python-pip \
+    python-software-properties
 

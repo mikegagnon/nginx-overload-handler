@@ -14,21 +14,21 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== install_dependencies.sh for mediawiki_app ====
+# ==== populate_solr.sh ====
 #
-# USAGE: sudo ./install_dependencies.sh
+# USAGE: ./launch_solr.sh
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-apt-get install -y \
-    php5-mysql \
-    imagemagick \
-    php-pear \
-    libpcre3-dev \
-    php-apc \
-    libicu-dev \
-    xsltproc \
-    php5-intl
+$DIR/kill_solr.sh
+$DIR/launch_solr.sh
+
+sleep 5
+
+cd $SOLR_LOCAL_PATH/example/exampledocs/
+
+./post.sh *.xml
+

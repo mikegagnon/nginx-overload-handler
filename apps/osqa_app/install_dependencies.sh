@@ -14,7 +14,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== install_dependencies.sh for mediawiki_app ====
+# ==== install_dependencies.sh for osqa ====
 #
 # USAGE: sudo ./install_dependencies.sh
 #
@@ -22,13 +22,24 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/../../dependencies/env.sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 apt-get install -y \
-    php5-mysql \
-    imagemagick \
-    php-pear \
-    libpcre3-dev \
-    php-apc \
-    libicu-dev \
-    xsltproc \
-    php5-intl
+    syslog-ng \
+    python-mysqldb
+
+for PACKAGE in \
+    elementtree \
+    south \
+    markdown \
+    html5lib \
+    python-openid \
+    sphinx \
+    markdown \
+    sphinxsearch \
+    gunicorn
+do
+  pip install $PACKAGE
+done
+

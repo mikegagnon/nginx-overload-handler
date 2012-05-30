@@ -14,21 +14,36 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== install_dependencies.sh for mediawiki_app ====
+# ==== make_conf.sh ====
 #
-# USAGE: sudo ./install_dependencies.sh
+# Make config files by filling in values in .template files
+#
+# USAGE: ./make_conf.sh begin_port [end_port]
+#   For example, ./make_conf.sh 9000 9008
 #
 
+if [ "$1" == "" ]
+then
+    echo "Error: You need to specify a begin port"
+    exit 1
+fi
+PORT_BEGIN=$1
+
+if [ "$2" == "" ]
+then
+    PORT_END=$PORT_BEGIN
+else
+    PORT_END=$2
+fi
+
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/env.sh
+source $DIR/../env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-apt-get install -y \
-    php5-mysql \
-    imagemagick \
-    php-pear \
-    libpcre3-dev \
-    php-apc \
-    libicu-dev \
-    xsltproc \
-    php5-intl
+for PORT in `seq $PORT_BEGIN $PORT_END`;
+do
+    cat $JETTY_BASE_CONFIG \
+        | sed "s@$JETTY_BASE_CONFIG_PORT@$PORT@g" \
+        > $DIR/jetty_$PORT.xml
+done
+

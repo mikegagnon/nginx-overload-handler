@@ -14,21 +14,23 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== install_dependencies.sh for mediawiki_app ====
+# ==== install_dependencies.sh for solr_app ====
 #
-# USAGE: sudo ./install_dependencies.sh
+# USAGE: ./install_dependencies.sh
+#
+# PREREQ:
+#   Make sure to have already downloaded jdk-6u22-linux-x64.bin into
+#   nginx-overload-handler/dependencies/downloads/jdk-6u22-linux-x64.bin
+#   See README.txt for instructions on downloading
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-apt-get install -y \
-    php5-mysql \
-    imagemagick \
-    php-pear \
-    libpcre3-dev \
-    php-apc \
-    libicu-dev \
-    xsltproc \
-    php5-intl
+cd `dirname $JAVA_DL_LOCAL_PATH`
+chmod a+x $JAVA_DL_LOCAL_PATH
+$JAVA_DL_LOCAL_PATH
+
+sudo ln -sf $JAVA_HOME/bin/java /usr/bin/java
+
