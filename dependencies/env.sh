@@ -32,9 +32,9 @@ MYSQL_USER="root"
 MYSQL_PASSWORD="dummyP@ssw0rd"
 DOWNLOAD_DIR="$DIR/downloads"
 
-NGINX_DL_REMOTE_PATH="http://nginx.org/download/nginx-1.0.12.tar.gz"
-NGINX_DL_LOCAL_PATH="$DOWNLOAD_DIR/nginx-1.0.12.tar.gz"
-NGINX_LOCAL_PATH="$DOWNLOAD_DIR/nginx-1.0.12"
+NGINX_DL_REMOTE_PATH="http://nginx.org/download/nginx-1.2.0.tar.gz"
+NGINX_DL_LOCAL_PATH="$DOWNLOAD_DIR/nginx-1.2.0.tar.gz"
+NGINX_LOCAL_PATH="$DOWNLOAD_DIR/nginx-1.2.0"
 NGINX_BIN=/usr/local/nginx/sbin/nginx
 NGINX_CONF_DIR=/usr/local/nginx/conf
 NGINX_CONF=$NGINX_CONF_DIR/nginx.conf

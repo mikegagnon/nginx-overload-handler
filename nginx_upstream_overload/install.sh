@@ -33,6 +33,7 @@ cd $NGINX_LOCAL_PATH
 make install
 
 # install client-side puzzle code for the Doorman
+# TODO: move nginx puzzle_ssi/ to nginx_doorman dir
 mkdir -p $PUZZLE_SSI_PATH
 cp -r $DIR/puzzle_ssi/* $PUZZLE_SSI_PATH
 

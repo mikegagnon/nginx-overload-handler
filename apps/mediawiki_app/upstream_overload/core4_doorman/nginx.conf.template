@@ -1,4 +1,7 @@
 
+worker_rlimit_core  500M;
+working_directory   /home/nginx_user/cores;
+
 worker_processes  1;
 
 user nginx_user;
@@ -42,26 +45,32 @@ http {
         }
 
         location ~ \.php$ {
-            ## This must match the URI part related to the MD5 hash and expiration time.
-            doorman $arg_admitkey,$arg_admitkey_expire;
+            # re_delta#This must match the URI part related to the MD5 hash and expiration time.
+            doorman $arg_key,$arg_expire;
+
+            # the names of URL arguments that hold puzzle key and expire time (respectively)
+            doorman_arg_key_name        key;
+            doorman_arg_expire_name     expire;
+
+            # Number of seconds before puzzle expires
+            doorman_expire_delta 10;
+            doorman_init_missing_bits 13;
 
             ## The MD5 hash is built from a secret token + uri + args
             # The doorman module strips the admitkey argument from doorman_md5
             # For the URL to work properly the admitkey param MUST BE THE LAST param in the URL
-            doorman_md5 secret$uri$arg_admitkey_expire;
+            doorman_md5 secret$doorman_orig_uri$doorman_orig_args$doorman_expire;
 
-            doorman_orig_uri $uri;
-            doorman_orig_args $args;
+            ## If they key is expired
+            if ($doorman_result = "0") {
+                return 403;
+            }
 
             ## If the hash is incorrect (or non-existent) then $doorman is a null string.
-            if ($doorman = "") {
+            if ($doorman_result = "") {
                 rewrite ^.*$ /puzzle_ssi/puzzle.html;
             }
 
-            ## If they key is expired
-            if ($doorman = "0") {
-                return 403;
-            }
 
             include /usr/local/nginx/conf/fastcgi_params;
             fastcgi_pass my_backend;
