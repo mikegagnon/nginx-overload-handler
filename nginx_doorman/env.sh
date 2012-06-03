@@ -24,6 +24,12 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 DOORMAN_MODULE_DIR=$DIR
 
+PUZZLE_SSI_REPO_PATH="$DIR/puzzle_ssi"
+PUZZLE_STATIC_REPO_PATH="$DIR/puzzle_static"
+
 PUZZLE_SSI_PATH="/usr/local/nginx/html/puzzle_ssi"
+PUZZLE_STATIC_PATH="/usr/local/nginx/html/puzzle_static"
+
 PUZZLE_SSI_PATH_NGX="/usr/local/nginx/html"
+PUZZLE_STATIC_PATH_NGX="/usr/local/nginx/html"
 

@@ -1,0 +1,28 @@
+<html>
+    <head>
+        <!-- right now assumes only re-directing to get requests -->
+        <script type="text/javascript" src="/puzzle_static/md5.js"></script>
+        <script type="text/javascript" src="/puzzle_static/puzzle.js"></script>
+    </head>
+    <body>
+        <p>You will be re-directed shortly...</p>
+        <script type="text/javascript">
+            var request = "<!--# echo var="doorman_orig_uri" default="no" -->"
+            var args = "<!--# echo var="doorman_orig_args" default="no" -->"
+            if (args != "") {
+                request += "?" + args
+            }
+            var y = "<!--# echo var="doorman_meta_hash" default="no" -->"
+            var trunc_x = "<!--# echo var="doorman_trunc_hash" default="no" -->"
+            var bits = <!--# echo var="doorman_missing_bits" default="no" -->;
+            var expire = "<!--# echo var="doorman_expire" default="no" -->"
+            var burst_len = 1;
+            var sleep_time = 1;
+            var func = function() {
+                solve_puzzle(request, y, trunc_x, bits, burst_len, sleep_time);
+            };
+            setTimeout(func, sleep_time);
+        </script>
+    </body>
+</html>
+

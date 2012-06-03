@@ -47,6 +47,7 @@ cat $CONFIG_DIR/nginx.conf.template \
     | sed "s@TEMPLATE_ALERT_PIPE_PATH@$ALERT_PIPE_PATH@g" \
     | sed "s@TEMPLATE_MEDIAWIKI_PATH@$INSTALL_MEDIA_WIKI_PATH@g" \
     | sed "s@TEMPLATE_PUZZLE_SSI_PATH_NGX@$PUZZLE_SSI_PATH_NGX@g" \
+    | sed "s@TEMPLATE_PUZZLE_STATIC_PATH_NGX@$PUZZLE_STATIC_PATH_NGX@g" \
     > $DIR/nginx.conf
 
 cat $CONFIG_DIR/bouncer_config.json.template \

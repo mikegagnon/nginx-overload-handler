@@ -44,6 +44,10 @@ http {
             root   TEMPLATE_PUZZLE_SSI_PATH_NGX;
         }
 
+        location /puzzle_static/ {
+            root   TEMPLATE_PUZZLE_STATIC_PATH_NGX;
+        }
+
         location ~ \.php$ {
             # re_delta#This must match the URI part related to the MD5 hash and expiration time.
             doorman $arg_key,$arg_expire;
