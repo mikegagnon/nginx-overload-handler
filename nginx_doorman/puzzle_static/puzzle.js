@@ -56,7 +56,6 @@ function redirect(request, key, expire, args) {
     } else {
         url = request + "&";
     }
-    url = decodeURIComponent(url)
     url += "key=" + key + "&expire=" + expire;
 
     window.location = url;
