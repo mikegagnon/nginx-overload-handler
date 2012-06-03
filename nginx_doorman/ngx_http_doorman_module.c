@@ -102,6 +102,8 @@
  * - Make code secure (e.g. buffer overflows, printf errors, off by ones, ...)
  * - Identify configuration errors during configuration step
  * - So many areas to improve code re-use...
+ * - base64 encoding
+ * -
  */
 
 #include <ngx_config.h>
@@ -115,7 +117,7 @@
 // md5 requires 32 hex nibbles + null terminator
 #define DOORMAN_HASH_STR_SIZE 33
 // The sizes of some pre-allocated strings
-#define DOORMAN_MISSING_BITS_STR_SIZE 32
+#define DOORMAN_INTEGER_STR_SIZE 32
 #define DOORMAN_EXPIRE_STR_SIZE 32
 
 /**
@@ -128,6 +130,8 @@ typedef struct {
     ngx_str_t                  arg_expire_name;
     ngx_uint_t                 expire_delta;
     ngx_uint_t                 init_missing_bits;
+    ngx_uint_t                 burst_len;
+    ngx_uint_t                 sleep_time;
 } ngx_http_doorman_conf_t;
 
 /**
@@ -171,8 +175,17 @@ typedef struct {
 
     // the number of bits missing from trunc_hash
     // associated with $doorman_missing_bits
-    u_char missing_bits_data[DOORMAN_MISSING_BITS_STR_SIZE];
+    u_char missing_bits_data[DOORMAN_INTEGER_STR_SIZE];
     ngx_str_t                  missing_bits;
+
+    // the client puzzle-solver performs $doorman_burst_len hashes
+    // then sleeps for $doorman_sleep_time milliseconds, then does another burst
+    u_char burst_len_data[DOORMAN_INTEGER_STR_SIZE];
+    ngx_str_t                  burst_len;
+
+    u_char sleep_time_data[DOORMAN_INTEGER_STR_SIZE];
+    ngx_str_t                  sleep_time;
+
 } ngx_http_doorman_ctx_t;
 
 
@@ -266,6 +279,27 @@ static ngx_command_t  ngx_http_doorman_commands[] = {
       offsetof(ngx_http_doorman_conf_t, init_missing_bits),
       NULL },
 
+    /**
+     * For the puzzle-solver client, brute-force hashes in bursts of $doorman_burst_len
+     */
+    { ngx_string("doorman_burst_len"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_num_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_doorman_conf_t, burst_len),
+      NULL },
+
+    /**
+     * For the puzzle-solver client, between bursts of brute-force attempts sleep $doorman_sleep_time
+     * milliseconds
+     */
+    { ngx_string("doorman_sleep_time"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_num_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_doorman_conf_t, sleep_time),
+      NULL },
+
       ngx_null_command
 };
 
@@ -309,6 +343,8 @@ static ngx_str_t  ngx_http_doorman_expire_name       = ngx_string("doorman_expir
 static ngx_str_t  ngx_http_doorman_meta_hash_name    = ngx_string("doorman_meta_hash");
 static ngx_str_t  ngx_http_doorman_trunc_hash_name   = ngx_string("doorman_trunc_hash");
 static ngx_str_t  ngx_http_doorman_missing_bits_name = ngx_string("doorman_missing_bits");
+static ngx_str_t  ngx_http_doorman_burst_len_name    = ngx_string("doorman_burst_len");
+static ngx_str_t  ngx_http_doorman_sleep_time_name   = ngx_string("doorman_sleep_time");
 
 // Computes hash of src_str and stores it in result_buf
 // PRECONDITION: buf points to a u_char array of size DOORMAN_HASH_LEN
@@ -497,7 +533,7 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
     u_char                        actual_hash_buf[DOORMAN_HASH_LEN];
     u_char                        meta_hash_buf[DOORMAN_HASH_LEN];
 
-    static ngx_uint_t missing_bits;
+    ngx_uint_t missing_bits;
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_doorman_module);
     if (ctx != NULL) {
@@ -520,13 +556,18 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
         ctx->expire.len =
         ctx->meta_hash.len =
         ctx->trunc_hash.len =
-        ctx->missing_bits.len = 0;
+        ctx->missing_bits.len =
+        ctx->burst_len.len =
+        ctx->sleep_time.len = 0;
+
     ctx->orig_uri.data = NULL;
     ctx->orig_args.data = NULL;
     ctx->expire.data = ctx->expire_data;
     ctx->missing_bits.data = ctx->missing_bits_data;
     ctx->meta_hash.data = ctx->meta_hash_data;
     ctx->trunc_hash.data = ctx->trunc_hash_data;
+    ctx->burst_len.data = ctx->burst_len_data;
+    ctx->sleep_time.data = ctx->sleep_time_data;
 
     if (conf->variable == NULL || conf->md5 == NULL ||
         conf->arg_key_name.len == 0 || conf->arg_expire_name.len == 0 ||
@@ -549,6 +590,10 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
                "doorman: conf->expire_delta == %d", conf->expire_delta);
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman: conf->init_missing_bits == %d", conf->init_missing_bits);
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman: conf->burst_len == %d", conf->burst_len);
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman: conf->sleep_time == %d", conf->sleep_time);
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman: r->args == '%V'", &r->args);
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
@@ -700,6 +745,18 @@ not_found:
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman: missing_bits == '%V'", &ctx->missing_bits);
 
+    // initialize the $doorman_burst_len variable
+    ngx_snprintf(ctx->burst_len.data, sizeof(ctx->burst_len_data), "%d%Z", conf->burst_len);
+    ctx->burst_len.len = ngx_strlen(ctx->burst_len_data);
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman: burst_len == '%V'", &ctx->burst_len);
+
+    // initialize the $doorman_sleep_time variable
+    ngx_snprintf(ctx->sleep_time.data, sizeof(ctx->sleep_time_data), "%d%Z", conf->sleep_time);
+    ctx->sleep_time.len = ngx_strlen(ctx->sleep_time_data);
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman: sleep_time == '%V'", &ctx->sleep_time);
+
     // perform variable substition in $doorman_md5
     if (ngx_http_complex_value(r, conf->md5, &temp_str) != NGX_OK) {
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
@@ -766,6 +823,50 @@ ngx_http_doorman_missing_bits_variable(ngx_http_request_t *r,
         v->no_cacheable = 0;
         v->not_found = 0;
         v->data = ctx->missing_bits.data;
+
+    } else {
+        v->not_found = 1;
+    }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_http_doorman_burst_len_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+    ngx_http_doorman_ctx_t  *ctx;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_doorman_module);
+
+    if (ctx) {
+        v->len = ctx->burst_len.len;
+        v->valid = 1;
+        v->no_cacheable = 0;
+        v->not_found = 0;
+        v->data = ctx->burst_len.data;
+
+    } else {
+        v->not_found = 1;
+    }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_http_doorman_sleep_time_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+    ngx_http_doorman_ctx_t  *ctx;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_doorman_module);
+
+    if (ctx) {
+        v->len = ctx->sleep_time.len;
+        v->valid = 1;
+        v->no_cacheable = 0;
+        v->not_found = 0;
+        v->data = ctx->sleep_time.data;
 
     } else {
         v->not_found = 1;
@@ -883,6 +984,8 @@ ngx_http_doorman_create_conf(ngx_conf_t *cf)
 
     conf->expire_delta = NGX_CONF_UNSET_UINT;
     conf->init_missing_bits = NGX_CONF_UNSET_UINT;
+    conf->burst_len = NGX_CONF_UNSET_UINT;
+    conf->sleep_time = NGX_CONF_UNSET_UINT;
 
     return conf;
 }
@@ -905,15 +1008,9 @@ ngx_http_doorman_merge_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_str_value(conf->arg_expire_name, prev->arg_expire_name, "");
     ngx_conf_merge_uint_value(conf->expire_delta, prev->expire_delta, NGX_CONF_UNSET_UINT);
     ngx_conf_merge_uint_value(conf->init_missing_bits, prev->init_missing_bits, NGX_CONF_UNSET_UINT);
+    ngx_conf_merge_uint_value(conf->burst_len, prev->burst_len, NGX_CONF_UNSET_UINT);
+    ngx_conf_merge_uint_value(conf->sleep_time, prev->sleep_time, NGX_CONF_UNSET_UINT);
 
-    /*if (conf->expire_delta == NGX_CONF_UNSET_UINT) {
-        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "doorman_expire_delta was not defined config");
-        return NGX_CONF_ERROR;
-    }
-    if (conf->init_missing_bits == NGX_CONF_UNSET_UINT) {
-        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "doorman_init_missing_bits was not defined in config");
-        return NGX_CONF_ERROR;
-    }*/
     if (conf->init_missing_bits != NGX_CONF_UNSET_UINT &&
         conf->init_missing_bits > (DOORMAN_HASH_LEN * 8)) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "doorman_init_missing_bits is too big");
@@ -970,6 +1067,18 @@ ngx_http_doorman_add_variables(ngx_conf_t *cf)
         return NGX_ERROR;
     }
     var->get_handler = ngx_http_doorman_missing_bits_variable;
+
+    var = ngx_http_add_variable(cf, &ngx_http_doorman_burst_len_name, 0);
+    if (var == NULL) {
+        return NGX_ERROR;
+    }
+    var->get_handler = ngx_http_doorman_burst_len_variable;
+
+    var = ngx_http_add_variable(cf, &ngx_http_doorman_sleep_time_name, 0);
+    if (var == NULL) {
+        return NGX_ERROR;
+    }
+    var->get_handler = ngx_http_doorman_sleep_time_variable;
 
     return NGX_OK;
 }

@@ -52,13 +52,16 @@ http {
             # re_delta#This must match the URI part related to the MD5 hash and expiration time.
             doorman $arg_key,$arg_expire;
 
+            doorman_burst_len 65536;
+            doorman_sleep_time 1000;
+
             # the names of URL arguments that hold puzzle key and expire time (respectively)
             doorman_arg_key_name        key;
             doorman_arg_expire_name     expire;
 
             # Number of seconds before puzzle expires
             doorman_expire_delta 10;
-            doorman_init_missing_bits 13;
+            doorman_init_missing_bits 20;
 
             ## The MD5 hash is built from a secret token + uri + args
             # The doorman module strips the admitkey argument from doorman_md5
