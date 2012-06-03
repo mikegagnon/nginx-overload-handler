@@ -1,18 +1,23 @@
 <html>
     <head>
         <!-- right now assumes only re-directing to get requests -->
-        <script type="text/javascript" src="sha.js"></script>
+        <script type="text/javascript" src="md5.js"></script>
         <script type="text/javascript" src="puzzle.js"></script>
     </head>
     <body>
         <p>You will be re-directed shortly...</p>
         <script type="text/javascript">
+            /*
             var request = "foo.com/index.php?BEER_KEY="
             var y = '63338a1e5a0447970b78b9153a0ef365b20a8d9152d0f90fe715577821568fdf';
             var trunc_x = "97df3588b5a3f24babc3851b372f0ba71a9dcdded43b14b9d06961bfc1707d80";
-            var bits = 5;
+            */
+            var request = "secret/index.phpfoo1338680146"
+            var y = "d35736b379fda76a4f9b60da2edaf3bf"
+            var trunc_x = "7f1b17f58735af9fb5243adc587ac000"
+            var bits = 13;
             var burst_len = 1;
-            var sleep_time = 100;
+            var sleep_time = 1;
             var func = function() {
                 solve_puzzle(request, y, trunc_x, bits, burst_len, sleep_time);
             };

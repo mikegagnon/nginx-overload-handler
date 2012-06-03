@@ -61,7 +61,8 @@ function redirect(request, key) {
 function solve_puzzle(request, y, x, bits, burst_len, sleep_time) {
     var hash_x;
     for (i = 0; i < burst_len; i++) {
-        hash_x = hex_sha256(x);
+        //hash_x = hex_sha256(x);
+        hash_x = hex_md5(x);
         if (hash_x == y) {
             redirect(request, x);
         }
@@ -78,7 +79,8 @@ function solve_puzzle_old(y, trunc_x, bits, burst_len, sleep_time) {
     var hash_x;
     while (true) {
         for (i = 0; i < burst_len; i++) {
-            hash_x = hex_sha256(x);
+            //hash_x = hex_sha256(x);
+            hash_x = hex_md5(x);
             if (hash_x == y) {
                 return x;
             }
