@@ -1,7 +1,4 @@
 
-worker_rlimit_core  500M;
-working_directory   /home/nginx_user/cores;
-
 worker_processes  1;
 
 user nginx_user;
@@ -48,19 +45,26 @@ http {
             root   TEMPLATE_PUZZLE_STATIC_PATH_NGX;
         }
 
+        location /load.php/ {
+            include /usr/local/nginx/conf/fastcgi_params;
+            fastcgi_pass my_backend;
+            fastcgi_index index.php;
+            fastcgi_param SCRIPT_FILENAME TEMPLATE_MEDIAWIKI_PATH$fastcgi_script_name;
+        }
+
         location ~ \.php$ {
             # re_delta#This must match the URI part related to the MD5 hash and expiration time.
             doorman $arg_key,$arg_expire;
-
-            doorman_burst_len 65536;
-            doorman_sleep_time 1000;
 
             # the names of URL arguments that hold puzzle key and expire time (respectively)
             doorman_arg_key_name        key;
             doorman_arg_expire_name     expire;
 
+            doorman_burst_len 65536;
+            doorman_sleep_time 100;
+
             # Number of seconds before puzzle expires
-            doorman_expire_delta 10;
+            doorman_expire_delta 60;
             doorman_init_missing_bits 20;
 
             ## The MD5 hash is built from a secret token + uri + args

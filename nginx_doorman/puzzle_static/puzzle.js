@@ -50,19 +50,27 @@ function increment(x) {
 }
 
 // request is a url
-function redirect(request, key) {
-    url = request + key;
+function redirect(request, key, expire, args) {
+    if (args == "") {
+        url = request + "?";
+    } else {
+        url = request + "&";
+    }
+    url = decodeURIComponent(url)
+    url += "key=" + key + "&expire=" + expire;
+
     window.location = url;
 }
 
 // solves the puzzle (in bursts, with sleep time inbetween bursts)
 // then calls redirect with the solution.
-function solve_puzzle(request, y, x, tries, bits, burst_len, sleep_time) {
+function solve_puzzle(request, y, x, tries, bits, burst_len, sleep_time, expire, args) {
     var hash_x;
     for (i = 0; i < burst_len; i++) {
         hash_x = hex_md5(x);
         if (hash_x == y) {
-            redirect(request, x);
+            redirect(request, x, expire, args);
+            return;
         }
         x = increment(x);
     }
@@ -71,7 +79,7 @@ function solve_puzzle(request, y, x, tries, bits, burst_len, sleep_time) {
     if (percent_done <= 100) {
         document.getElementById("redirect_status").innerHTML = "" + Math.floor((tries / Math.pow(2, bits)) * 100.0);
         var func = function() {
-            solve_puzzle(request, y, x, tries, bits, burst_len, sleep_time);
+            solve_puzzle(request, y, x, tries, bits, burst_len, sleep_time, expire, args);
         }
         setTimeout(func, sleep_time);
     } else {

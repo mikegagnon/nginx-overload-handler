@@ -103,7 +103,11 @@
  * - Identify configuration errors during configuration step
  * - So many areas to improve code re-use...
  * - base64 encoding
- * -
+ * - Instead of specifying burst_len and sleep_time, the puzzle has a param
+ *   "utilization" within range (0, 1.0] -- then the client adapts its behavior
+ *   to meet targetted CPU utilization (or something like that)
+ * - Generate secret key when loading configuration, by pulling random bits
+ *   from /dev/random (make sure to abort if reading from /dev/random blocks)
  */
 
 #include <ngx_config.h>
@@ -114,11 +118,17 @@
 
 // md5 has 16-byte hashes
 #define DOORMAN_HASH_LEN 16
-// md5 requires 32 hex nibbles + null terminator
-#define DOORMAN_HASH_STR_SIZE 33
+// md5 requires 32 hex nibbles
+#define DOORMAN_HASH_STR_SIZE 32
 // The sizes of some pre-allocated strings
 #define DOORMAN_INTEGER_STR_SIZE 32
 #define DOORMAN_EXPIRE_STR_SIZE 32
+
+#define DOR_REQ_ORIGINAL   1   // a request that does not have a key
+#define DOR_REQ_EXPIRED    2   // a request that has expired
+#define DOR_REQ_FAILURE    3   // a request with an incorrect key or some other non-expiration error
+#define DOR_REQ_CHECK_HASH 4   // a request with that needs to have its key validated
+typedef ngx_uint_t doorman_request_type_t;
 
 /**
  * Values defined in the configuration. See ngx_http_doorman_commands
@@ -140,11 +150,9 @@ typedef struct {
  * hold the actual string data that is associated with nginx
  * variables. For example, the $doorman_expire nginx variable
  * simply points to the ctx->expire string
+ * Variables needed by the puzzle.html SSI page
  */
 typedef struct {
-    /**
-     * Variables needed by the puzzle.html SSI page:
-     *************************************************************************/
 
     // the uri of the original request
     // associated with $doorman_orig_uri
@@ -175,6 +183,7 @@ typedef struct {
 
     // the number of bits missing from trunc_hash
     // associated with $doorman_missing_bits
+    ngx_uint_t                 num_missing_bits;
     u_char missing_bits_data[DOORMAN_INTEGER_STR_SIZE];
     ngx_str_t                  missing_bits;
 
@@ -384,13 +393,14 @@ ngx_http_doorman_truncate(u_char *buf, int missing_bits)
 // to re-implement it than to reverse engineer the nginx API
 // for snprintf or base64 encoding from the source
 static void
-ngx_http_doorman_hashval_to_str(ngx_str_t * result_str, u_char * src_buf)
+ngx_http_doorman_hashval_to_str(ngx_str_t *result_str, u_char *src_buf)
 {
     static char hex[] = "0123456789abcdef";
-    result_str->len = DOORMAN_HASH_STR_SIZE - 1;
-    int buf_i, str_i;
-    u_char byte;
-    u_char nibble;
+    result_str->len = DOORMAN_HASH_STR_SIZE;
+    ngx_uint_t  buf_i;
+    ngx_uint_t  str_i;
+    u_char      byte;
+    u_char      nibble;
 
     for (buf_i = 0, str_i = 0 ; buf_i < DOORMAN_HASH_LEN; buf_i++, str_i += 2) {
         byte = src_buf[buf_i];
@@ -399,9 +409,51 @@ ngx_http_doorman_hashval_to_str(ngx_str_t * result_str, u_char * src_buf)
         nibble = byte & 0xf;
         result_str->data[str_i + 1] = hex[nibble];
     }
-    result_str->data[str_i] = '\0';
 }
 
+/*
+static ngx_int_t
+ngx_http_doorman_nibble_val(u_char c)
+{
+    if (c >= '0' && c <= '9') {
+        return c - '0';
+    } else if (c >= 'a' && c <= 'f') {
+        return c - 'a' + 10;
+    } else {
+        return -1;
+    }
+}
+
+static ngx_int_t
+ngx_http_doorman_str_to_hashval(u_char *result_buf, u_char *src_str)
+{
+    ngx_uint_t  buf_i;
+    ngx_uint_t  str_i;
+    ngx_int_t   result;
+    u_char      byte;
+    u_char      nibble;
+
+    for (buf_i = 0, str_i = 0 ; buf_i < DOORMAN_HASH_LEN; buf_i++, str_i += 2) {
+        nibble = src_str[str_i];
+        result = ngx_http_doorman_nibble_val(nibble);
+        if (result < 0) {
+            return NGX_ERROR;
+        }
+        byte = ((u_char) result) << 4;
+
+        nibble = src_str[str_i + 1];
+        result = ngx_http_doorman_nibble_val(nibble);
+        if (result < 0) {
+            return NGX_ERROR;
+        }
+        byte |= (u_char) result;
+
+        result_buf[buf_i] = byte;
+    }
+
+    return NGX_OK;
+}
+*/
 
 /**
  * Iterates over the arguments in args
@@ -517,36 +569,105 @@ ngx_http_doorman_strip_arg(ngx_str_t *arg_name, ngx_str_t *args)
     }
 }
 
-// instantiates the $doorman_result nginx-variable
-static ngx_int_t
-ngx_http_doorman_result_variable(ngx_http_request_t *r,
-    ngx_http_variable_value_t *v, uintptr_t data)
+
+// returns value of string, or NULL if the arg doesn't exist
+static ngx_variable_value_t *
+ngx_doorman_arg_val(ngx_http_request_t *r, ngx_str_t *arg_name)
 {
-    //u_char                       *p, *last;
-    ngx_str_t                     temp_str;//, hash;
-    //time_t                        given_expire; // the expiration value given by the request
-    time_t                        gen_expire;   // the expireation value generated for the puzzle
-    ngx_http_doorman_ctx_t       *ctx;
-    ngx_http_doorman_conf_t      *conf;
+    ngx_uint_t                  hash;
+    ngx_str_t                   proper_name;
+    ngx_variable_value_t       *value;
 
-    //u_char                        given_hash_buf[DOORMAN_HASH_LEN];
-    u_char                        actual_hash_buf[DOORMAN_HASH_LEN];
-    u_char                        meta_hash_buf[DOORMAN_HASH_LEN];
+    proper_name.len = arg_name->len + 4;
+    proper_name.data = ngx_palloc(r->pool, sizeof(u_char) * proper_name.len);
+    if (proper_name.data == NULL) {
+        return NULL;
+    }
+    ngx_memcpy(proper_name.data, (u_char *) "arg_", sizeof(u_char) * 4);
+    ngx_memcpy(&proper_name.data[4], arg_name->data, sizeof(u_char) * arg_name->len);
 
-    ngx_uint_t missing_bits;
+    hash = ngx_hash_key(proper_name.data, proper_name.len);
+    value = ngx_http_get_variable(r, &proper_name, hash);
 
-    ctx = ngx_http_get_module_ctx(r, ngx_http_doorman_module);
-    if (ctx != NULL) {
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                   "doorman: called again but already initialized");
-        // TODO: do I need to set v->found = something or anything like that?
-        return NGX_OK;
+    if (value->not_found) {
+        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+           "doorman: %V not found", &proper_name);
+        return NULL;
+    } else {
+        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+           "doorman: %V found", &proper_name);
+        return value;
+    }
+}
+
+/**
+ * Returns one of:
+ *  DOR_REQ_ORIGINAL
+ *  DOR_REQ_EXPIRED
+ *  DOR_REQ_FAILURE
+ *  DOR_REQ_CHECK_HASH
+ */
+static doorman_request_type_t
+ngx_doorman_req_type(ngx_http_request_t *r, ngx_http_doorman_ctx_t *ctx,
+    ngx_http_doorman_conf_t *conf, ngx_variable_value_t ** key_value_ptr,
+    ngx_variable_value_t ** expire_value_ptr)
+{
+    ngx_variable_value_t *key_value = ngx_doorman_arg_val(r, &conf->arg_key_name);
+    ngx_variable_value_t *expire_value = ngx_doorman_arg_val(r, &conf->arg_expire_name);
+    time_t expiration;
+
+    *key_value_ptr = key_value;
+    *expire_value_ptr = expire_value;
+
+    if (key_value == NULL || expire_value == NULL) {
+        if (key_value == NULL && expire_value == NULL) {
+            ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "doorman: an original request url (i.e. included neither arg_key nor arg_expire)");
+            return DOR_REQ_ORIGINAL;
+        } else {
+            ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
+                    "doorman: request args included arg_key or arg_expire but not both");
+            return DOR_REQ_FAILURE;
+        }
     }
 
-    conf = ngx_http_get_module_loc_conf(r, ngx_http_doorman_module);
+    // request contains key and expire timestamp
+
+    // validate timestamp
+    expiration = ngx_atotm(expire_value->data, expire_value->len);
+    if (expiration < ngx_time()) {
+        ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
+                "doorman: request expired");
+        return DOR_REQ_EXPIRED;
+    }
+
+    // validate length of key
+    if (key_value->len != DOORMAN_HASH_STR_SIZE) {
+        ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
+                "doorman: key_value->len != DOORMAN_HASH_STR_SIZE");
+        return DOR_REQ_FAILURE;
+    }
+
+
+    // expiration timestamp is good, length of hash is good, now just need to validate hash
+    return DOR_REQ_CHECK_HASH;
+
+    /*if (ngx_http_doorman_str_to_hashval(given_hash, key_value->data) != NGX_OK) {
+        ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
+                "doorman: key_value contains invalid characters");
+        return DOR_REQ_FAILURE;
+    }*/
+
+}
+
+static ngx_http_doorman_ctx_t *
+ngx_http_doorman_create_ctx(ngx_http_request_t *r)
+{
+    ngx_http_doorman_ctx_t *ctx;
+
     ctx = ngx_pcalloc(r->pool, sizeof(ngx_http_doorman_ctx_t));
     if (ctx == NULL) {
-        return NGX_ERROR;
+        return NULL;
     }
     ngx_http_set_ctx(r, ctx, ngx_http_doorman_module);
 
@@ -569,13 +690,25 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
     ctx->burst_len.data = ctx->burst_len_data;
     ctx->sleep_time.data = ctx->sleep_time_data;
 
-    if (conf->variable == NULL || conf->md5 == NULL ||
-        conf->arg_key_name.len == 0 || conf->arg_expire_name.len == 0 ||
+    return ctx;
+}
+
+static ngx_http_doorman_conf_t *
+ngx_http_doorman_get_conf(ngx_http_request_t *r)
+{
+    ngx_http_doorman_conf_t * conf = ngx_http_get_module_loc_conf(r, ngx_http_doorman_module);
+
+    if (conf->variable == NULL ||
+        conf->md5 == NULL ||
+        conf->arg_key_name.len == 0 ||
+        conf->arg_expire_name.len == 0 ||
         conf->expire_delta == NGX_CONF_UNSET_UINT ||
-        conf->init_missing_bits == NGX_CONF_UNSET_UINT) {
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                   "doorman: one of (variable, md5, expire_delta, init_missing_bits) not defined");
-        return NGX_ERROR;
+        conf->init_missing_bits == NGX_CONF_UNSET_UINT ||
+        conf->burst_len == NGX_CONF_UNSET_UINT ||
+        conf->sleep_time == NGX_CONF_UNSET_UINT) {
+        ngx_log_error(NGX_LOG_CRIT, r->connection->log, 0,
+                   "doorman: one of (variable, md5, expire_delta, init_missing_bits, burst_len, sleep_time) not defined");
+        return NULL;
     }
 
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
@@ -599,10 +732,137 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman: r->uri == '%V'", &r->uri);
 
-    missing_bits = conf->init_missing_bits;
+    return conf;
+}
 
-    goto not_found;
 
+// instantiates the $doorman_result nginx-variable
+static ngx_int_t
+ngx_http_doorman_result_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+
+    //u_char                       *p, *last;
+    ngx_str_t                     temp_str;//, hash;
+    //time_t                        given_expire; // the expiration value given by the request
+    time_t                        gen_expire;   // the expireation value generated for the puzzle
+    ngx_http_doorman_ctx_t       *ctx;
+    ngx_http_doorman_conf_t      *conf;
+    //u_char                        given_hash_buf[DOORMAN_HASH_LEN];
+    u_char                        actual_hash_buf[DOORMAN_HASH_LEN];
+    u_char                        meta_hash_buf[DOORMAN_HASH_LEN];
+    doorman_request_type_t        request_type;
+    ngx_variable_value_t         *key_value;
+    ngx_variable_value_t         *expire_value;
+
+    /**
+     * Setup ctx and conf
+     *************************************************************************/
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_doorman_module);
+    if (ctx != NULL) {
+        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "doorman: called again but already initialized");
+        return NGX_OK;
+    }
+
+    ctx = ngx_http_doorman_create_ctx(r);
+    if (ctx == NULL) {
+        return NGX_ERROR;
+    }
+
+    conf = ngx_http_doorman_get_conf(r);
+    if (conf == NULL) {
+        return NGX_ERROR;
+    }
+
+    // TODO: determine missing bits to achieve desired rate of admission
+    ctx->num_missing_bits = conf->init_missing_bits;
+
+    /**
+     * Initialize some nginx variables that are needed regardless of request type
+     *************************************************************************/
+
+    // copy uri from the original request into orig_uri
+    ctx->orig_uri.len = r->uri.len;
+    ctx->orig_uri.data = ngx_pstrdup(r->pool, &r->uri);
+    if (ctx->orig_uri.data == NULL) {
+        return NGX_ERROR;
+    }
+
+    // copy args from the original request into orig_args
+    ctx->orig_args.len = r->args.len;
+    ctx->orig_args.data = ngx_pstrdup(r->pool, &r->args);
+    if (ctx->orig_args.data == NULL) {
+        return NGX_ERROR;
+    }
+
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman: orig_args == '%V'", &ctx->orig_args);
+
+    // strip the parameters for key and expire from orig_args
+    ngx_http_doorman_strip_arg(&conf->arg_key_name, &ctx->orig_args);
+    ngx_http_doorman_strip_arg(&conf->arg_expire_name, &ctx->orig_args);
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman: orig_args == '%V' after strip", &ctx->orig_args);
+
+
+    /**
+     * Determine what type of a request this is and route accordingly
+     *************************************************************************/
+    request_type = ngx_doorman_req_type(r, ctx, conf, &key_value, &expire_value);
+
+    if (request_type == DOR_REQ_FAILURE || request_type == DOR_REQ_EXPIRED) {
+        v->not_found = 1;
+        return NGX_OK;
+    } else if (request_type == DOR_REQ_CHECK_HASH) {
+
+        // initialize the $doorman_expire variable to the expiration specified in the argument
+        ctx->expire.data = expire_value->data;
+        ctx->expire.len = expire_value->len;
+
+        // perform variable substition in $doorman_md5
+        if (ngx_http_complex_value(r, conf->md5, &temp_str) != NGX_OK) {
+            ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
+                       "doorman ERROR while ngx_http_complex_value(r, conf->md5, &temp_str)");
+            return NGX_ERROR;
+        }
+        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                       "doorman link md5: \"%V\"", &temp_str);
+
+        // actual_hash_buf = hash($doorman_md5)
+        ngx_http_doorman_hash(actual_hash_buf, &temp_str);
+        // temp_str = hex-string version of actual_hash_buf
+        ngx_http_doorman_hashval_to_str(&temp_str, actual_hash_buf);
+        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                       "doorman actual_hash str: \"%V\"", &temp_str);
+        v->len = 1;
+        v->valid = 1;
+        v->no_cacheable = 0;
+        v->not_found = 0;
+
+        // is the key valid?
+        if (ngx_strncmp(key_value->data, temp_str.data, temp_str.len) == 0) {
+            ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                       "doorman hash is valid");
+            v->data = (u_char *) "1";
+        } else {
+            ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
+                       "doorman hash is invalid");
+            v->data = (u_char *) "0";
+        }
+
+        return NGX_OK;
+    }
+
+
+    /*
+ *  DOR_REQ_ORIGINAL
+ *  DOR_REQ_EXPIRED
+ *  DOR_REQ_FAILURE
+ *  DOR_REQ_ADMIT
+request_type
+    */
 /*
     // perform variable substition in $doorman
     // i.e. if config has doorman $arg_admitkey,$arg_admitkey_expire;
@@ -707,30 +967,6 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
 
     // TODO: Make sure program flows work (testing)
 */
-not_found:
-
-    // copy uri from the original request into orig_uri
-    ctx->orig_uri.len = r->uri.len;
-    ctx->orig_uri.data = ngx_pstrdup(r->pool, &r->uri);
-    if (ctx->orig_uri.data == NULL) {
-        return NGX_ERROR;
-    }
-
-    // copy args from the original request into orig_args
-    ctx->orig_args.len = r->args.len;
-    ctx->orig_args.data = ngx_pstrdup(r->pool, &r->args);
-    if (ctx->orig_args.data == NULL) {
-        return NGX_ERROR;
-    }
-
-    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-               "doorman: orig_args == '%V'", &ctx->orig_args);
-
-    // strip the parameters for key and expire from orig_args
-    ngx_http_doorman_strip_arg(&conf->arg_key_name, &ctx->orig_args);
-    ngx_http_doorman_strip_arg(&conf->arg_expire_name, &ctx->orig_args);
-    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-               "doorman: orig_args == '%V' after strip", &ctx->orig_args);
 
     // initialize the $doorman_expire variable
     gen_expire = ngx_time() + conf->expire_delta;
@@ -738,24 +974,6 @@ not_found:
     ctx->expire.len = ngx_strlen(ctx->expire_data);
     ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman: now(%d) + delay(%d) == expire('%V')", ngx_time(), conf->expire_delta, &ctx->expire);
-
-    // initialize the $doorman_missing_bits variable
-    ngx_snprintf(ctx->missing_bits.data, sizeof(ctx->missing_bits_data), "%d%Z", missing_bits);
-    ctx->missing_bits.len = ngx_strlen(ctx->missing_bits_data);
-    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-               "doorman: missing_bits == '%V'", &ctx->missing_bits);
-
-    // initialize the $doorman_burst_len variable
-    ngx_snprintf(ctx->burst_len.data, sizeof(ctx->burst_len_data), "%d%Z", conf->burst_len);
-    ctx->burst_len.len = ngx_strlen(ctx->burst_len_data);
-    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-               "doorman: burst_len == '%V'", &ctx->burst_len);
-
-    // initialize the $doorman_sleep_time variable
-    ngx_snprintf(ctx->sleep_time.data, sizeof(ctx->sleep_time_data), "%d%Z", conf->sleep_time);
-    ctx->sleep_time.len = ngx_strlen(ctx->sleep_time_data);
-    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-               "doorman: sleep_time == '%V'", &ctx->sleep_time);
 
     // perform variable substition in $doorman_md5
     if (ngx_http_complex_value(r, conf->md5, &temp_str) != NGX_OK) {
@@ -773,13 +991,32 @@ not_found:
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "doorman actual_hash str: \"%V\"", &temp_str);
 
+    // initialize the $doorman_missing_bits variable
+    ngx_snprintf(ctx->missing_bits.data, sizeof(ctx->missing_bits_data), "%d%Z", ctx->num_missing_bits);
+    ctx->missing_bits.len = ngx_strlen(ctx->missing_bits_data);
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman: missing_bits == '%V'", &ctx->missing_bits);
+
+    // initialize the $doorman_burst_len variable
+    ngx_snprintf(ctx->burst_len.data, sizeof(ctx->burst_len_data), "%d%Z", conf->burst_len);
+    ctx->burst_len.len = ngx_strlen(ctx->burst_len_data);
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman: burst_len == '%V'", &ctx->burst_len);
+
+    // initialize the $doorman_sleep_time variable
+    ngx_snprintf(ctx->sleep_time.data, sizeof(ctx->sleep_time_data), "%d%Z", conf->sleep_time);
+    ctx->sleep_time.len = ngx_strlen(ctx->sleep_time_data);
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman: sleep_time == '%V'", &ctx->sleep_time);
+
+
     // meta_hash_buf = hash(hex-string version of actual_hash_buf)
     ngx_http_doorman_hash(meta_hash_buf, &temp_str);
     ngx_http_doorman_hashval_to_str(&ctx->meta_hash, meta_hash_buf);
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "doorman meta_hash str: \"%V\"", &ctx->meta_hash);
 
-    ngx_http_doorman_truncate(actual_hash_buf, missing_bits);
+    ngx_http_doorman_truncate(actual_hash_buf, ctx->num_missing_bits);
     ngx_http_doorman_hashval_to_str(&ctx->trunc_hash, actual_hash_buf);
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "doorman trunc_hash str: \"%V\"", &ctx->trunc_hash);
