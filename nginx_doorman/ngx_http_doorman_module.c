@@ -813,7 +813,13 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
     request_type = ngx_doorman_req_type(r, ctx, conf, &key_value, &expire_value);
 
     if (request_type == DOR_REQ_FAILURE || request_type == DOR_REQ_EXPIRED) {
-        v->not_found = 1;
+        v->len = 1;
+        v->valid = 1;
+        v->no_cacheable = 0;
+        v->not_found = 0;
+        v->data = (u_char *) "0";
+        ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
+                   "doorman request_type == DOR_REQ_FAILURE || request_type == DOR_REQ_EXPIRED");
         return NGX_OK;
     } else if (request_type == DOR_REQ_CHECK_HASH) {
 
@@ -855,118 +861,9 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
         return NGX_OK;
     }
 
-
-    /*
- *  DOR_REQ_ORIGINAL
- *  DOR_REQ_EXPIRED
- *  DOR_REQ_FAILURE
- *  DOR_REQ_ADMIT
-request_type
-    */
-/*
-    // perform variable substition in $doorman
-    // i.e. if config has doorman $arg_admitkey,$arg_admitkey_expire;
-    // and request is index.php?admitkey=foo&admitkey_expire=bar
-    // then val == "foo,bar"
-    if (ngx_http_complex_value(r, conf->variable, &val) != NGX_OK) {
-        return NGX_ERROR;
-    }
-
-    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                   "doorman link: \"%V\"", &val);
-
-    // point to end of val
-    last = val.data + val.len;
-
-    // p points to the comma in val
-    p = ngx_strlchr(val.data, last, ',');
-    expires = 0;
-
-    if (p) {
-        val.len = p++ - val.data;
-
-        // parse the expiration string
-        expires = ngx_atotm(p, last - p);
-        // if the expires arg is not given (or is actually <= 0)
-        if (expires <= 0) {
-            ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                   "doorman expires not given or is actually <= 0 (ignoring for now)");
-            //goto not_found;
-            // BOOKMARK
-        }
-
-
-        ctx->expires.len = last - p;
-        ctx->expires.data = p;
-    }
-
-    // val now contains just the hash key
-
-    // a hash with more than 24 chars is auotmatically invalid
-    if (val.len > 24) {
-        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                   "doorman hash has len > 24 == %d --> not found", val.len);
-        goto not_found;
-    }
-
-    hash.len = DOORMAN_HASH_LEN;
-    hash.data = given_hash_buf;
-
-    // parse the hash parameter into hash
-    if (ngx_decode_base64url(&hash, &val) != NGX_OK) {
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                   "doorman could not parse hash --> not found");
-        goto not_found;
-    }
-
-
-    // perform variable substition in $doorman_md5
-    if (ngx_http_complex_value(r, conf->md5, &val) != NGX_OK) {
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                   "doorman ERROR while ngx_http_complex_value(r, conf->md5, &val)");
-        return NGX_ERROR;
-    }
-
-    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                   "doorman link md5: \"%V\"", &val);
-
-    // TODO: remove the admitkey param from val
-
-    // hash val
-    ngx_http_doorman_hash(&val, actual_hash_buf);
-
-    ngx_http_doorman_hashval_to_str(actual_hash_buf, &ctx->trunc_hash);
-
-    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                   "doorman actual_hash str: \"%V\"", &ctx->trunc_hash);
-
-    if (expires <= 0) {
-        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-               "doorman expires not given or is actually <= 0 --> not found");
-        goto not_found;
-    }
-
-    if (hash.len != DOORMAN_HASH_LEN) {
-        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                   "doorman hash.len == %d != DOORMAN_HASH_LEN --> not found", hash.len);
-        goto not_found;
-    }
-
-    // make sure the hash is valid
-    if (ngx_memcmp(given_hash_buf, actual_hash_buf, DOORMAN_HASH_LEN) != 0) {
-        goto not_found;
-    }
-
-    v->data = (u_char *) ((expires && expires < ngx_time()) ? "0" : "1");
-    v->len = 1;
-    v->valid = 1;
-    v->no_cacheable = 0;
-    v->not_found = 0;
-
-    return NGX_OK;
-
-    // TODO: Make sure program flows work (testing)
-*/
+    /**
+     * Create a puzzle response for the request
+     *************************************************************************/
 
     // initialize the $doorman_expire variable
     gen_expire = ngx_time() + conf->expire_delta;
