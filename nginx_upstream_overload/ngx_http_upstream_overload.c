@@ -267,6 +267,8 @@ typedef struct {
     // array with window_size elements. A 1 or 0 for each request admitted in the
     // current window. 1 means admission resulted in eviction, 0 means admission
     // did no require an eviction.
+    // BUG: For some reason if evicted is of type u_char* instead of ngx_uint_t*
+    // its memory gets corrupted
     ngx_uint_t                               *evicted;
 
     // index of the next entry in evicted to be overwritten
