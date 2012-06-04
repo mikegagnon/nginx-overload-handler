@@ -115,6 +115,13 @@
 #include <ngx_http.h>
 #include <ngx_md5.h>
 
+// is there a better way to include this .h?
+#include "../nginx_upstream_overload/ngx_http_upstream_overload.h"
+
+// Defined in upstream_overload module
+// This extern is a hacky way for doorman and load balancer to share memory, but
+// it works for now.
+//extern struct ngx_http_upstream_overload_peer_state_s *upstream_overload_peer_state;
 
 // md5 has 16-byte hashes
 #define DOORMAN_HASH_LEN 16
@@ -411,49 +418,6 @@ ngx_http_doorman_hashval_to_str(ngx_str_t *result_str, u_char *src_buf)
     }
 }
 
-/*
-static ngx_int_t
-ngx_http_doorman_nibble_val(u_char c)
-{
-    if (c >= '0' && c <= '9') {
-        return c - '0';
-    } else if (c >= 'a' && c <= 'f') {
-        return c - 'a' + 10;
-    } else {
-        return -1;
-    }
-}
-
-static ngx_int_t
-ngx_http_doorman_str_to_hashval(u_char *result_buf, u_char *src_str)
-{
-    ngx_uint_t  buf_i;
-    ngx_uint_t  str_i;
-    ngx_int_t   result;
-    u_char      byte;
-    u_char      nibble;
-
-    for (buf_i = 0, str_i = 0 ; buf_i < DOORMAN_HASH_LEN; buf_i++, str_i += 2) {
-        nibble = src_str[str_i];
-        result = ngx_http_doorman_nibble_val(nibble);
-        if (result < 0) {
-            return NGX_ERROR;
-        }
-        byte = ((u_char) result) << 4;
-
-        nibble = src_str[str_i + 1];
-        result = ngx_http_doorman_nibble_val(nibble);
-        if (result < 0) {
-            return NGX_ERROR;
-        }
-        byte |= (u_char) result;
-
-        result_buf[buf_i] = byte;
-    }
-
-    return NGX_OK;
-}
-*/
 
 /**
  * Iterates over the arguments in args
@@ -759,6 +723,12 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
      * Setup ctx and conf
      *************************************************************************/
 
+    if (upstream_overload_peer_state != NULL) {
+        ngx_spinlock(&upstream_overload_peer_state->lock, SPINLOCK_VALUE, SPINLOCK_NUM_SPINS);
+        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "doorman: evict_rate == %d/%d", upstream_overload_peer_state->stats.evicted_count, upstream_overload_peer_state->stats.window_size);
+        ngx_unlock(&upstream_overload_peer_state->lock);
+    }
     ctx = ngx_http_get_module_ctx(r, ngx_http_doorman_module);
     if (ctx != NULL) {
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,

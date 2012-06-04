@@ -32,275 +32,12 @@
 #include <ngx_http.h>
 #include <ngx_thread.h>
 
-/**
- * Macro definition
- *****************************************************************************/
+#include "ngx_http_upstream_overload.h"
 
-#define DEFAULT_NUM_SPARE_BACKENDS 1
-#define DEFAULT_ALERT_PIPE_PATH ""
-#define STATIC_ALLOC_STR_BYTES 256
-
-#define SPINLOCK_NUM_SPINS 1024
-#define SPINLOCK_VALUE ngx_pid
-
-#define MODULE_NAME_STR "upstream_overload"
-
-#define NGX_PEER_INVALID ((ngx_uint_t) -1)
-
-// Set to 1 for very fine grained debugging. If you turn FINE_DEBUG on, make
-// sure to configure nginx with 'daemon off;'
-#define FINE_DEBUG 1
-
-// ddX invocations print to stdout and are useful for figuring how nginx calls
-//      the various event handlers during development.
-// the dd_logX macros are just aliases for the nginx ngx_log_debugX macros (which also
-//      invoke the ddX macros). These are useful for acutally writing messages to logs
-
-#if FINE_DEBUG == 1
-    #define dd_list(list, name, peers, log) ngx_upstream_overload_print_list(list, name, peers, log)
-#else
-    #define dd_list(list, name, peers, log)
-#endif
-
-// Right now printf doesn't work because ngx_uint_t has different sizes on 32-bit and 64-bit
-// TODO: If I get something like printf to work, then if FINE_DEBUG is on, then have ddX
-// call the printf like function. This is only really useful for doing logging when there is no
-// log object.
-#define dd0(format)
-#define dd1(format, a)
-#define dd2(format, a, b)
-#define dd3(format, a, b, c)
-#define dd4(format, a, b, c, d)
-#define dd5(format, a, b, c, d, e)
-#define dd6(format, a, b, c, d, e, f)
-#define dd7(format, a, b, c, d, e, f, g)
-
-// Set to 1 to slow down the module, which helps with testing correct shared
-// memory usage
-#define SLOW_DOWN_MODULE_DEBUG 0
-
-#if SLOW_DOWN_MODULE_DEBUG == 1
-
-    void ngx_http_upstream_overload_SLOW_DOWN()
-    {
-        ngx_uint_t i, j, k;
-        ngx_uint_t x=3;
-        for(i = 0; i < 1000; i++) {
-            for(j = 0; j < 1000; j++) {
-                for(k = 0; k < 3000; k++) {
-                    x *= i * j * k;
-                }
-            }
-        }
-        dd1("ngx_http_upstream_overload_SLOW_DOWN: slow_x = %d", x);
-    }
-
-    #define DO_SLOW_DOWN() ngx_http_upstream_overload_SLOW_DOWN()
-#else
-    #define DO_SLOW_DOWN()
-#endif
-
-#define dd_log0(level, log, err, format)                                            \
-    do {                                                                            \
-        dd0(format);                                                                \
-        if (log) ngx_log_debug0(level, log, err, "[" MODULE_NAME_STR "] " format);  \
-    } while (0)
-
-#define dd_log1(level, log, err, format, a)                                             \
-    do {                                                                                \
-        dd1(format, a);                                                                 \
-        if (log) ngx_log_debug1(level, log, err, "[" MODULE_NAME_STR "] " format, a);   \
-    } while (0)
-
-#define dd_log2(level, log, err, format, a, b)                                              \
-    do {                                                                                    \
-        dd2(format, a, b);                                                                  \
-        if (log) ngx_log_debug2(level, log, err, "[" MODULE_NAME_STR "] " format, a, b);    \
-    } while (0)
-
-#define dd_log3(level, log, err, format, a, b, c)                                               \
-    do {                                                                                        \
-        dd3(format, a, b, c);                                                                   \
-        if (log) ngx_log_debug3(level, log, err, "[" MODULE_NAME_STR "] " format, a, b, c);     \
-    } while (0)
-
-#define dd_log4(level, log, err, format, a, b, c, d)                                            \
-    do {                                                                                        \
-        dd4(format, a, b, c, d);                                                                \
-        if (log) ngx_log_debug4(level, log, err, "[" MODULE_NAME_STR "] " format, a, b, c, d);  \
-    } while (0)
-
-#define dd_log5(level, log, err, format, a, b, c, d, e)                                             \
-    do {                                                                                            \
-        dd5(format, a, b, c, d, e);                                                                 \
-        if (log) ngx_log_debug5(level, log, err, "[" MODULE_NAME_STR "] " format, a, b, c, d, e);   \
-    } while (0)
-
-#define dd_error0(level, log, err, format)                                  \
-    do {                                                                    \
-        dd0("          [ERROR] " format);                                   \
-        ngx_log_error(level, log, err, "[" MODULE_NAME_STR "] " format);    \
-    } while (0)
-
-#define dd_error1(level, log, err, format, a)                               \
-    do {                                                                    \
-        dd1("          [ERROR] " format, a);                                \
-        ngx_log_error(level, log, err, "[" MODULE_NAME_STR "] " format, a); \
-    } while (0)
-
-#define dd_error2(level, log, err, format, a, b)                                \
-    do {                                                                        \
-        dd2("          [ERROR] " format, a, b);                                 \
-        ngx_log_error(level, log, err, "[" MODULE_NAME_STR "] " format, a, b);  \
-    } while (0)
-
-#define dd_error3(level, log, err, format, a, b, c)                                 \
-    do {                                                                            \
-        dd3("          [ERROR] " format, a, b, c);                                  \
-        ngx_log_error(level, log, err, "[" MODULE_NAME_STR "] " format, a, b, c);   \
-    } while (0)
-
-#define dd_error4(level, log, err, format, a, b, c, d)                                 \
-    do {                                                                               \
-        dd4("          [ERROR] " format, a, b, c, d);                                  \
-        ngx_log_error(level, log, err, "[" MODULE_NAME_STR "] " format, a, b, c, d);   \
-    } while (0)
-
-
-#define dd_conf_error0(level, cf, err, format)                                  \
-    do {                                                                        \
-        dd0("          [CONFIG ERROR] " format);                                \
-        ngx_conf_log_error(level, cf, err, "[" MODULE_NAME_STR "] " format);    \
-    } while (0)
-
-#define dd_conf_error1(level, cf, err, format, a)                               \
-    do {                                                                        \
-        dd1("          [CONFIG ERROR] " format, a);                             \
-        ngx_conf_log_error(level, cf, err, "[" MODULE_NAME_STR "] " format, a); \
-    } while (0)
-
-/**
- * Struct definitions
- *****************************************************************************/
-
-typedef struct {
-    ngx_uint_t                      num_spare_backends;
-    char                            alert_pipe_path[STATIC_ALLOC_STR_BYTES];
-} ngx_http_upstream_overload_conf_t;
-
-// holds global variables
-typedef struct {
-    ngx_uint_t                      shared_mem_size;
-    ngx_shm_zone_t                 *shared_mem_zone;
-} ngx_upstream_overload_global_t;
-
-// During configuration parsing, upstream servers are read into instances of this struct
-// These instances are immutable and do not exist in shared memory
-typedef struct {
-    struct sockaddr                    *sockaddr;
-    socklen_t                           socklen;
-    ngx_str_t                           name;
-
-    // the index of this peer in the array
-    ngx_uint_t                          index;
-
-} ngx_immutable_peer_config_t;
-
-// There is one instance of this struct. It is immutable and does not exist in shared memory
-typedef struct {
-    ngx_uint_t                         num_peers;
-    ngx_immutable_peer_config_t       *peer_config;
-} ngx_immutable_peer_config_array_t;
-
-typedef struct ngx_http_upstream_overload_peer_s ngx_http_upstream_overload_peer_t;
-
-// There is one of these structs for every backend server, i.e. for every "peer"
-// These instances are mutable, and exist in shared memory
-struct ngx_http_upstream_overload_peer_s {
-
-    ngx_immutable_peer_config_t                  *peer_config;
-
-    // busy == 0 if this peer is idle, busy != 0 if this peer is busy
-    ngx_uint_t                          busy;
-
-    // peer objects will be stored in an array, but peers can also be
-    // linked together in doubly linked lists
-    ngx_http_upstream_overload_peer_t  *prev;
-    ngx_http_upstream_overload_peer_t  *next;
-};
-
-// mutable
-typedef struct {
-    ngx_http_upstream_overload_peer_t   *head;
-    ngx_http_upstream_overload_peer_t   *tail;
-    ngx_uint_t                           len;
-} ngx_peer_list_t;
-
-// There is only one instance of this struct
-// It is mutable and exists in shared memory
-typedef struct {
-
-    /**
-     * Fields needed to load balance
-     *******************************************/
-
-    // the array of mutable peers
-    ngx_http_upstream_overload_peer_t   *peer;
-    ngx_uint_t                           num_peers;
-
-    // mutable lists of peers
-    ngx_peer_list_t                      busy_list;
-    ngx_peer_list_t                      idle_list;
-
-    // overload alerts will be writtten to alert_pipe
-    ngx_fd_t                             alert_pipe;
-    ngx_atomic_t                         lock;
-
-    /**
-     * Fields needed by Doorman
-     *******************************************/
-
-    // For the last window_size admitted requests, this module keeps a record
-    // of whether those admissions resulted in evctions
-    ngx_uint_t                           window_size;
-
-    // array with window_size elements. A 1 or 0 for each request admitted in the
-    // current window. 1 means admission resulted in eviction, 0 means admission
-    // did no require an eviction.
-    // BUG: For some reason if evicted is of type u_char* instead of ngx_uint_t*
-    // its memory gets corrupted
-    ngx_uint_t                               *evicted;
-
-    // index of the next entry in evicted to be overwritten
-    ngx_uint_t                            evicted_i;
-
-    // == sum(evicted), updated every time evicted is updated
-    ngx_uint_t                            evicted_count;
-
-} ngx_http_upstream_overload_peer_state_t;
-
-// There is one of these structs for each upstream block
-// in the configuration file
-typedef struct {
-    ngx_immutable_peer_config_array_t           *config;
-
-    // peer_state contains all shared memory
-    ngx_http_upstream_overload_peer_state_t     *state;
-} ngx_upstream_overload_peer_data_t;
-
-// Each incoming request gets an instance of one of these structs
-typedef struct {
-    ngx_http_upstream_overload_peer_state_t * peer_state;
-
-    // freed == 1 if this peer has already been free'd for this
-    // request; freed == 0 otherwise. The freed field is only needed
-    // because there is a bug in nginx that causes peer.free to be
-    // be called multiple times for the same connection
-    ngx_uint_t                           freed;
-
-    // The index of the peer that is handling this request
-    ngx_uint_t                           peer_index;
-} ngx_http_upstream_overload_request_data_t;
+// TODO: there is a rare race condition here; can be prevented by using an atomic
+// flag to mark when this variable is ready. However, this is just a hack anyway
+// so let it be for now...
+struct ngx_http_upstream_overload_peer_state_s *upstream_overload_peer_state = NULL;
 
 /**
  * Function declarations
@@ -943,6 +680,7 @@ ngx_http_upstream_overload_shared_mem_alloc(
 
     peer_data->state = ngx_slab_alloc_locked(shpool,
         sizeof(ngx_upstream_overload_peer_data_t));
+    upstream_overload_peer_state = peer_data->state;
 
     if (peer_data->state == NULL) {
         ngx_shmtx_unlock(&shpool->mutex);
@@ -953,20 +691,31 @@ ngx_http_upstream_overload_shared_mem_alloc(
     dd2("_shared_mem_alloc(peer_data=%p, log=%p): received lock", peer_data, log);
 
     // TODO: Load this value from config
-    peer_data->state->window_size = 100;
-    peer_data->state->evicted = ngx_slab_alloc_locked(shpool,
-        sizeof(ngx_uint_t) * peer_data->state->window_size);
-    if (peer_data->state->evicted == NULL) {
+    peer_data->state->stats.window_size = THROUGHPUT_WINDOW;
+    peer_data->state->stats.evicted = ngx_slab_alloc_locked(shpool,
+        sizeof(ngx_uint_t) * peer_data->state->stats.window_size);
+    peer_data->state->stats.throughput = ngx_slab_alloc_locked(shpool,
+        sizeof(ngx_uint_t) * peer_data->state->stats.window_size);
+    peer_data->state->stats.rejected = ngx_slab_alloc_locked(shpool,
+        sizeof(ngx_uint_t) * peer_data->state->stats.window_size);
+    if (peer_data->state->stats.evicted == NULL ||
+        peer_data->state->stats.throughput == NULL ||
+        peer_data->state->stats.rejected == NULL) {
         dd2("_shared_mem_alloc(peer_data=%p, log=%p): releasing lock", peer_data, log);
         ngx_unlock(&peer_data->state->lock);
         ngx_shmtx_unlock(&shpool->mutex);
         dd2("_shared_mem_alloc(peer_data=%p, log=%p): exiting with NGX_ERROR", peer_data, log);
         return NGX_ERROR;
     }
-    peer_data->state->evicted_i = 0;
-    peer_data->state->evicted_count = 0;
-    for (i = 0; i < peer_data->state->window_size; i++) {
-        peer_data->state->evicted[i] = 0;
+    peer_data->state->stats.window_i = 0;
+    peer_data->state->stats.current_time = ngx_time();
+    peer_data->state->stats.evicted_count = 0;
+    peer_data->state->stats.throughput_count = 0;
+    peer_data->state->stats.rejected_count = 0;
+    for (i = 0; i < peer_data->state->stats.window_size; i++) {
+        peer_data->state->stats.evicted[i] = 0;
+        peer_data->state->stats.throughput[i] = 0;
+        peer_data->state->stats.rejected[i] = 0;
     }
 
     peer_data->state->peer = ngx_slab_alloc_locked(shpool,
@@ -1145,6 +894,79 @@ ngx_http_upstream_init_overload_peer(
     return NGX_OK;
 }
 
+
+// advances the window index and erases the stats in that slot
+static void
+ngx_http_upstream_overload_erase_next_stat_slot(
+    ngx_http_upstream_overload_peer_state_t *state)
+{
+    state->stats.window_i = (state->stats.window_i + 1) % state->stats.window_size;
+    state->stats.evicted_count -= state->stats.evicted[state->stats.window_i];
+    state->stats.rejected_count -= state->stats.rejected[state->stats.window_i];
+    state->stats.throughput_count -= state->stats.throughput[state->stats.window_i];
+
+    state->stats.evicted[state->stats.window_i] = 0;
+    state->stats.rejected[state->stats.window_i] = 0;
+    state->stats.throughput[state->stats.window_i] = 0;
+}
+
+// Update the streaming stats; called once for every admitted request
+// evicted == 1 iff the request resulted in an eviction (0 otherwise)
+// rejected == 1 iff the request resulted in an rejection (0 otherwise)
+static void
+ngx_http_upstream_overload_update_stats(ngx_peer_connection_t *pc,
+    ngx_http_upstream_overload_peer_state_t *state,
+    ngx_uint_t evicted, ngx_uint_t rejected)
+{
+    time_t now = ngx_time();
+    ngx_uint_t num_erase;
+    ngx_uint_t i, j;
+
+    if (now != state->stats.current_time) {
+        if (now < state->stats.current_time) {
+           dd_error0(NGX_LOG_ERR, pc->log, 0, "now < state->stats.current_time");
+           return;
+        }
+        if (now - state->stats.current_time > (time_t) state->stats.window_size) {
+            // If you need to erase all history
+            num_erase = state->stats.window_size - 1;
+        } else {
+            // If you need to erase some history
+            num_erase = now - state->stats.current_time - 1;
+        }
+
+        // Fast forward the through the stats (by erasing the time slots
+        // where there were no events)
+        for (i = 0; i < num_erase; i++) {
+            ngx_http_upstream_overload_erase_next_stat_slot(state);
+        }
+        ngx_http_upstream_overload_erase_next_stat_slot(state);
+
+    }
+
+    state->stats.evicted_count += evicted;
+    state->stats.rejected_count += rejected;
+    state->stats.throughput_count += 1;
+
+    state->stats.evicted[state->stats.window_i] += evicted;
+    state->stats.rejected[state->stats.window_i] += rejected;
+    state->stats.throughput[state->stats.window_i] += 1;
+
+    state->stats.current_time = now;
+
+    #if FINE_DEBUG == 1
+        dd_log4(NGX_LOG_DEBUG_HTTP, pc->log, 0, "stats over throughput, evicted, rejected",
+            state->stats.window_size, state->stats.throughput_count, state->stats.evicted_count, state->stats.rejected_count);
+        for (i = 0; i < state->stats.window_size; i++) {
+            j = (state->stats.window_i + 1 + i) % state->stats.window_size;
+            dd_log3(NGX_LOG_DEBUG_HTTP, pc->log, 0, "stats over %d, %d, %d",
+                state->stats.throughput[j], state->stats.evicted[j], state->stats.rejected[j]);
+        }
+    #endif
+    dd_log4(NGX_LOG_DEBUG_HTTP, pc->log, 0, "stats over past %d seconds: throughput=%d, evicted=%d, rejected=%d",
+        state->stats.window_size, state->stats.throughput_count, state->stats.evicted_count, state->stats.rejected_count);
+}
+
 // called by nginx to determine which backend should receive this request
 ngx_int_t
 ngx_http_upstream_get_overload_peer(
@@ -1175,6 +997,8 @@ ngx_http_upstream_get_overload_peer(
 
         send_overload_alert(peer_state, peer_state->busy_list.head, pc->log);
 
+        ngx_http_upstream_overload_update_stats(pc, peer_state, 1, 1);
+
         dd_log2(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): releasing lock", pc, request_data);
         ngx_unlock(&peer_state->lock);
         dd_log2(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): exiting with NGX_BUSY", pc, request_data);
@@ -1198,17 +1022,12 @@ ngx_http_upstream_get_overload_peer(
         pc, request_data, peer_state->idle_list.len, overload_conf.num_spare_backends);
 
     // update evicted statistics and send alert if needed
-    peer_state->evicted_count -= peer_state->evicted[peer_state->evicted_i];
     if (peer_state->idle_list.len < overload_conf.num_spare_backends) {
         send_overload_alert(peer_state, peer_state->busy_list.head, pc->log);
-        peer_state->evicted[peer_state->evicted_i] = 1;
-        peer_state->evicted_count++;
+        ngx_http_upstream_overload_update_stats(pc, peer_state, 1, 0);
     } else {
-        peer_state->evicted[peer_state->evicted_i] = 0;
+        ngx_http_upstream_overload_update_stats(pc, peer_state, 0, 0);
     }
-    peer_state->evicted_i = (peer_state->evicted_i + 1) % peer_state->window_size;
-
-    dd_log4(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): evict_rate = %d/%d", pc, request_data, peer_state->evicted_count, peer_state->window_size);
 
     dd_log2(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): releasing lock", pc, request_data);
     ngx_unlock(&peer_state->lock);
