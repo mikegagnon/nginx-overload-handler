@@ -240,6 +240,10 @@ typedef struct {
 // It is mutable and exists in shared memory
 typedef struct {
 
+    /**
+     * Fields needed to load balance
+     *******************************************/
+
     // the array of mutable peers
     ngx_http_upstream_overload_peer_t   *peer;
     ngx_uint_t                           num_peers;
@@ -251,6 +255,26 @@ typedef struct {
     // overload alerts will be writtten to alert_pipe
     ngx_fd_t                             alert_pipe;
     ngx_atomic_t                         lock;
+
+    /**
+     * Fields needed by Doorman
+     *******************************************/
+
+    // For the last window_size admitted requests, this module keeps a record
+    // of whether those admissions resulted in evctions
+    ngx_uint_t                           window_size;
+
+    // array with window_size elements. A 1 or 0 for each request admitted in the
+    // current window. 1 means admission resulted in eviction, 0 means admission
+    // did no require an eviction.
+    ngx_uint_t                               *evicted;
+
+    // index of the next entry in evicted to be overwritten
+    ngx_uint_t                            evicted_i;
+
+    // == sum(evicted), updated every time evicted is updated
+    ngx_uint_t                            evicted_count;
+
 } ngx_http_upstream_overload_peer_state_t;
 
 // There is one of these structs for each upstream block
@@ -900,6 +924,7 @@ ngx_http_upstream_overload_shared_mem_alloc(
 {
     ngx_slab_pool_t     *shpool;
     ngx_int_t            result;
+    ngx_uint_t           i;
 
     dd2("_shared_mem_alloc(peer_data=%p, log=%p): entering", peer_data, log);
 
@@ -924,6 +949,23 @@ ngx_http_upstream_overload_shared_mem_alloc(
 
     ngx_spinlock(&peer_data->state->lock, SPINLOCK_VALUE, SPINLOCK_NUM_SPINS);
     dd2("_shared_mem_alloc(peer_data=%p, log=%p): received lock", peer_data, log);
+
+    // TODO: Load this value from config
+    peer_data->state->window_size = 100;
+    peer_data->state->evicted = ngx_slab_alloc_locked(shpool,
+        sizeof(ngx_uint_t) * peer_data->state->window_size);
+    if (peer_data->state->evicted == NULL) {
+        dd2("_shared_mem_alloc(peer_data=%p, log=%p): releasing lock", peer_data, log);
+        ngx_unlock(&peer_data->state->lock);
+        ngx_shmtx_unlock(&shpool->mutex);
+        dd2("_shared_mem_alloc(peer_data=%p, log=%p): exiting with NGX_ERROR", peer_data, log);
+        return NGX_ERROR;
+    }
+    peer_data->state->evicted_i = 0;
+    peer_data->state->evicted_count = 0;
+    for (i = 0; i < peer_data->state->window_size; i++) {
+        peer_data->state->evicted[i] = 0;
+    }
 
     peer_data->state->peer = ngx_slab_alloc_locked(shpool,
         sizeof(ngx_http_upstream_overload_peer_t) * peer_data->config->num_peers);
@@ -1152,9 +1194,19 @@ ngx_http_upstream_get_overload_peer(
 
     dd_log4(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): peer_state->idle_list.len=%d, overload_conf.num_spare_backends=%d\n\n",
         pc, request_data, peer_state->idle_list.len, overload_conf.num_spare_backends);
+
+    // update evicted statistics and send alert if needed
+    peer_state->evicted_count -= peer_state->evicted[peer_state->evicted_i];
     if (peer_state->idle_list.len < overload_conf.num_spare_backends) {
         send_overload_alert(peer_state, peer_state->busy_list.head, pc->log);
+        peer_state->evicted[peer_state->evicted_i] = 1;
+        peer_state->evicted_count++;
+    } else {
+        peer_state->evicted[peer_state->evicted_i] = 0;
     }
+    peer_state->evicted_i = (peer_state->evicted_i + 1) % peer_state->window_size;
+
+    dd_log4(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): evict_rate = %d/%d", pc, request_data, peer_state->evicted_count, peer_state->window_size);
 
     dd_log2(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): releasing lock", pc, request_data);
     ngx_unlock(&peer_state->lock);
