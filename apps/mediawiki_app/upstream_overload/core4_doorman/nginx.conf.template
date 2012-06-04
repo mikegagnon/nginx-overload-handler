@@ -65,7 +65,7 @@ http {
 
             # Number of seconds before puzzle expires
             doorman_expire_delta 60;
-            doorman_init_missing_bits 18;
+            doorman_init_missing_bits 0;
 
             ## The MD5 hash is built from a secret token + uri + args
             # The doorman module strips the admitkey argument from doorman_md5

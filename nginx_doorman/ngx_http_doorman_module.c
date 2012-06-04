@@ -137,6 +137,26 @@
 #define DOR_REQ_CHECK_HASH 4   // a request with that needs to have its key validated
 typedef ngx_uint_t doorman_request_type_t;
 
+#define INVALID_TIME ((time_t) -1)
+
+// TODO: this global variable is a hack. find a safe, efficient place to put it (and method for accessing it)
+// in shared memory.
+// Holds the last time the puzzle complexity was updated
+time_t      last_puzzle_change  = INVALID_TIME;
+ngx_uint_t  num_missing_bits    = 0;
+
+/**
+ * Behavior of adapative puzzle
+ * TODO: allow these variables to be defined in the config
+ ***************************************************************/
+
+// Min amount of time between changing puzzle complexity
+#define PUZZLE_UPDATE_PERIOD    5
+#define MIN_SUCCESS_RATE        ((double) 0.95)
+#define MAX_SUCCESS_RATE        ((double) 0.99)
+#define THROUGHPUT_THRESHOLD    ((double) 1.00)     // measured in requests per sec
+#define MAX_MISSING_BITS        128
+
 /**
  * Values defined in the configuration. See ngx_http_doorman_commands
  */
@@ -190,7 +210,6 @@ typedef struct {
 
     // the number of bits missing from trunc_hash
     // associated with $doorman_missing_bits
-    ngx_uint_t                 num_missing_bits;
     u_char missing_bits_data[DOORMAN_INTEGER_STR_SIZE];
     ngx_str_t                  missing_bits;
 
@@ -695,24 +714,103 @@ ngx_http_doorman_get_conf(ngx_http_request_t *r)
                "doorman: r->args == '%V'", &r->args);
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman: r->uri == '%V'", &r->uri);
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman: num_missing_bits == %d", num_missing_bits);
 
     return conf;
 }
 
+static void
+ngx_http_doorman_inc_missing_bits(ngx_http_request_t *r)
+{
+    if (num_missing_bits < MAX_MISSING_BITS) {
+        num_missing_bits++;
+        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "doorman: incremented missing bits to %d", num_missing_bits);
+    } else {
+        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "doorman: missing bits is maxed out at %d", num_missing_bits);
+    }
+}
+
+static void
+ngx_http_doorman_dec_missing_bits(ngx_http_request_t *r)
+{
+    if (num_missing_bits > 0) {
+        num_missing_bits--;
+        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "doorman: decremented missing bits to %d", num_missing_bits);
+    } else {
+        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "doorman: missing bits bottomed out at %d", num_missing_bits);
+    }
+}
+
+static void
+ngx_http_doorman_update_puzzle(ngx_http_request_t *r, ngx_http_doorman_conf_t *conf)
+{
+    // proportion of requests that were admitted with needing an eviction
+    double success_rate;
+
+    // average number of requests per second doorman admitted
+    double throughput_rate;
+
+    if (upstream_overload_peer_state == NULL) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "doorman: upstream_overload_peer_state not set");
+        return;
+    }
+
+    ngx_spinlock(&upstream_overload_peer_state->lock, SPINLOCK_VALUE, SPINLOCK_NUM_SPINS);
+    if (upstream_overload_peer_state->stats.throughput_count == 0) {
+        success_rate = 0;
+    } else {
+        success_rate = 1.0 - (((double) upstream_overload_peer_state->stats.evicted_count) /
+                        ((double) upstream_overload_peer_state->stats.throughput_count));
+    }
+    throughput_rate = (((double) upstream_overload_peer_state->stats.throughput_count) /
+                             ((double) upstream_overload_peer_state->stats.window_size));
+    ngx_unlock(&upstream_overload_peer_state->lock);
+
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman puzzle: evicted == %d", upstream_overload_peer_state->stats.evicted_count);
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman puzzle: throughput == %d", upstream_overload_peer_state->stats.throughput_count);
+
+    if (success_rate < MIN_SUCCESS_RATE) {
+        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman puzzle: success_rate==%1.3f < min_success_rate==%1.3f", success_rate, MIN_SUCCESS_RATE);
+        if (throughput_rate < THROUGHPUT_THRESHOLD) {
+            ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman puzzle: and throughput==%1.3f < threshold==%1.3f", throughput_rate, THROUGHPUT_THRESHOLD);
+            ngx_http_doorman_dec_missing_bits(r);
+        } else {
+            ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman puzzle: and throughput==%1.3f >= threshold==%1.3f", throughput_rate, THROUGHPUT_THRESHOLD);
+            ngx_http_doorman_inc_missing_bits(r);
+        }
+    } else if (success_rate > MAX_SUCCESS_RATE) {
+        ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman puzzle: success_rate==%1.3f > max_success_rate==%1.3f (throughout==%1.3f)", success_rate, MAX_SUCCESS_RATE, throughput_rate);
+        ngx_http_doorman_dec_missing_bits(r);
+    } else {
+        ngx_log_debug4(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman puzzle: min_success_rate==%1.3f <= success_rate==%1.3f <= max_success_rate==%1.3f (throughput==%1.3f)",
+               MIN_SUCCESS_RATE, success_rate, MAX_SUCCESS_RATE, throughput_rate);
+        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman puzzle: keeping num_missing_bits the same at %d", num_missing_bits);
+    }
+}
 
 // instantiates the $doorman_result nginx-variable
 static ngx_int_t
 ngx_http_doorman_result_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data)
 {
-
-    //u_char                       *p, *last;
-    ngx_str_t                     temp_str;//, hash;
-    //time_t                        given_expire; // the expiration value given by the request
-    time_t                        gen_expire;   // the expireation value generated for the puzzle
+    ngx_str_t                     temp_str;
+    time_t                        gen_expire;   // the expiration value generated for the puzzle
     ngx_http_doorman_ctx_t       *ctx;
     ngx_http_doorman_conf_t      *conf;
-    //u_char                        given_hash_buf[DOORMAN_HASH_LEN];
     u_char                        actual_hash_buf[DOORMAN_HASH_LEN];
     u_char                        meta_hash_buf[DOORMAN_HASH_LEN];
     doorman_request_type_t        request_type;
@@ -746,8 +844,13 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
         return NGX_ERROR;
     }
 
-    // TODO: determine missing bits to achieve desired rate of admission
-    ctx->num_missing_bits = conf->init_missing_bits;
+    /**
+     * Update the puzzle complexity if need be
+     *************************************************************************/
+    if (last_puzzle_change == INVALID_TIME ||
+        ngx_time() - last_puzzle_change > PUZZLE_UPDATE_PERIOD) {
+        ngx_http_doorman_update_puzzle(r, conf);
+    }
 
     /**
      * Initialize some nginx variables that are needed regardless of request type
@@ -780,8 +883,20 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
     /**
      * Determine what type of a request this is and route accordingly
      *************************************************************************/
+
+    // if there are no missing bits, then just accept the request
+    if (num_missing_bits == 0) {
+        v->len = 1;
+        v->valid = 1;
+        v->no_cacheable = 0;
+        v->not_found = 0;
+        v->data = (u_char *) "1";
+        return NGX_OK;
+    }
+
     request_type = ngx_doorman_req_type(r, ctx, conf, &key_value, &expire_value);
 
+    // BOOKMARK
     if (request_type == DOR_REQ_FAILURE || request_type == DOR_REQ_EXPIRED) {
         v->len = 1;
         v->valid = 1;
@@ -859,7 +974,7 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
                    "doorman actual_hash str: \"%V\"", &temp_str);
 
     // initialize the $doorman_missing_bits variable
-    ngx_snprintf(ctx->missing_bits.data, sizeof(ctx->missing_bits_data), "%d%Z", ctx->num_missing_bits);
+    ngx_snprintf(ctx->missing_bits.data, sizeof(ctx->missing_bits_data), "%d%Z", num_missing_bits);
     ctx->missing_bits.len = ngx_strlen(ctx->missing_bits_data);
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman: missing_bits == '%V'", &ctx->missing_bits);
@@ -883,7 +998,7 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "doorman meta_hash str: \"%V\"", &ctx->meta_hash);
 
-    ngx_http_doorman_truncate(actual_hash_buf, ctx->num_missing_bits);
+    ngx_http_doorman_truncate(actual_hash_buf, num_missing_bits);
     ngx_http_doorman_hashval_to_str(&ctx->trunc_hash, actual_hash_buf);
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "doorman trunc_hash str: \"%V\"", &ctx->trunc_hash);
@@ -1121,6 +1236,7 @@ ngx_http_doorman_merge_conf(ngx_conf_t *cf, void *parent, void *child)
         return NGX_CONF_ERROR;
     }
 
+    num_missing_bits = conf->init_missing_bits;
     return NGX_CONF_OK;
 }
 
