@@ -1,0 +1,16 @@
+{
+    "name": "Doorman Test",
+    "version": "0.1",
+    "manifest_version": 2,
+    "description": "Tests Beer Garden's Doorman module.",
+    "browser_action": {
+        "default_icon": "icon.gif"
+    },
+    "content_scripts": [
+        {
+            "matches": ["http://localhost/*"],
+            "js": ["doorman_test.js"],
+            "run_as": "document_start"
+        }
+    ]
+}
