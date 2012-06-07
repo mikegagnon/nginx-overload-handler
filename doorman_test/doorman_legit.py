@@ -35,8 +35,8 @@ import log
 if __name__ == "__main__":
     cwd = os.getcwd()
 
-    parser = argparse.ArgumentParser(description='Tool used to test Doorman by attacking web-app. WARNING: this ' \
-        'script does not have an off switch. To stop, use: pkill -f "python.* doorman_attack.py"')
+    parser = argparse.ArgumentParser(description='Tool used to test Doorman with legit clients. WARNING: this ' \
+        'script does not have an off switch. To stop, use: pkill -f "python.* doorman_legit.py"')
 
     parser.add_argument("-p", "--prefix",  type=str, required=True,
                     help="the domain part of the URL to submit requests to; e.g. 'http://localhost'")
@@ -46,8 +46,6 @@ if __name__ == "__main__":
                     help="regular expression that positively matches the target web-app page, NOT the puzzle page, and NOT 403 pages or anything else; e.g. MediaWiki")
     parser.add_argument("-t", "--threads",  type=int, default=10,
                     help="Default=%(default)s. The total number of threads to run")
-    parser.add_argument("-z", "--puzzle-threads",  type=int, default=1,
-                    help="Default=%(default)s. The maximum number of threads allowed to work on puzzles at the same time")
     parser.add_argument("-st", "--stall",  type=float, default=0.2,
                     help="Default=%(default)s. The number of seconds to stall when needed")
     parser.add_argument("-i", "--id",  type=int, default=1,
@@ -60,18 +58,19 @@ if __name__ == "__main__":
     logger = log.getLogger(args, name="doorman_attack.py.%d" % args.id)
     logger.info("Command line arguments: %s" % str(args))
 
-    cpu = threading.BoundedSemaphore(value=args.puzzle_threads)
-    queue = Queue.Queue()
+    # By settings bounded-value == #threads, it means every thread can work on puzzles
+    # at the same time. This only makes sense when the puzzles aren't CPU bound
+    cpu = threading.BoundedSemaphore(value=args.threads)
 
-    stall_after_puzzle = False
+    stall_after_puzzle = True
+    queue = Queue.Queue()
 
     for i in xrange(0, args.threads):
         logger.debug("Launching %d/%d", i + 1, args.threads)
-        attacker = puzzle_solver.ClientThread(logger, queue, cpu, args.prefix, args.suffix, args.regex, \
+        legit = puzzle_solver.ClientThread(logger, queue, cpu, args.prefix, args.suffix, args.regex, \
             args.stall, i + 1, stall_after_puzzle)
-        attacker.start()
+        legit.start()
 
     monitor = puzzle_solver.Monitor(logger, queue, args.history)
     monitor.run()
-
 

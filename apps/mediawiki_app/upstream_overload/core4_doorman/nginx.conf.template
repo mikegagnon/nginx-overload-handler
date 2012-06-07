@@ -61,11 +61,11 @@ http {
             doorman_arg_expire_name     expire;
 
             doorman_burst_len    1;
-            doorman_sleep_time 100;
+            doorman_sleep_time 200;
 
             # Number of seconds before puzzle expires
             doorman_expire_delta 60;
-            doorman_init_missing_bits 7;
+            doorman_init_missing_bits 0;
 
             ## The MD5 hash is built from a secret token + uri + args
             # The doorman module strips the admitkey argument from doorman_md5
@@ -109,6 +109,18 @@ http {
         server    localhost:9006;
         server    localhost:9007;
         server    localhost:9008;
+        server    localhost:9009;
+        server    localhost:9010;
+        server    localhost:9011;
+        server    localhost:9012;
+        server    localhost:9013;
+        server    localhost:9014;
+        server    localhost:9015;
+        server    localhost:9016;
+        server    localhost:9017;
+        server    localhost:9018;
+        server    localhost:9019;
+        server    localhost:9020;
     }
 }
 

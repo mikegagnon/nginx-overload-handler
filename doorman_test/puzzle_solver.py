@@ -22,6 +22,11 @@ import time
 import os
 import sys
 import argparse
+import threading
+import Queue
+import re
+import urllib2
+import random
 
 DIRNAME = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(DIRNAME, '..', 'common'))
@@ -39,8 +44,14 @@ class PuzzleSolver:
 
     exclude_vals = ["func"]
 
-    def __init__(self, puzzle_html):
-        val = PuzzleSolver.get_val(puzzle_html)
+    def __init__(self, logger, puzzle_html):
+        self.logger = logger
+        try:
+            val = PuzzleSolver.get_val(puzzle_html)
+        except Exception:
+            self.logger.error("While trying to parse: %s", puzzle_html)
+            raise
+
         self.__dict__.update(val)
 
         if self.args != "":
@@ -144,6 +155,116 @@ class PuzzleSolver:
         raise ValueError("Bad puzzle; exhausted possibilities")
 
 
+class ClientThread(threading.Thread):
+    '''A thread that represents a web client'''
+
+    def __init__(self, logger, queue, cpu, prefix, suffix, regex_target, \
+        stall, thread_id, stall_after_puzzle, regex_puzzle = r"/puzzle_static/puzzle\.js"):
+        self.queue = queue
+        self.logger = logger
+        self.cpu = cpu
+        self.prefix = prefix
+        self.suffix = suffix
+        self.url = prefix + suffix
+        self.regex_target = re.compile(regex_target)
+        self.regex_puzzle = re.compile(regex_puzzle)
+        self.stall = stall
+        self.thread_id = thread_id
+        self.stall_after_puzzle = stall_after_puzzle
+        threading.Thread.__init__(self)
+
+    def request(self, url):
+        '''Requests URL. If the response is a puzzle page returns the response;
+        if the response is the target page returns None; else throws exception.
+        Throws an exception if it is neither.'''
+
+        self.logger.debug("%d Requesting %s", self.thread_id, url)
+        try:
+            response = urllib2.urlopen(url).read()
+        except urllib2.HTTPError, e:
+            self.logger.warning("%d %s", self.thread_id, e)
+            return None
+        except urllib2.URLError:
+            self.logger.critical("%d Error: Could not access %s. Perhaps the server is not running.", self.thread_id, url)
+            raise
+
+        if self.regex_target.search(response):
+            self.logger.debug("%d Received target response", self.thread_id)
+            return None
+        elif self.regex_puzzle.search(response):
+            self.logger.debug("%d, Received puzzle response", self.thread_id)
+            return response
+        else:
+            raise ValueError("%d Did not recognize response: %s ...", self.thread_id, response[:100])
+
+    def run(self):
+
+        time.sleep(random.uniform(0.0, 2.0))
+
+        while True:
+            before = time.time()
+            response = self.request(self.url)
+            now = time.time()
+            latency = now - before
+
+            # If you are given a puzzle
+            # Should really check for 502 at this place
+            if response == None:
+                self.queue.put(("web-app", now, latency))
+            else:
+                self.queue.put(("give-puzzle", now, latency))
+
+                # You can only compute the puzzle if there aren't already max number of puzzle threads
+                if self.cpu.acquire(blocking = False):
+                    self.logger.info("%d, Solving puzzle", self.thread_id)
+
+                    # You now have permssion to use the CPU
+                    solver = PuzzleSolver(self.logger, response)
+
+                    # cpu-intensive
+                    before = time.time()
+                    keyed_suffix = solver.solve()
+                    now = time.time()
+                    latency = now - before
+                    self.queue.put(("solve-puzzle", now, latency))
+
+                    self.logger.info("%d, done with puzzle: %s", self.thread_id, keyed_suffix)
+                    self.cpu.release()
+
+                    keyed_url = self.prefix + keyed_suffix
+
+                    # Send the puzzle solution to the server to effect high-density work
+                    before = time.time()
+                    response = self.request(keyed_url)
+                    now = time.time()
+                    latency = now - before
+                    self.queue.put(("web-app", now, latency))
+
+                    # No need to sleep
+                    if not self.stall_after_puzzle:
+                        continue
+
+            time.sleep(self.stall)
+
+class Monitor:
+
+    def __init__(self, logger, queue, history_len):
+        self.queue = queue
+        self.logger = logger
+        self.records = {}
+        self.history_len = history_len
+
+    def run(self):
+        while True:
+            event, timestamp, latency = self.queue.get()
+            if event not in self.records:
+                self.records[event] = []
+            self.records[event].append(latency)
+            for event, latencies in self.records.items():
+                trunc = latencies[-self.history_len:]
+                avg = float(sum(trunc)) / float(len(trunc))
+                self.logger.info("avg %s latency: %f", event, avg)
+
 if __name__ == "__main__":
     cwd = os.getcwd()
 
@@ -159,7 +280,7 @@ if __name__ == "__main__":
     logger = log.getLogger(args)
     logger.info("Command line arguments: %s" % str(args))
 
-    solver = PuzzleSolver(sys.stdin.read())
+    solver = PuzzleSolver(logger, sys.stdin.read())
     solver.sleep_time = args.sleep_time or solver.sleep_time
     solver.burst_len = args.burst_len or solver.burst_len
     print solver.solve()
