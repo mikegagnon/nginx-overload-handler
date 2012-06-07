@@ -913,10 +913,10 @@ ngx_http_upstream_overload_erase_next_stat_slot(
 // Update the streaming stats; called once for every admitted request
 // evicted == 1 iff the request resulted in an eviction (0 otherwise)
 // rejected == 1 iff the request resulted in an rejection (0 otherwise)
-static void
-ngx_http_upstream_overload_update_stats(ngx_peer_connection_t *pc,
+void
+ngx_http_upstream_overload_update_stats(ngx_log_t *log,
     ngx_http_upstream_overload_peer_state_t *state,
-    ngx_uint_t evicted, ngx_uint_t rejected)
+    ngx_uint_t evicted, ngx_uint_t rejected, ngx_uint_t throughput)
 {
     time_t now = ngx_time();
     ngx_uint_t num_erase;
@@ -924,7 +924,7 @@ ngx_http_upstream_overload_update_stats(ngx_peer_connection_t *pc,
 
     if (now != state->stats.current_time) {
         if (now < state->stats.current_time) {
-           dd_error0(NGX_LOG_ERR, pc->log, 0, "now < state->stats.current_time");
+           dd_error0(NGX_LOG_ERR, log, 0, "now < state->stats.current_time");
            return;
         }
         if (now - state->stats.current_time > (time_t) state->stats.window_size) {
@@ -946,24 +946,24 @@ ngx_http_upstream_overload_update_stats(ngx_peer_connection_t *pc,
 
     state->stats.evicted_count += evicted;
     state->stats.rejected_count += rejected;
-    state->stats.throughput_count += 1;
+    state->stats.throughput_count += throughput;
 
     state->stats.evicted[state->stats.window_i] += evicted;
     state->stats.rejected[state->stats.window_i] += rejected;
-    state->stats.throughput[state->stats.window_i] += 1;
+    state->stats.throughput[state->stats.window_i] += throughput;
 
     state->stats.current_time = now;
 
     #if FINE_DEBUG == 1
-        dd_log4(NGX_LOG_DEBUG_HTTP, pc->log, 0, "stats over throughput, evicted, rejected",
+        dd_log4(NGX_LOG_DEBUG_HTTP, log, 0, "stats over throughput, evicted, rejected",
             state->stats.window_size, state->stats.throughput_count, state->stats.evicted_count, state->stats.rejected_count);
         for (i = 0; i < state->stats.window_size; i++) {
             j = (state->stats.window_i + 1 + i) % state->stats.window_size;
-            dd_log3(NGX_LOG_DEBUG_HTTP, pc->log, 0, "stats over %d, %d, %d",
+            dd_log3(NGX_LOG_DEBUG_HTTP, log, 0, "stats over %d, %d, %d",
                 state->stats.throughput[j], state->stats.evicted[j], state->stats.rejected[j]);
         }
     #endif
-    dd_log4(NGX_LOG_DEBUG_HTTP, pc->log, 0, "stats over past %d seconds: throughput=%d, evicted=%d, rejected=%d",
+    dd_log4(NGX_LOG_DEBUG_HTTP, log, 0, "stats over past %d seconds: throughput=%d, evicted=%d, rejected=%d",
         state->stats.window_size, state->stats.throughput_count, state->stats.evicted_count, state->stats.rejected_count);
 }
 
@@ -977,7 +977,7 @@ ngx_http_upstream_get_overload_peer(
     ngx_http_upstream_overload_peer_state_t *peer_state = request_data->peer_state;
     ngx_http_upstream_overload_peer_t *peer;
 
-    dd_log2(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): entering", pc, request_data);
+    dd_log2(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): entering new_request", pc, request_data);
 
     ngx_spinlock(&peer_state->lock, SPINLOCK_VALUE, SPINLOCK_NUM_SPINS);
     dd_log2(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): received lock", pc, request_data);
@@ -997,7 +997,7 @@ ngx_http_upstream_get_overload_peer(
 
         send_overload_alert(peer_state, peer_state->busy_list.head, pc->log);
 
-        ngx_http_upstream_overload_update_stats(pc, peer_state, 1, 1);
+        ngx_http_upstream_overload_update_stats(pc->log, peer_state, 1, 1, 1);
 
         dd_log2(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): releasing lock", pc, request_data);
         ngx_unlock(&peer_state->lock);
@@ -1024,9 +1024,9 @@ ngx_http_upstream_get_overload_peer(
     // update evicted statistics and send alert if needed
     if (peer_state->idle_list.len < overload_conf.num_spare_backends) {
         send_overload_alert(peer_state, peer_state->busy_list.head, pc->log);
-        ngx_http_upstream_overload_update_stats(pc, peer_state, 1, 0);
+        ngx_http_upstream_overload_update_stats(pc->log, peer_state, 1, 0, 1);
     } else {
-        ngx_http_upstream_overload_update_stats(pc, peer_state, 0, 0);
+        ngx_http_upstream_overload_update_stats(pc->log, peer_state, 0, 0, 1);
     }
 
     dd_log2(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): releasing lock", pc, request_data);

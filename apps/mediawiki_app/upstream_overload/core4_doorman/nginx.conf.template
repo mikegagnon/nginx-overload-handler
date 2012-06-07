@@ -60,12 +60,12 @@ http {
             doorman_arg_key_name        key;
             doorman_arg_expire_name     expire;
 
-            doorman_burst_len 2000;
+            doorman_burst_len    1;
             doorman_sleep_time 100;
 
             # Number of seconds before puzzle expires
             doorman_expire_delta 60;
-            doorman_init_missing_bits 0;
+            doorman_init_missing_bits 7;
 
             ## The MD5 hash is built from a secret token + uri + args
             # The doorman module strips the admitkey argument from doorman_md5
@@ -92,7 +92,7 @@ http {
 
     # FastCGI requests will be load balanced using the upstream_overload module
 
-    num_spare_backends 1;
+    num_spare_backends 5;
     alert_pipe TEMPLATE_ALERT_PIPE_PATH;
 
     upstream my_backend  {
@@ -105,6 +105,10 @@ http {
         server    localhost:9002;
         server    localhost:9003;
         server    localhost:9004;
+        server    localhost:9005;
+        server    localhost:9006;
+        server    localhost:9007;
+        server    localhost:9008;
     }
 }
 

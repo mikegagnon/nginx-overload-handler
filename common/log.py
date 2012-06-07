@@ -126,11 +126,11 @@ loggingMap = {
 #    args = parser.parse_args()
 #    logger = log.getLogger(args)
 #    logger.info("Command line arguments: %s" % str(args))
-def add_arguments(parser):
+def add_arguments(parser, defaultStderr="INFO", defaultLogfile="INFO"):
     # TODO: use Action class top convert string to logging level
-    parser.add_argument("--stderr", type=str, default="INFO", choices=loggingChoices,
+    parser.add_argument("--stderr", type=str, default=defaultStderr, choices=loggingChoices,
                     help="Default=%(default)s. Logging level for stderr.")
-    parser.add_argument("--logfile", type=str, default="INFO", choices=loggingChoices,
+    parser.add_argument("--logfile", type=str, default=defaultLogfile, choices=loggingChoices,
                     help="Default=%(default)s. Logging level for log file.")
 
 if __name__ == "__main__":

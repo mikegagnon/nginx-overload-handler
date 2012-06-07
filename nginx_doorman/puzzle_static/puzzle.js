@@ -42,7 +42,7 @@ function increment(x) {
         } else {
             carry = false;
         }
-        if (i == 0) {
+        if (i < 0) {
             carry = false;
         }
     } while (carry);

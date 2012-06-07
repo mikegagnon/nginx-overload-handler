@@ -341,3 +341,16 @@ typedef struct {
     ngx_uint_t                           peer_index;
 } ngx_http_upstream_overload_request_data_t;
 
+/**
+ * Function declarations
+ *****************************************************************************/
+
+// Call this whenever you want to update your stats
+void
+ngx_http_upstream_overload_update_stats(
+    ngx_log_t *pc,
+    ngx_http_upstream_overload_peer_state_t *state,
+    ngx_uint_t evicted,     // 1 if you want to increment evicted (or 0 if not)
+    ngx_uint_t rejected,    // 1 if you want to increment rejected (or 0 if not)
+    ngx_uint_t throughput);  // 1 if you want to increment throughput (or 0 if not)
+

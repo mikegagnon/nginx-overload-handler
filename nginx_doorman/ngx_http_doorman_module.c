@@ -800,6 +800,8 @@ ngx_http_doorman_update_puzzle(ngx_http_request_t *r, ngx_http_doorman_conf_t *c
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman puzzle: keeping num_missing_bits the same at %d", num_missing_bits);
     }
+
+    last_puzzle_change = ngx_time();
 }
 
 // instantiates the $doorman_result nginx-variable
@@ -816,6 +818,9 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
     doorman_request_type_t        request_type;
     ngx_variable_value_t         *key_value;
     ngx_variable_value_t         *expire_value;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "\ndoorman: new_request");
 
     /**
      * Setup ctx and conf
@@ -849,6 +854,18 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
      *************************************************************************/
     if (last_puzzle_change == INVALID_TIME ||
         ngx_time() - last_puzzle_change > PUZZLE_UPDATE_PERIOD) {
+
+        // update the stats first
+        if (upstream_overload_peer_state != NULL) {
+            ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "doorman: updating stats");
+            ngx_spinlock(&upstream_overload_peer_state->lock, SPINLOCK_VALUE, SPINLOCK_NUM_SPINS);
+            ngx_http_upstream_overload_update_stats(r->connection->log, upstream_overload_peer_state, 0, 0, 0);
+            ngx_unlock(&upstream_overload_peer_state->lock);
+        }
+
+        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman: updating puzzle:");
         ngx_http_doorman_update_puzzle(r, conf);
     }
 
