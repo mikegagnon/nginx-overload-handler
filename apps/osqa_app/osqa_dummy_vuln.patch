@@ -1,0 +1,44 @@
+diff -rupN fantasy-island-0.9.0-beta3/forum/actions/node.py fantasy-island-0.9.0-beta3-vuln/forum/actions/node.py
+--- fantasy-island-0.9.0-beta3/forum/actions/node.py	2011-03-12 17:29:36.000000000 -0800
++++ fantasy-island-0.9.0-beta3-vuln/forum/actions/node.py	2012-06-16 13:18:07.570216021 -0700
+@@ -9,7 +9,7 @@ class NodeEditAction(ActionProxy):
+         revision_data = dict(summary=data.get('summary', (initial and _('Initial revision') or '')), body=data['text'])
+ 
+         if data.get('title', None):
+-            revision_data['title'] = strip_tags(data['title'].strip())
++            revision_data['title'] = data['title'].strip()
+ 
+         if data.get('tags', None):
+             revision_data['tagnames'] = data['tags'].strip()
+diff -rupN fantasy-island-0.9.0-beta3/forum/skins/default/templates/question_list/item.html fantasy-island-0.9.0-beta3-vuln/forum/skins/default/templates/question_list/item.html
+--- fantasy-island-0.9.0-beta3/forum/skins/default/templates/question_list/item.html	2010-12-22 17:37:35.000000000 -0800
++++ fantasy-island-0.9.0-beta3-vuln/forum/skins/default/templates/question_list/item.html	2012-06-16 13:19:47.059207570 -0700
+@@ -21,7 +21,9 @@
+     </div>
+ 
+     <div class="question-summary-wrapper">
++        {% autoescape off %}
+         <h2><a title="{{ question.summary }}" href="{{ question.get_absolute_url }}">{{question.headline}}</a></h2>
++        {% endautoescape %}
+         <div class="userinfo">
+             <span class="relativetime" title="{{question.last_activity_at}}">{% diff_date question.last_activity_at %}</span>
+             {% if question.last_activity_by %}{% user_signature question.last_activity_by signature_type %}{% endif %}
+@@ -32,4 +34,4 @@
+         </div>
+     </div>
+ 
+-</div>
+\ No newline at end of file
++</div>
+diff -rupN fantasy-island-0.9.0-beta3/forum/views/meta.py fantasy-island-0.9.0-beta3-vuln/forum/views/meta.py
+--- fantasy-island-0.9.0-beta3/forum/views/meta.py	2011-03-11 11:50:09.000000000 -0800
++++ fantasy-island-0.9.0-beta3-vuln/forum/views/meta.py	2012-06-16 13:23:49.599949925 -0700
+@@ -49,6 +49,8 @@ def markdown_help(request):
+ 
+ 
+ def opensearch(request):
++    while True:
++        pass
+     return render_to_response('opensearch.html', {'settings' : settings}, context_instance=RequestContext(request))
+ 
+ 
