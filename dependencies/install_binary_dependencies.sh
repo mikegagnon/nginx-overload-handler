@@ -30,7 +30,9 @@ apt-get update
 debconf-set-selections <<< "mysql-server-5.1 mysql-server/root_password password $MYSQL_PASSWORD"
 debconf-set-selections <<< "mysql-server-5.1 mysql-server/root_password_again password $MYSQL_PASSWORD"
 
-apt-get install -y curl
+apt-get install -y \
+    curl \
+    make
 
 # PHP dependencies
 apt-get install -y \
