@@ -92,7 +92,7 @@ http {
 
     # FastCGI requests will be load balanced using the upstream_overload module
 
-    num_spare_backends 5;
+    num_spare_backends 7;
     alert_pipe TEMPLATE_ALERT_PIPE_PATH;
 
     upstream my_backend  {
@@ -118,9 +118,6 @@ http {
         server    localhost:9015;
         server    localhost:9016;
         server    localhost:9017;
-        server    localhost:9018;
-        server    localhost:9019;
-        server    localhost:9020;
     }
 }
 

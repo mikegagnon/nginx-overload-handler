@@ -80,7 +80,8 @@ export GEM_HOME
 export RUBY_LIB
 export RUBY_LIB_PATH
 
-# This version of Ruby is vulnerable to HashDos (which is useful for testing purposes)
+# This version of PHP is vulnerable to HashDos and the floating-point bug
+# (which is useful for testing purposes)
 PHP_VULN_DL_REMOTE_PATH="http://us3.php.net/distributions/php-5.3.8.tar.gz"
 PHP_VULN_DL_LOCAL_PATH="$DOWNLOAD_DIR/php-5.3.8"
 PHP_VULN_LOCAL_PATH="$DOWNLOAD_DIR/php-5.3.8"

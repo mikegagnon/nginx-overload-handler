@@ -18,6 +18,7 @@
 #
 
 import hashlib
+import socket
 import time
 import os
 import sys
@@ -25,7 +26,8 @@ import argparse
 import threading
 import Queue
 import re
-import urllib2
+#import urllib2
+import httplib
 import random
 
 DIRNAME = os.path.dirname(os.path.realpath(__file__))
@@ -154,18 +156,17 @@ class PuzzleSolver:
 
         raise ValueError("Bad puzzle; exhausted possibilities")
 
-
 class ClientThread(threading.Thread):
     '''A thread that represents a web client'''
 
-    def __init__(self, logger, queue, cpu, prefix, suffix, regex_target, \
+    def __init__(self, logger, queue, cpu, server, url, timeout, regex_target, \
         stall, thread_id, stall_after_puzzle, regex_puzzle = r"/puzzle_static/puzzle\.js"):
         self.queue = queue
         self.logger = logger
         self.cpu = cpu
-        self.prefix = prefix
-        self.suffix = suffix
-        self.url = prefix + suffix
+        self.server = server
+        self.url = url
+        self.timeout = timeout
         self.regex_target = re.compile(regex_target)
         self.regex_puzzle = re.compile(regex_puzzle)
         self.stall = stall
@@ -174,28 +175,27 @@ class ClientThread(threading.Thread):
         threading.Thread.__init__(self)
 
     def request(self, url):
-        '''Requests URL. If the response is a puzzle page returns the response;
-        if the response is the target page returns None; else throws exception.
-        Throws an exception if it is neither.'''
 
         self.logger.debug("%d Requesting %s", self.thread_id, url)
+        conn = httplib.HTTPConnection(self.server, timeout=self.timeout)
+        conn.request("GET", url)
         try:
-            response = urllib2.urlopen(url).read()
-        except urllib2.HTTPError, e:
-            self.logger.warning("%d %s", self.thread_id, e)
-            return None
-        except urllib2.URLError:
-            self.logger.critical("%d Error: Could not access %s. Perhaps the server is not running.", self.thread_id, url)
-            raise
+            response = conn.getresponse()
+        except socket.timeout:
+            return("timeout", None)
 
-        if self.regex_target.search(response):
+        if response.status != 200:
+            return ("%s" % response.status, None)
+        text = response.read()
+
+        if self.regex_target.search(text):
             self.logger.debug("%d Received target response", self.thread_id)
-            return None
-        elif self.regex_puzzle.search(response):
+            return ("200", None)
+        elif self.regex_puzzle.search(text):
             self.logger.debug("%d, Received puzzle response", self.thread_id)
-            return response
+            return ("200", text)
         else:
-            raise ValueError("%d Did not recognize response: %s ...", self.thread_id, response[:100])
+            raise ValueError("%d Did not recognize response: %s ...", self.thread_id, text[:100])
 
     def run(self):
 
@@ -203,42 +203,51 @@ class ClientThread(threading.Thread):
 
         while True:
             before = time.time()
-            response = self.request(self.url)
+            (status, response) = self.request(self.url)
             now = time.time()
             latency = now - before
 
-            # If you are given a puzzle
-            # Should really check for 502 at this place
-            if response == None:
-                self.queue.put(("web-app", now, latency))
+            if status != "200":
+                self.queue.put((status, None, now, latency, None))
+
+            # If the web-app served a page
+            elif response == None:
+                self.queue.put((status, "web-app", now, latency, None))
+            # If the doorman served a puzzle
             else:
-                self.queue.put(("give-puzzle", now, latency))
+                solver = PuzzleSolver(self.logger, response)
+                self.queue.put((status, "give-puzzle", now, latency, solver.bits))
 
                 # You can only compute the puzzle if there aren't already max number of puzzle threads
                 if self.cpu.acquire(blocking = False):
-                    self.logger.info("%d, Solving puzzle", self.thread_id)
-
                     # You now have permssion to use the CPU
-                    solver = PuzzleSolver(self.logger, response)
+
+                    self.logger.info("%d, Solving %d-bit puzzle", self.thread_id, solver.bits)
 
                     # cpu-intensive
                     before = time.time()
-                    keyed_suffix = solver.solve()
+                    keyed_url = solver.solve()
                     now = time.time()
                     latency = now - before
-                    self.queue.put(("solve-puzzle", now, latency))
+                    self.queue.put((None, "solve-puzzle", now, latency, solver.bits))
 
-                    self.logger.info("%d, done with puzzle: %s", self.thread_id, keyed_suffix)
+                    self.logger.info("%d, done with %d-bit puzzle: %s", self.thread_id, solver.bits, keyed_url)
                     self.cpu.release()
-
-                    keyed_url = self.prefix + keyed_suffix
 
                     # Send the puzzle solution to the server to effect high-density work
                     before = time.time()
-                    response = self.request(keyed_url)
+                    (status, response) = self.request(keyed_url)
                     now = time.time()
                     latency = now - before
-                    self.queue.put(("web-app", now, latency))
+                    #self.queue.put((status, "web-app", now, latency, None))
+
+                    if status != "200":
+                        self.queue.put((status, None, now, latency, None))
+                    elif response == None:
+                        self.queue.put((status, "web-app", now, latency, None))
+                    else:
+                        self.logger.error("%d expecting web-app page but received something else", self.thread_id)
+                        self.queue.put((status, "error", now, latency, None))
 
                     # No need to sleep
                     if not self.stall_after_puzzle:
@@ -246,24 +255,113 @@ class ClientThread(threading.Thread):
 
             time.sleep(self.stall)
 
-class Monitor:
+class Monitor(threading.Thread):
 
-    def __init__(self, logger, queue, history_len):
+    def __init__(self, logger, queue, history_len, trace_filename):
         self.queue = queue
         self.logger = logger
-        self.records = {}
+        self.tracefile = open(trace_filename, 'w')
+
+        # indexed by response type
+        self.rec_dict = {}
+
+        # List of events excluding puzzle events
+        self.web_app_events = []
+
         self.history_len = history_len
+        threading.Thread.__init__(self)
 
     def run(self):
+        first_timestamp = None
         while True:
-            event, timestamp, latency = self.queue.get()
-            if event not in self.records:
-                self.records[event] = []
-            self.records[event].append(latency)
-            for event, latencies in self.records.items():
+            status, event, timestamp, latency, num_bits = self.queue.get()
+            if first_timestamp == None:
+                first_timestamp = timestamp - latency
+            delta = timestamp - first_timestamp
+            self.logger.debug("received (%s, %s, %s, %s)", status, event, delta, latency)
+
+            trace_record = "%s,%s,%s,%s,%s," % (status, event, delta, latency, num_bits)
+            if status != None and (status != "200" or event == "web-app"):
+                self.web_app_events.append((status, event))
+                trace_record += "web-app,"
+            else:
+                trace_record += "%s," % None
+
+
+            if event not in self.rec_dict:
+                self.rec_dict[(status, event)] = []
+
+            recent_events = self.web_app_events[-self.history_len:]
+            if len(recent_events) > 0:
+                success_events = filter(lambda x: x[0] == "200", recent_events)
+                num_events = len(recent_events)
+                num_success = len(success_events)
+                success_rate = float(num_success) / float(num_events)
+                self.logger.info("success rate: %f == %d/%d", success_rate, num_success, num_events)
+                trace_record += "%f\n" % success_rate
+                self.tracefile.write(trace_record)
+                self.tracefile.flush()
+
+
+            self.rec_dict[(status, event)].append(latency)
+            for (status, event), latencies in self.rec_dict.items():
                 trunc = latencies[-self.history_len:]
                 avg = float(sum(trunc)) / float(len(trunc))
-                self.logger.info("avg %s latency: %f", event, avg)
+                self.logger.info("avg (%s, %s) latency: %f", status, event, avg)
+
+def run_client(name, desc, default_puzzle_threads, default_timeout, stall_after_puzzle):
+
+    desc += " WARNING: this script does not have an off switch. You must forcefully kill it with someting like " + \
+        "pkill -f 'python.*%s'" % name
+
+    cwd = os.getcwd()
+
+    parser = argparse.ArgumentParser(description=desc)
+
+    parser.add_argument("-s", "--server",  type=str, required=True,
+                    help="the domain part of the URL to submit requests to; e.g. 'localhost'")
+    parser.add_argument("-u", "--url",  type=str, required=True,
+                    help="the rest of the url (not including SERVER); e.g. '/index.php'")
+    parser.add_argument("-to", "--timeout",  type=float, default=default_timeout,
+                    help="Default=%(default)s. Connections timeout after TIMEOUT seconds.")
+    parser.add_argument("-r", "--regex",  type=str, required=True,
+                    help="regular expression that positively matches the target web-app page, NOT the puzzle page, and NOT 403 pages or anything else; e.g. MediaWiki")
+    parser.add_argument("-t", "--threads",  type=int, default=10,
+                    help="Default=%(default)s. The total number of threads to run")
+    parser.add_argument("-z", "--puzzle-threads",  type=int, default=default_puzzle_threads,
+                    help="Default=%(default)s. The maximum number of threads allowed to work on puzzles at the same time. If PUZZLE_THREADS <= 0, then PUZZLE_THREADS will be set to THREADS.")
+    parser.add_argument("-st", "--stall",  type=float, default=0.2,
+                    help="Default=%(default)s. The number of seconds to stall when needed")
+    parser.add_argument("-i", "--id",  type=int, default=1,
+                    help="Default=%(default)s. An id to identify this attacker in the logs")
+    parser.add_argument("-y", "--history",  type=int, default=20,
+                    help="Default=%(default)s. When displaying averages, only use the last HISTORY measurements.")
+    parser.add_argument("-a", "--trace-filename",  type=str, default= name + ".csv",
+                    help="Default=%(default)s. Name of output tracefile")
+
+    log.add_arguments(parser)
+    args = parser.parse_args()
+
+    if args.puzzle_threads <= 0:
+        args.puzzle_threads = args.threads
+
+    logger = log.getLogger(args, name="%s.%d" % (name, args.id))
+    logger.info("Command line arguments: %s" % str(args))
+
+    # By settings bounded-value == #threads, it means every thread can work on puzzles
+    # at the same time. This only makes sense when the puzzles aren't CPU bound
+    cpu = threading.BoundedSemaphore(value=args.puzzle_threads)
+
+    queue = Queue.Queue()
+
+    for i in xrange(0, args.threads):
+        logger.debug("Launching %d/%d", i + 1, args.threads)
+        legit = ClientThread(logger, queue, cpu, args.server, args.url, args.timeout, \
+            args.regex, args.stall, i + 1, stall_after_puzzle)
+        legit.start()
+
+    monitor = Monitor(logger, queue, args.history, args.trace_filename)
+    monitor.start()
 
 if __name__ == "__main__":
     cwd = os.getcwd()

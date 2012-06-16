@@ -42,7 +42,7 @@
 
 // TODO: Make this a config option
 // Number of seconds in window used calculating stats
-#define THROUGHPUT_WINDOW 10
+#define THROUGHPUT_WINDOW 20
 
 #define SPINLOCK_NUM_SPINS 1024
 #define SPINLOCK_VALUE ngx_pid
