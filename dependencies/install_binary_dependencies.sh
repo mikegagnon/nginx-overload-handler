@@ -53,3 +53,8 @@ apt-get install -y \
     python-pip \
     python-software-properties
 
+# Needed by simulator
+apt-get install -y \
+    python-dev
+
+easy_install greenlet
