@@ -18,17 +18,40 @@
 #
 # Make config files by filling in values in .template files
 #
-# USAGE: ./make_conf.sh
+# USAGE: ./make_conf.sh CONFIG_DIR
+#   For example, ./make_conf.sh core4/
 #
 
+if [ "$1" == "" ]
+then
+    echo "Error: You need to specify the CONFIG_DIR. See source code."
+    exit 1
+fi
+
+# get absolute path and strip any trailing slashes
+CONFIG_DIR=`readlink -f $1`
+
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/../../../nginx_upstream_overload/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/../env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/../../../siteconfig.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-cat $DIR/nginx.conf.template \
+cat $CONFIG_DIR/nginx.conf.template \
     | sed "s@TEMPLATE_SERVER_NAME@$SERVER_NAME@g" \
+    | sed "s@TEMPLATE_ALERT_PIPE_PATH@$ALERT_PIPE_PATH@g" \
     | sed "s@TEMPLATE_INSTALL_REDMINE_PATH@$INSTALL_REDMINE_PATH@g" \
     > $DIR/nginx.conf
+
+cat $CONFIG_DIR/bouncer_config.json.template \
+    | sed "s@TEMPLATE_ALERT_PIPE_PATH@$ALERT_PIPE_PATH@g" \
+    > $DIR/bouncer_config.json
+
+cat $DIR/restart_fcgi.sh.template \
+    | sed "s@TEMPLATE_DIR@$DIR@g" \
+    > $DIR/restart_fcgi.sh
+chmod +x $DIR/restart_fcgi.sh
 

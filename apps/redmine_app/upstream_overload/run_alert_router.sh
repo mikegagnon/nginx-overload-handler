@@ -14,22 +14,13 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== install_dependencies.sh for redmine_app ====
+# ==== run_alert_router.sh for redmine ====
 #
-# USAGE: sudo ./install_dependencies.sh
+# USAGE: sudo ./run_alert_router.sh &
 #
-
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/env.sh
+source $DIR/../../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-apt-get install -y \
-    ruby1.8 \
-    build-essential \
-    libfcgi0ldbl \
-    libfcgi-dev \
-    libopenssl-ruby1.8 \
-    rubygems1.8 \
-    spawn-fcgi \
-    mongrel
+$SUDO -i -u nginx_user $DIR/../../../bouncer/alert_router.py --config $DIR/bouncer_config.json --stderr off --logfile INFO
 

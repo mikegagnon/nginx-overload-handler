@@ -14,22 +14,17 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== install_dependencies.sh for redmine_app ====
+# ==== install_conf.sh for redmine ====
 #
-# USAGE: sudo ./install_dependencies.sh
+# Installs nginx.conf (with the upstream-overload module enabled)
+#
+# USAGE: sudo ./install_conf.sh
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/env.sh
+source $DIR/../../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-apt-get install -y \
-    ruby1.8 \
-    build-essential \
-    libfcgi0ldbl \
-    libfcgi-dev \
-    libopenssl-ruby1.8 \
-    rubygems1.8 \
-    spawn-fcgi \
-    mongrel
+cp $DIR/nginx.conf $NGINX_CONF
+cp $DIR/restart_fcgi.sh /usr/local/bin/restart_fcgi.sh
 

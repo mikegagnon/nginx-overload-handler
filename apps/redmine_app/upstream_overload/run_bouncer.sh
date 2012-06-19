@@ -14,22 +14,21 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== install_dependencies.sh for redmine_app ====
+# ==== run_bouncer.sh for redmine ====
 #
-# USAGE: sudo ./install_dependencies.sh
-#
+# USAGE: sudo ./run_bouncer.sh
+# Need sudo so it can run as another user
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/env.sh
+source $DIR/../../../dependencies/env.sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/../../../bouncer/redmine_bouncer/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-apt-get install -y \
-    ruby1.8 \
-    build-essential \
-    libfcgi0ldbl \
-    libfcgi-dev \
-    libopenssl-ruby1.8 \
-    rubygems1.8 \
-    spawn-fcgi \
-    mongrel
+$SUDO -E -u $FCGI_USER $REDMINE_BOUNCER \
+    --config $DIR/bouncer_config.json \
+    --addr 127.0.0.1 \
+    --port 3001 \
+    --stderr off \
+    --logfile INFO
 

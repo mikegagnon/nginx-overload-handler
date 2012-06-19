@@ -29,3 +29,8 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 gem install bundler -v '1.1.3'
 gem install mysql -v '2.8.1'
 
+# "Make sure to install the C bindings for Ruby that dramatically
+# improve performance. You can get them by running gem install mysql2"
+# -- http://www.redmine.org/projects/redmine/wiki/RedmineInstall
+gem install mysql2
+gem install mongrel

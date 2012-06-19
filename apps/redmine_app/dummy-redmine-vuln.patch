@@ -1,0 +1,13 @@
+diff -rupN redmine-1.4.0/app/controllers/news_controller.rb redmine-1.4.0-vuln/app/controllers/news_controller.rb
+--- redmine-1.4.0/app/controllers/news_controller.rb	2012-04-14 01:25:23.000000000 -0700
++++ redmine-1.4.0-vuln/app/controllers/news_controller.rb	2012-06-18 21:12:30.384864018 -0700
+@@ -30,6 +30,9 @@ class NewsController < ApplicationContro
+   helper :attachments
+ 
+   def index
++    while true do
++        1
++    end
+     case params[:format]
+     when 'xml', 'json'
+       @offset, @limit = api_offset_and_limit

@@ -4,7 +4,7 @@
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
-#  You may obCONFIG_INSTALLED_BACKUPtain a copy of the License at
+#  You may obtain a copy of the License at
 #
 #      http://www.apache.org/licenses/LICENSE-2.0
 #
@@ -14,22 +14,12 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== install_dependencies.sh for redmine_app ====
+# ==== env.sh ====
 #
-# USAGE: sudo ./install_dependencies.sh
+# defines some shell variables
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/env.sh
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-apt-get install -y \
-    ruby1.8 \
-    build-essential \
-    libfcgi0ldbl \
-    libfcgi-dev \
-    libopenssl-ruby1.8 \
-    rubygems1.8 \
-    spawn-fcgi \
-    mongrel
+REDMINE_BOUNCER=$DIR/redmine_bouncer.py
 

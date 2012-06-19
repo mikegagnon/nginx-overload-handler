@@ -14,22 +14,16 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== install_dependencies.sh for redmine_app ====
+# ==== kill_redmine.sh ====
 #
-# USAGE: sudo ./install_dependencies.sh
+# USAGE: sudo ./kill_redmine.sh
 #
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/env.sh
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-
-apt-get install -y \
-    ruby1.8 \
-    build-essential \
-    libfcgi0ldbl \
-    libfcgi-dev \
-    libopenssl-ruby1.8 \
-    rubygems1.8 \
-    spawn-fcgi \
-    mongrel
+pkill -f "redmine_bouncer.py"
+pkill -f "/usr/bin/ruby"
+pkill -f "alert_router.py"
+sleep 2
+pkill -9 -f "redmine_bouncer.py"
+pkill -9 -f "/usr/bin/ruby"
+pkill -9 -f "alert_router.py"
 

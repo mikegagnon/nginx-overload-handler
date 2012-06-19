@@ -14,22 +14,20 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== install_dependencies.sh for redmine_app ====
+# ==== launch_redmine.sh ====
 #
-# USAGE: sudo ./install_dependencies.sh
+# USAGE: sudo ./launch_redmine.sh
+#   Needs to be run as root so it can switch to running as fcgi user
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/env.sh
+source $DIR/../../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-apt-get install -y \
-    ruby1.8 \
-    build-essential \
-    libfcgi0ldbl \
-    libfcgi-dev \
-    libopenssl-ruby1.8 \
-    rubygems1.8 \
-    spawn-fcgi \
-    mongrel
+export RAILS_ENV=production
+umask 22
+
+
+$DIR/run_bouncer.sh &
+$DIR/run_alert_router.sh &
 

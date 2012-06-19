@@ -14,22 +14,15 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== install_dependencies.sh for redmine_app ====
+# ==== restart_redmine.sh ====
 #
-# USAGE: sudo ./install_dependencies.sh
+# USAGE: sudo ./restart_redmine.sh
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/env.sh
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-apt-get install -y \
-    ruby1.8 \
-    build-essential \
-    libfcgi0ldbl \
-    libfcgi-dev \
-    libopenssl-ruby1.8 \
-    rubygems1.8 \
-    spawn-fcgi \
-    mongrel
-
+$DIR/kill_redmine.sh
+# TODO: actually verify that redmine is dead, instead of just
+# sleeping for a second
+sleep 1
+$DIR/launch_redmine.sh

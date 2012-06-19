@@ -30,4 +30,5 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 export RAILS_ENV=production
 umask 22
 
-exec spawn-fcgi -n -a 127.0.0.1 -p $1 -u $FCGI_USER -f "$INSTALL_REDMINE_PATH/public/dispatch.fcgi"
+mongrel_rails start -p $1 -e $RAILS_ENV -c $INSTALL_REDMINE_PATH -P /tmp/mongrel$1.pid
+
