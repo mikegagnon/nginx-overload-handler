@@ -57,7 +57,7 @@ sys.path.append(os.path.join(DIRNAME, '..', 'bouncer'))
 
 import log
 log.FORMATTER_LOGFILE = logging.Formatter("%(asctime)s - %(levelname)10s - %(process)d - %(filename)20s : %(funcName)30s - %(message)s")
-log.FORMATTER_STDERR = logging.Formatter("%(levelname)10s - %(funcName)20s - %(message)s")
+log.FORMATTER_STDERR = logging.Formatter("%(levelname)10s - %(message)s")
 
 import bouncer_common
 
@@ -173,7 +173,7 @@ class ReceiveMessageEvent(Event):
 
     def __str__(self):
         return "ReceiveMessageEvent(dest=%s, message=%s)" % \
-            (self.dest, self.message)
+            (self.sim.greenlets[self.dest], self.message)
 
 class NewVisitorEvent(Event):
 
@@ -191,7 +191,9 @@ class NewVisitorEvent(Event):
         self.sim.schedule(nextNewVisitorEvent)
 
         # (2) Create a visitor agent and switch to it
-        visitorAgent = greenlet.greenlet(VisitorAgent)
+        name = "visitor_%d" % self.sim.next_visitor_id
+        self.sim.next_visitor_id += 1
+        visitorAgent = self.sim.greenlet(VisitorAgent, name)
         visitorAgent.switch(self.sim)
 
     def __str__(self):
@@ -201,23 +203,34 @@ class NewVisitorEvent(Event):
 ###############################################################################
 
 class Message:
-    def __init__(self):
+    def __init__(self, sim):
         self.sender = greenlet.getcurrent()
+        self.sim = sim
+
+class ForwardedMessage(Message):
+    def __init__(self, sim, message):
+        Message.__init__(self, sim)
+        assert(isinstance(message, Message))
+        self.message = message
+
+    def __str__(self):
+        return "ForwardedMessage(sender=%s, message=%s)" % \
+            (self.sim.greenlets[self.sender], self.message)
 
 class WebRequestMessage(Message):
-    def __init__(self, job_time, key, expire):
-        Message.__init__(self)
+    def __init__(self, sim, job_time, key, expire):
+        Message.__init__(self, sim)
         self.job_time = job_time
         self.key = key
         self.expire = expire
 
     def __str__(self):
-        return "WebRequestMessage(job_time=%f, key=%s, expire=%s)" % \
-            (self.job_time, self.key, self.expire)
+        return "WebRequestMessage(sender=%s, job_time=%f, key=%s, expire=%s)" % \
+            (self.sim.greenlets[self.sender], self.job_time, self.key, self.expire)
 
 class WebResponseMessage(Message):
-    def __init__(self, status_code, content, puzzle, expire):
-        Message.__init__(self)
+    def __init__(self, sim, status_code, content, puzzle, expire):
+        Message.__init__(self, sim)
 
         # 200, 502, etc.
         self.status_code = status_code
@@ -236,8 +249,8 @@ class WebResponseMessage(Message):
         self.expire = expire
 
     def __str__(self):
-        return "WebResponseMessage(status_code=%d, content=%s, puzzle=%s, expire=%s)" % \
-            (self.status_code, self.content, self.puzzle, self.expire)
+        return "WebResponseMessage(sender=%s, status_code=%d, content=%s, puzzle=%s, expire=%s)" % \
+            (self.sim.greenlets[self.sender], self.status_code, self.content, self.puzzle, self.expire)
 
 # Agents (instantiated as greenlets)
 ###############################################################################
@@ -246,22 +259,21 @@ class WebResponseMessage(Message):
 
 def VisitorAgent(sim):
     job_time = choice(sim.config.legit_jobs)
-    vid = sim.next_visitor_id
-    sim.next_visitor_id += 1
 
     # Send request to Doorman
     request = WebRequestMessage(
+        sim,
         job_time,
         key=False,
         expire=None)
-    sim.logger.info("%s visitor-%d: sending request: %s", sim.timestr(), vid, request)
+    sim.logger.info("%s sending request: %s", sim.logprefix(), request)
     sim.sendMessage(sim.doorman, request, 0.1)
 
     # Wait for response
     response = sim.event_loop.switch()
     assert(isinstance(response, WebResponseMessage))
     assert(greenlet.getcurrent().parent == sim.event_loop)
-    sim.logger.info("%s visitor-%d: received response: %s", sim.timestr(), vid, response)
+    sim.logger.info("%s received response: %s", sim.logprefix(), response)
 
 def DoormanAgent(sim):
     assert(greenlet.getcurrent().parent == sim.event_loop)
@@ -272,21 +284,44 @@ def DoormanAgent(sim):
         request = sim.event_loop.switch()
         assert(isinstance(request, WebRequestMessage))
         assert(greenlet.getcurrent().parent == sim.event_loop)
-        sim.logger.info("%s received request: %s", sim.timestr(), request)
+        sim.logger.info("%s received request: %s", sim.logprefix(), request)
+
+        # Forward request to load balancer
+        forward = ForwardedMessage(sim, request)
+        sim.sendMessage(sim.load_balancer, forward, 0.1)
+        sim.logger.info("%s forwarding request to load balancer: %s", sim.logprefix(), forward)
+
+def LoadBalancerAgent(sim):
+    assert(greenlet.getcurrent().parent == sim.event_loop)
+
+    while True:
+
+        # Wait for request
+        fwd_request = sim.event_loop.switch()
+        assert(isinstance(fwd_request, ForwardedMessage))
+        request = fwd_request.message
+        assert(isinstance(request, WebRequestMessage))
+        assert(greenlet.getcurrent().parent == sim.event_loop)
+        sim.logger.info("%s received forwarded request: %s", sim.logprefix(), request)
 
         response = WebResponseMessage(
+            sim,
             status_code = 200,
             content = "requested_page",
             puzzle = None,
             expire = None)
-        sim.logger.info("%s sending response: %s", sim.timestr(), response)
+        sim.logger.info("%s sending response: %s", sim.logprefix(), response)
         sim.sendMessage(request.sender, response, request.job_time)
 
 def EventLoopAgent(sim):
 
-    # Launch the doormanAgent
-    sim.doorman = greenlet.greenlet(DoormanAgent)
+    # Launch the doorman
+    sim.doorman = sim.greenlet(DoormanAgent, "doorman")
     sim.doorman.switch(sim)
+
+    # Launch the load balancer
+    sim.load_balancer = sim.greenlet(LoadBalancerAgent, "load_balancer")
+    sim.load_balancer.switch(sim)
 
     # Schedule the game_over event
     game_over = GameOverEvent(sim, delay=sim.config.time * 60.0)
@@ -299,7 +334,7 @@ def EventLoopAgent(sim):
     while True:
         event = sim.nextEvent()
         sim.time = event.time
-        sim.logger.debug("%s event: %s", sim.timestr(), event)
+        sim.logger.debug("%s %s", sim.logprefix(), event)
         if event == game_over:
             break
         event.execute()
@@ -343,8 +378,16 @@ class Simulator:
         validateConfig(config_dict)
         self.config = Config(config_dict)
 
-    def timestr(self):
-        return "[%6.6f]" % self.time
+        # maps greenlet objects to name-strings
+        self.greenlets = {}
+
+    def greenlet(self, func, name):
+        agent = greenlet.greenlet(func)
+        self.greenlets[agent] = name
+        return agent
+
+    def logprefix(self):
+        return "%6.3f - %15s -" % (self.time, self.greenlets[greenlet.getcurrent()])
 
     def schedule(self, event):
         self.events.push(event)
@@ -360,7 +403,7 @@ class Simulator:
         self.time = 0
         self.next_visitor_id = 1
         self.events = PriorityQueue()
-        self.event_loop = greenlet.greenlet(EventLoopAgent)
+        self.event_loop = sim.greenlet(EventLoopAgent, "event_loop")
         self.event_loop.switch(self)
 
 if __name__ == "__main__":
