@@ -1,0 +1,17 @@
+{
+    "time" : 1.0,
+    "doorman_burst_len" : 1,
+    "doorman_sleep_time" : 200,
+    "doorman_expire_delta" : 60,
+    "doorman_init_missing_bits" : 0,
+    "num_server_cores" : 2,
+    "num_total_backends" : 10,
+    "num_spare_backends" : 3,
+    "attack_hash_per_sec" : 1000.0,
+    "attack_sleep" : true,
+    "attack_jobs" : [-1.0],
+    "attack_cores" : 1,
+    "legit_hash_per_sec" : 1000.0,
+    "legit_jobs" : [0.2],
+    "legit_arrive" : { "exact" : 10.0 }
+}
