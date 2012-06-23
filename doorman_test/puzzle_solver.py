@@ -333,7 +333,7 @@ def run_client(name, desc, default_puzzle_threads, default_timeout, stall_after_
     parser.add_argument("-st", "--stall",  type=float, default=0.2,
                     help="Default=%(default)s. The number of seconds to stall when needed")
     parser.add_argument("-i", "--id",  type=int, default=1,
-                    help="Default=%(default)s. An id to identify this attacker in the logs")
+                    help="Default=%(default)s. An id to identify this process in the logs")
     parser.add_argument("-y", "--history",  type=int, default=20,
                     help="Default=%(default)s. When displaying averages, only use the last HISTORY measurements.")
     parser.add_argument("-a", "--trace-filename",  type=str, default= name + ".csv",
