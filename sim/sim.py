@@ -175,6 +175,9 @@ class ReceiveMessageEvent(Event):
         return "ReceiveMessageEvent(dest=%s, message=%s)" % \
             (self.sim.greenlets[self.dest], self.message)
 
+class UpstreamCpuEvent(Event):
+    pass
+
 class NewVisitorEvent(Event):
 
     def getArriveDelay(self):
@@ -198,6 +201,7 @@ class NewVisitorEvent(Event):
 
     def __str__(self):
         return "NewVisitorEvent()"
+
 
 # Messages
 ###############################################################################
@@ -252,12 +256,24 @@ class WebResponseMessage(Message):
         return "WebResponseMessage(sender=%s, status_code=%d, content=%s, puzzle=%s, expire=%s)" % \
             (self.sim.greenlets[self.sender], self.status_code, self.content, self.puzzle, self.expire)
 
+# Sent to an upstream worker when its job finishes successfully
+class JobFinishMessage(Message):
+    pass
+
+class KillJobMessage(Message):
+    pass
+
+class NewJobMessage(Message):
+    pass
+
+
 # Agents (instantiated as greenlets)
 ###############################################################################
 # agent definitions follows UpperCamelCase convention because they are really
 # more like class definitions than normal functions
 
 def VisitorAgent(sim):
+    assert(greenlet.getcurrent().parent == sim.event_loop)
     job_time = choice(sim.config.legit_jobs)
 
     # Send request to Doorman
@@ -299,6 +315,7 @@ def LoadBalancerAgent(sim):
         # Wait for request
         fwd_request = sim.event_loop.switch()
         assert(isinstance(fwd_request, ForwardedMessage))
+        assert(fwd_request.sender == sim.doorman)
         request = fwd_request.message
         assert(isinstance(request, WebRequestMessage))
         assert(greenlet.getcurrent().parent == sim.event_loop)
@@ -312,6 +329,24 @@ def LoadBalancerAgent(sim):
             expire = None)
         sim.logger.info("%s sending response: %s", sim.logprefix(), response)
         sim.sendMessage(request.sender, response, request.job_time)
+
+def UpstreamWorkerAgent(sim):
+    assert(greenlet.getcurrent().parent == sim.event_loop)
+
+    while True:
+
+        # Wait for request
+        fwd_request = sim.event_loop.switch()
+        assert(isinstance(fwd_request, ForwardedMessage))
+        assert(fwd_request.sender == sim.load_balancer)
+        request = fwd_request.message
+        assert(isinstance(request, WebRequestMessage))
+        assert(greenlet.getcurrent().parent == sim.event_loop)
+        sim.logger.info("%s received forwarded request: %s", sim.logprefix(), request)
+
+        # add this job to the set of jobs burning the CPU on the upstream server
+        sim.burnCpu(request.job_time)
+        fwd_request = sim.event_loop.switch()
 
 def EventLoopAgent(sim):
 
@@ -342,23 +377,180 @@ def EventLoopAgent(sim):
 # The simulator and supportign classses
 ###############################################################################
 
+# TODO: unit tests
 class PriorityQueue:
+
+    class RemovedEvent:
+        pass
+
+    removedEvent = RemovedEvent()
 
     def __init__(self):
         self.q = []
         self.count = 0
+        self.entries = {}
+        self.num_items = 0
+
+    # Does not actually remove the entry from the heap (because
+    # that would require re-heapifying). Instead, just marks
+    # it removed in the heap, that when this entry is popped
+    # it will be skipped over. Profiling will tell if this is
+    # a good algorithm for our workload
+    def remove(self, event):
+        self.num_items -= 1
+        entry = self.entries.pop(event)
+        entry[2] = PriorityQueue.removedEvent
 
     def push(self, event):
         '''event must have time field'''
-        self.count += 1
-        entry = (event.time, self.count, event)
+        self.num_items += 1
+        entry = [event.time, self.count, event]
+        self.entries[event] = entry
         heapq.heappush(self.q, entry)
 
+    def head(self):
+        '''Returns the head of the queue without popping it'''
+        while self.q:
+            _, _, event = self.q[0]
+            if event != PriorityQueue.removedEvent:
+                return event
+            else:
+                heapq.heappop(self.q)
+        raise ValueError("Tried pop an empty queue")
+
     def pop(self):
-        if len(self.q) == 0:
-            raise ValueError("Tried pop an empty queue")
-        _, _, event = heapq.heappop(self.q)
-        return event
+        self.num_items -= 1
+        while self.q:
+            _, _, event = heapq.heappop(self.q)
+            if event != PriorityQueue.removedEvent:
+                del self.entries[event]
+                return event
+        raise ValueError("Tried pop an empty queue")
+
+class UpstreamJob:
+    def __init__(self, upstream_worker, job_time):
+        self.time = job_time
+        self.upstream_worker = upstream_worker
+
+# Perhaps implement this as an Agent, since it's essentially an event handler
+class UpstreamCpu:
+    '''Logic to figure out which upstream-worker jobs get how much CPU and when.
+    Each upstream machine gets exactly one UpstreamCpu instance.'''
+
+    # Design:
+    # Each job's time field specifies how much cpu-time is needed to complet the job
+    # Whenever an event occurs, update every jobs time field
+    # How does it figure out what to update the time fields to?
+    #   (1) Figure out how much wallclock time has elapsed since the previous event
+    #   (2) Figure out how much cpu-time is allocatd to each job during that
+    #       wallclock time
+    #   Step (2) is greatly simplified by guarantee that the only time jobs enter
+    #   and leave the system only happen at events. Thus cpu-time is function
+    #   of number of jobs, number of cores, and wall clock time
+    #
+    # The methods called in this class are strictly called during event handlers.
+    # E.g.:
+    #   - insert job-1
+    #   - insert job-2
+    #   - job-1 finishes
+    #   - insert job-3
+    #   - job-2 is terminated
+
+    # TODO: when a job gets popped it needs to be removed from queue
+    def __init__(self, sim):
+        self.sim = sim
+        self.num_cores = sim.config.num_cores
+        self.jobs = []
+        self.busy_upstreams = set()
+
+        # The "top job" is the job that is going to finish next
+        # the top_job field is a reference to an UpstreamJob in self.jobs
+        self.top_job = None
+
+        # the top_job_event is the event that will fire when the top job finishes
+        self.top_job_event = None
+
+        # the wallclock timestamp from the last event; used for measuring
+        # elapsed wallclock time between successive events
+        self.last_event_time = None
+
+    def newJobFinishEvent(self, job):
+        '''Assumes the state of the CPU has already been changed
+        for the event currently being handled'''
+        delay = dest = message = None
+        return JobFinishEvent(self.sim, delay, dest, message)
+
+    def getCpuSec(self, wall_clock_sec):
+        '''Returns the number of CPU seconds each job will get over the next
+        wall-clock seconds'''
+        if len(self.jobs) <= self.num_cores:
+            # If there are more cores than jobs, then each
+            # job gets it's own CPU; therefore each job
+            # will get 1.0 cpu-second per wallclock second
+            cpu_sec_per_wall_sec = 1.0
+        else:
+            # Otherwise all jobs share all cpus precisely evenly
+            cpu_sec_per_wall_sec = float(self.num_cores) / float(self.jobs.num_items)
+
+        return wall_clock_sec * cpu_sec_per_wall_sec
+
+    def getTopJobFinish(self):
+        '''Figures out when the top job is going to finish'''
+
+        # The amount of wallclock time need to finish the top job is the amount
+        # of wallclock-seconds needed to execute the cpu-seconds needed
+        return self.top_job.time * wall_sec_per_cpu_sec
+
+    def updateJobs(self):
+        '''
+        Preconditions:
+            during the time between self.last_clock and sim.time,
+            the number of jobs in the system did not change
+        Returns a (prev, next) where old and new are JobFinishEvents.
+        prev is the JobFinishEvent that is currently in the event queue (which should be removed from the queue).
+            prev might be None, if there is no JobFinishEvent in the queue
+        next is the JobFinishEvent that should be added to the event queue
+        '''
+
+        if len(self.jobs) == 0:
+            return (self.top_job_event, None)
+
+        elapsed_sec = sim.time - self.last_event_time
+        cpu_sec = getCpuSec(self, elapsed_sec)
+
+        # update job.time for all jobs and find the job that's going to finish next
+        min_job = None
+        for job in self.jobs:
+            job.time -= cpu_sec
+            if min_job.time == None or job.time < min_job.time:
+                min_job = job
+
+    def newJob(self, upstream_worker, job_time):
+        '''Adds a new job to the list of jobs being processed to the CPUs.'''
+        assert(upstream_worker not in self.busy_upstreams)
+
+        self.busy_upstreams.add(upstream_worker)
+        job = UpstreamJob(upstream_worker, job_time)
+        self.jobs.append(job)
+
+    def handleMessage(self, message):
+
+        # Each job has made progress on the CPU since the last
+        # event, so update the jobs accordingly
+        self.updateJobs()
+        #BOOKMARK
+
+        if isinstance(message, JobFinishMessage):
+            pass
+        elif isinstance(message, KillJobMessage):
+            pass
+        elif isinstance(message, NewJobMessage):
+            self.newJob(message.upstream_worker, message.job_time, )
+        else:
+            raise ValueError("Unexpected message type")
+
+        self.last_event_time = self.sim.time
+
 
 class Config:
     def __init__(self, config_dict):
@@ -378,14 +570,19 @@ class Simulator:
         validateConfig(config_dict)
         self.config = Config(config_dict)
 
-        # maps greenlet objects to name-strings
+        # map from greenlet objects to name-strings
         self.greenlets = {}
+
+        # map from upstream_worker geenlet objects to floating point numbers,
+        # representing the CPU-time needed to complete the task on that work
+        self.upstream_tasks = []
 
     def greenlet(self, func, name):
         agent = greenlet.greenlet(func)
         self.greenlets[agent] = name
         return agent
 
+    # kind of a hack
     def logprefix(self):
         return "%6.3f - %15s -" % (self.time, self.greenlets[greenlet.getcurrent()])
 
