@@ -178,7 +178,7 @@
         "num puzzles with 5 bits": 24,
         "num puzzles with 6 bits": 12
     },
-    "success_rate": 0.5                     # == web_app / (web_app + invalid)
+    "success_rate": 0.5941320293398533          # == web_app / (web_app + invalid)
 }
 '''
 
@@ -196,9 +196,11 @@ def quantile(values, q):
     if index >= 0:
         return values[index]
     else:
-        return None
+        return float("nan")
 
 def analyze(f):
+    by_event_latencies = {}
+    by_status_latencies = {}
     by_event = {}
     by_status = {}
     num_bits = []
@@ -211,19 +213,19 @@ def analyze(f):
         status, event, latency, bits = parts
         if event == "give-puzzle":
             num_bits.append(int(bits))
-        if status not in by_status:
-            by_status[status] = []
-        if event not in by_event:
-            by_event[event] = []
-        by_status[status].append(float(latency))
-        by_event[event].append(float(latency))
+        if status not in by_status_latencies:
+            by_status_latencies[status] = []
+        if event not in by_event_latencies:
+            by_event_latencies[event] = []
+        by_status_latencies[status].append(float(latency))
+        by_event_latencies[event].append(float(latency))
 
-    for event, latencies in by_event.items():
+    for event, latencies in by_event_latencies.items():
         latencies.sort()
         by_event[event] = ["quantile %f -> %f" % (q, quantile(latencies, q)) for q in quantiles]
         proportion = float(len(latencies)) / float(num_events) * 100.0
         by_event[event].append("%.2f%% of %d events" % (proportion, num_events))
-    for status, latencies in by_status.items():
+    for status, latencies in by_status_latencies.items():
         latencies.sort()
         by_status[status] = ["quantile %f -> %f" % (q, quantile(latencies, q)) for q in quantiles]
         proportion = float(len(latencies)) / float(num_events) * 100.0
@@ -238,8 +240,8 @@ def analyze(f):
     elif "None" not in by_event:
         success = 1.0
     else:
-        web_app = float(len(by_event["web-app"]))
-        invalid = float(len(by_event["None"]))
+        web_app = float(len(by_event_latencies["web-app"]))
+        invalid = float(len(by_event_latencies["None"]))
         success = web_app / (web_app + invalid)
 
     return {
