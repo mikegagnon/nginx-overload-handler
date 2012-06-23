@@ -4,7 +4,7 @@ worker_processes  1;
 user nginx_user;
 
 
-error_log   logs/debug.log debug;
+#error_log   logs/debug.log debug;
 
 events {
     worker_connections  1024;
