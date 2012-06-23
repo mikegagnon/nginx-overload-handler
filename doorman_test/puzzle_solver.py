@@ -280,12 +280,22 @@ class Monitor(threading.Thread):
             delta = timestamp - first_timestamp
             self.logger.debug("received (%s, %s, %s, %s)", status, event, delta, latency)
 
-            trace_record = "%s,%s,%s,%s,%s," % (status, event, delta, latency, num_bits)
+            # There 4 types of events:
+            #   * give-puzzle: a web response from the server delivering a puzzle
+            #   * web-app: a web response from the server delivering an application page
+            #   * solve-puzzle: the client solving a puzzle
+            #   * None: a non-valid web response (e.g. 502)
+            #
+            # If the event is an HTTP response from the server, then status
+            #   is a the status code from the response. Other possible values:
+            #   * None -- e.g. solve-puzzle events
+            #   * timeout -- when the request for the server times out
+            trace_record = "%s,%s,%s,%s\n" % (status, event, latency, num_bits)
+            self.tracefile.write(trace_record)
+            self.tracefile.flush()
+
             if status != None and (status != "200" or event == "web-app"):
                 self.web_app_events.append((status, event))
-                trace_record += "web-app,"
-            else:
-                trace_record += "%s," % None
 
 
             if event not in self.rec_dict:
@@ -298,9 +308,6 @@ class Monitor(threading.Thread):
                 num_success = len(success_events)
                 success_rate = float(num_success) / float(num_events)
                 self.logger.info("success rate: %f == %d/%d", success_rate, num_success, num_events)
-                trace_record += "%f\n" % success_rate
-                self.tracefile.write(trace_record)
-                self.tracefile.flush()
 
 
             self.rec_dict[(status, event)].append(latency)
@@ -337,7 +344,9 @@ def run_client(name, desc, default_puzzle_threads, default_timeout, stall_after_
     parser.add_argument("-y", "--history",  type=int, default=20,
                     help="Default=%(default)s. When displaying averages, only use the last HISTORY measurements.")
     parser.add_argument("-a", "--trace-filename",  type=str, default= name + ".csv",
-                    help="Default=%(default)s. Name of output tracefile")
+                    help = '''Default=%(default)s. Name of output tracefile. The output tracefile is
+                        a CSV with one row per event. Each row has 4 fields: (1) status, (2) event,
+                        (3) latency, (4) num_bits. For further explanation, see the source.''')
 
     log.add_arguments(parser)
     args = parser.parse_args()
