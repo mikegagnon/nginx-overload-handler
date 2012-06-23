@@ -206,11 +206,21 @@ def analyze(f):
     num_bits = []
 
     num_events = 0
+    min_timestamp = None
+    max_timestamp = None
+
     for line in sys.stdin:
         parts = line.strip().split(",")
-        assert len(parts) == 4, parts
+        assert len(parts) == 5, parts
         num_events += 1
-        status, event, latency, bits = parts
+        status, event, timestamp, latency, bits = parts
+        timestamp = float(timestamp)
+        if min_timestamp == None:
+            assert(max_timestamp == None)
+            min_timestamp = max_timestamp = timestamp
+        min_timestamp = min(min_timestamp, timestamp)
+        max_timestamp = max(max_timestamp, timestamp)
+
         if event == "give-puzzle":
             num_bits.append(int(bits))
         if status not in by_status_latencies:
@@ -235,17 +245,16 @@ def analyze(f):
     num_bits.sort()
     num_bits = dict([("num puzzles with %d bits" % item, len(list(group))) for item, group in groupby(num_bits)])
 
-    if "web-app" not in by_event:
-        success = 0.0
-    elif "None" not in by_event:
-        success = 1.0
-    else:
-        web_app = float(len(by_event_latencies["web-app"]))
-        invalid = float(len(by_event_latencies["None"]))
-        success = web_app / (web_app + invalid)
+    success = float(len(by_event_latencies.get("web-app", [])))
+    fail = float(len(by_event_latencies.get("None", []))) + float(len(by_event_latencies.get("solve-puzzle-timeout", [])))
+
+    success_rate = success / (success + fail)
+    time_elapsed = max_timestamp - min_timestamp
 
     return {
-        "success_rate" : success,
+        "success_rate" : success_rate,
+        "throughput" : success / time_elapsed,
+        "time_elapsed" : time_elapsed,
         "by_event" : by_event,
         "by_status" : by_status,
         "num_bits" : num_bits

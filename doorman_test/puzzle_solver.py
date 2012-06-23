@@ -35,6 +35,9 @@ sys.path.append(os.path.join(DIRNAME, '..', 'common'))
 
 import log
 
+class PuzzleTimeout(Exception):
+    pass
+
 class PuzzleSolver:
     '''Emulates JavaScript puzzle as closely as possible.
     Useful for automated testing of Doorman without needing to
@@ -46,8 +49,9 @@ class PuzzleSolver:
 
     exclude_vals = ["func"]
 
-    def __init__(self, logger, puzzle_html):
+    def __init__(self, logger, puzzle_html, timeout):
         self.logger = logger
+        self.timeout = timeout
         try:
             val = PuzzleSolver.get_val(puzzle_html)
         except Exception:
@@ -145,6 +149,7 @@ class PuzzleSolver:
 
     def solve(self):
         '''Returns url with solution'''
+        self.start_time = time.time()
         x = self.trunc_x
         for attempt in xrange(0, 2 ** self.bits):
             hash_x = hashlib.md5(x).hexdigest()
@@ -152,6 +157,9 @@ class PuzzleSolver:
                 return self.compose(x)
             x = PuzzleSolver.increment(x)
             if attempt % self.burst_len == 0:
+                elapsed_time = time.time() - self.start_time
+                if elapsed_time > self.timeout:
+                    raise PuzzleTimeout("Timed out after %.2f seconds" % elapsed_time)
                 time.sleep(self.sleep_time)
 
         raise ValueError("Bad puzzle; exhausted possibilities")
@@ -215,7 +223,7 @@ class ClientThread(threading.Thread):
                 self.queue.put((status, "web-app", now, latency, None))
             # If the doorman served a puzzle
             else:
-                solver = PuzzleSolver(self.logger, response)
+                solver = PuzzleSolver(self.logger, response, self.timeout)
                 self.queue.put((status, "give-puzzle", now, latency, solver.bits))
 
                 # You can only compute the puzzle if there aren't already max number of puzzle threads
@@ -226,12 +234,22 @@ class ClientThread(threading.Thread):
 
                     # cpu-intensive
                     before = time.time()
-                    keyed_url = solver.solve()
+                    success = True
+                    try:
+                        keyed_url = solver.solve()
+                    except PuzzleTimeout:
+                        success = False
+
                     now = time.time()
                     latency = now - before
-                    self.queue.put((None, "solve-puzzle", now, latency, solver.bits))
 
-                    self.logger.info("%d, done with %d-bit puzzle: %s", self.thread_id, solver.bits, keyed_url)
+                    if success:
+                        self.queue.put((None, "solve-puzzle", now, latency, solver.bits))
+                        self.logger.info("%d, done with %d-bit puzzle: %s", self.thread_id, solver.bits, keyed_url)
+                    else:
+                        self.queue.put((None, "solve-puzzle-timeout", now, latency, solver.bits))
+                        self.logger.info("%d, failed with %d-bit puzzle: %s", self.thread_id, solver.bits, keyed_url)
+
                     self.cpu.release()
 
                     # Send the puzzle solution to the server to effect high-density work
@@ -284,13 +302,14 @@ class Monitor(threading.Thread):
             #   * give-puzzle: a web response from the server delivering a puzzle
             #   * web-app: a web response from the server delivering an application page
             #   * solve-puzzle: the client solving a puzzle
+            #   * solve-puzzle-timeout: the client giving up with a puzzle
             #   * None: a non-valid web response (e.g. 502)
             #
             # If the event is an HTTP response from the server, then status
             #   is a the status code from the response. Other possible values:
             #   * None -- e.g. solve-puzzle events
             #   * timeout -- when the request for the server times out
-            trace_record = "%s,%s,%s,%s\n" % (status, event, latency, num_bits)
+            trace_record = "%s,%s,%s,%s,%s\n" % (status, event, delta, latency, num_bits)
             self.tracefile.write(trace_record)
             self.tracefile.flush()
 
