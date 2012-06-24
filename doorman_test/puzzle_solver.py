@@ -283,14 +283,14 @@ class Monitor(threading.Thread):
         # indexed by response type
         self.rec_dict = {}
 
-        # List of events excluding puzzle events
-        self.web_app_events = []
 
         self.history_len = history_len
         threading.Thread.__init__(self)
 
     def run(self):
         first_timestamp = None
+        num_fail = 0.0
+        num_success = 0.0
         while True:
             status, event, timestamp, latency, num_bits = self.queue.get()
             if first_timestamp == None:
@@ -313,21 +313,18 @@ class Monitor(threading.Thread):
             self.tracefile.write(trace_record)
             self.tracefile.flush()
 
-            if status != None and (status != "200" or event == "web-app"):
-                self.web_app_events.append((status, event))
-
-
             if event not in self.rec_dict:
                 self.rec_dict[(status, event)] = []
 
-            recent_events = self.web_app_events[-self.history_len:]
-            if len(recent_events) > 0:
-                success_events = filter(lambda x: x[0] == "200", recent_events)
-                num_events = len(recent_events)
-                num_success = len(success_events)
-                success_rate = float(num_success) / float(num_events)
-                self.logger.info("success rate: %f == %d/%d", success_rate, num_success, num_events)
+            if event == "web-app":
+                num_success += 1.0
+            elif event == None or event == "solve-puzzle-timeout" or status == "timeout":
+                num_fail += 1.0
 
+            total = num_success + num_fail
+            if total > 0.0:
+                success_rate = num_success / total
+                self.logger.info("success rate: %f == %d/%d", success_rate, num_success, total)
 
             self.rec_dict[(status, event)].append(latency)
             for (status, event), latencies in self.rec_dict.items():
