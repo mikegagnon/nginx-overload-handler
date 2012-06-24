@@ -19,5 +19,5 @@
 # defines some shell variables
 #
 
-TEST_TIME=10
+TEST_TIME=120
 
