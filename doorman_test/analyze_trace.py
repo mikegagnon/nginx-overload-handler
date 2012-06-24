@@ -253,7 +253,11 @@ def analyze(f):
     num_bits.sort()
     num_bits = dict([("num puzzles with %d bits" % item, len(list(group))) for item, group in groupby(num_bits)])
 
-    success_rate = num_success / (num_success + num_fail)
+    if num_success + num_fail == 0.0:
+        success_rate = float("nan")
+    else:
+        success_rate = num_success / (num_success + num_fail)
+
     time_elapsed = max_timestamp - min_timestamp
 
     return {
