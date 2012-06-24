@@ -355,7 +355,7 @@ def run_client(name, desc, default_puzzle_threads, default_timeout, stall_after_
                     help="Default=%(default)s. The maximum number of threads allowed to work on puzzles at the same time. If PUZZLE_THREADS <= 0, then PUZZLE_THREADS will be set to THREADS.")
     parser.add_argument("-st", "--stall",  type=float, default=0.2,
                     help="Default=%(default)s. The number of seconds to stall when needed")
-    parser.add_argument("-i", "--id",  type=int, default=1,
+    parser.add_argument("-i", "--id",  type=str, default=1,
                     help="Default=%(default)s. An id to identify this process in the logs")
     parser.add_argument("-y", "--history",  type=int, default=20,
                     help="Default=%(default)s. When displaying averages, only use the last HISTORY measurements.")
@@ -370,7 +370,7 @@ def run_client(name, desc, default_puzzle_threads, default_timeout, stall_after_
     if args.puzzle_threads <= 0:
         args.puzzle_threads = args.threads
 
-    logger = log.getLogger(args, name="%s.%d" % (name, args.id))
+    logger = log.getLogger(args, name="%s.%s" % (name, args.id))
     logger.info("Command line arguments: %s" % str(args))
 
     # By settings bounded-value == #threads, it means every thread can work on puzzles
