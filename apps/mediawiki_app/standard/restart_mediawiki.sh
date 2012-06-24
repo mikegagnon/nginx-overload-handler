@@ -23,3 +23,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 $DIR/kill_mediawiki.sh
 $DIR/launch_mediawiki.sh
+
+sleep 1
+$DIR/../../../nginx_upstream_overload/launch_nginx.sh
+
