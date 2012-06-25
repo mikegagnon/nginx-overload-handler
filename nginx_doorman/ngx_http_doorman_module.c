@@ -178,6 +178,8 @@ typedef struct {
     ngx_str_t                  arg_expire_name;
     ngx_uint_t                 expire_delta;
     ngx_uint_t                 init_missing_bits;
+    ngx_uint_t                 min_missing_bits;
+    ngx_uint_t                 max_missing_bits;
     ngx_uint_t                 burst_len;
     ngx_uint_t                 sleep_time;
 } ngx_http_doorman_conf_t;
@@ -323,6 +325,26 @@ static ngx_command_t  ngx_http_doorman_commands[] = {
       ngx_conf_set_num_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_doorman_conf_t, init_missing_bits),
+      NULL },
+
+    /**
+     * min_missing_bits
+     */
+    { ngx_string("doorman_min_missing_bits"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_num_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_doorman_conf_t, min_missing_bits),
+      NULL },
+
+    /**
+     * max_missing_bits
+     */
+    { ngx_string("doorman_max_missing_bits"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_num_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_doorman_conf_t, max_missing_bits),
       NULL },
 
     /**
@@ -698,10 +720,13 @@ ngx_http_doorman_get_conf(ngx_http_request_t *r)
         conf->arg_expire_name.len == 0 ||
         conf->expire_delta == NGX_CONF_UNSET_UINT ||
         conf->init_missing_bits == NGX_CONF_UNSET_UINT ||
+        conf->min_missing_bits == NGX_CONF_UNSET_UINT ||
+        conf->max_missing_bits == NGX_CONF_UNSET_UINT ||
         conf->burst_len == NGX_CONF_UNSET_UINT ||
         conf->sleep_time == NGX_CONF_UNSET_UINT) {
         ngx_log_error(NGX_LOG_CRIT, r->connection->log, 0,
-                   "doorman: one of (variable, md5, expire_delta, init_missing_bits, burst_len, sleep_time) not defined");
+                   "doorman: one of (variable, md5, expire_delta, init_missing_bits, "
+                   "min_missing_bits, max_missing_bits, burst_len, sleep_time) not defined");
         return NULL;
     }
 
@@ -718,6 +743,10 @@ ngx_http_doorman_get_conf(ngx_http_request_t *r)
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman: conf->init_missing_bits == %d", conf->init_missing_bits);
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman: conf->min_missing_bits == %d", conf->min_missing_bits);
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman: conf->max_missing_bits == %d", conf->max_missing_bits);
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman: conf->burst_len == %d", conf->burst_len);
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman: conf->sleep_time == %d", conf->sleep_time);
@@ -732,28 +761,28 @@ ngx_http_doorman_get_conf(ngx_http_request_t *r)
 }
 
 static void
-ngx_http_doorman_inc_missing_bits(ngx_http_request_t *r, double amount)
+ngx_http_doorman_inc_missing_bits(ngx_http_request_t *r, ngx_http_doorman_conf_t *conf, double amount)
 {
    num_missing_bits += amount;
-    if (num_missing_bits < MAX_MISSING_BITS) {
+    if (num_missing_bits < conf->max_missing_bits) {
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "doorman puzzle: incremented missing bits to %1.3f", num_missing_bits);
     } else {
-        num_missing_bits = (double) MAX_MISSING_BITS;
+        num_missing_bits = (double) conf->max_missing_bits;
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "doorman puzzle: missing bits is maxed out at %1.3f", num_missing_bits);
     }
 }
 
 static void
-ngx_http_doorman_dec_missing_bits(ngx_http_request_t *r, double amount)
+ngx_http_doorman_dec_missing_bits(ngx_http_request_t *r, ngx_http_doorman_conf_t *conf, double amount)
 {
     num_missing_bits -= amount;
-    if (num_missing_bits > 0) {
+    if (num_missing_bits > conf->min_missing_bits) {
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "doorman puzzle: decremented missing bits to %1.3f", num_missing_bits);
     } else {
-        num_missing_bits = 0.0;
+        num_missing_bits = (double) conf->min_missing_bits;
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "doorman puzzle: missing bits bottomed out at %1.3f", num_missing_bits);
     }
@@ -811,23 +840,23 @@ ngx_http_doorman_update_puzzle(ngx_http_request_t *r, ngx_http_doorman_conf_t *c
     if (stats.rejected_rate > 0.2) {
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman puzzle: rejected_rate==%1.3f > 0.2 ", stats.rejected_rate);
-        ngx_http_doorman_inc_missing_bits(r, 2.0);
+        ngx_http_doorman_inc_missing_bits(r, conf, 2.0);
     } else if (stats.success_rate < MIN_SUCCESS_RATE) {
         ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman puzzle: success_rate==%1.3f < min_success_rate==%1.3f", stats.success_rate, MIN_SUCCESS_RATE);
         if (stats.throughput_rate < THROUGHPUT_THRESHOLD) {
             ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman puzzle: throughput==%1.3f < threshold==%1.3f", stats.throughput_rate, THROUGHPUT_THRESHOLD);
-            ngx_http_doorman_dec_missing_bits(r, 0.2);
+            ngx_http_doorman_dec_missing_bits(r, conf, 0.2);
         } else {
             ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman puzzle: throughput==%1.3f >= threshold==%1.3f", stats.throughput_rate, THROUGHPUT_THRESHOLD);
-            ngx_http_doorman_inc_missing_bits(r, 1.0);
+            ngx_http_doorman_inc_missing_bits(r, conf, 1.0);
         }
     } else if (stats.success_rate > MAX_SUCCESS_RATE) {
         ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman puzzle: success_rate==%1.3f > max_success_rate==%1.3f (throughout==%1.3f)", stats.success_rate, MAX_SUCCESS_RATE, stats.throughput_rate);
-        ngx_http_doorman_dec_missing_bits(r, 0.2);
+        ngx_http_doorman_dec_missing_bits(r, conf, 0.2);
     } else {
         ngx_log_debug4(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman puzzle: min_success_rate==%1.3f <= success_rate==%1.3f <= max_success_rate==%1.3f (throughput==%1.3f)",
@@ -1276,6 +1305,8 @@ ngx_http_doorman_create_conf(ngx_conf_t *cf)
 
     conf->expire_delta = NGX_CONF_UNSET_UINT;
     conf->init_missing_bits = NGX_CONF_UNSET_UINT;
+    conf->min_missing_bits = NGX_CONF_UNSET_UINT;
+    conf->max_missing_bits = NGX_CONF_UNSET_UINT;
     conf->burst_len = NGX_CONF_UNSET_UINT;
     conf->sleep_time = NGX_CONF_UNSET_UINT;
 
@@ -1300,12 +1331,37 @@ ngx_http_doorman_merge_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_str_value(conf->arg_expire_name, prev->arg_expire_name, "");
     ngx_conf_merge_uint_value(conf->expire_delta, prev->expire_delta, NGX_CONF_UNSET_UINT);
     ngx_conf_merge_uint_value(conf->init_missing_bits, prev->init_missing_bits, NGX_CONF_UNSET_UINT);
+    ngx_conf_merge_uint_value(conf->min_missing_bits, prev->min_missing_bits, 0);
+    ngx_conf_merge_uint_value(conf->max_missing_bits, prev->max_missing_bits, MAX_MISSING_BITS);
     ngx_conf_merge_uint_value(conf->burst_len, prev->burst_len, NGX_CONF_UNSET_UINT);
     ngx_conf_merge_uint_value(conf->sleep_time, prev->sleep_time, NGX_CONF_UNSET_UINT);
 
     if (conf->init_missing_bits != NGX_CONF_UNSET_UINT &&
-        conf->init_missing_bits > (DOORMAN_HASH_LEN * 8)) {
+        conf->init_missing_bits > MAX_MISSING_BITS) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "doorman_init_missing_bits is too big");
+        return NGX_CONF_ERROR;
+    }
+    if (conf->min_missing_bits != NGX_CONF_UNSET_UINT) {
+        if (conf->min_missing_bits > MAX_MISSING_BITS) {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "doorman_min_missing_bits is too big");
+            return NGX_CONF_ERROR;
+        }
+        if (conf->init_missing_bits != NGX_CONF_UNSET_UINT && conf->init_missing_bits < conf->min_missing_bits) {
+            conf->init_missing_bits = conf->min_missing_bits;
+        }
+    }
+    if (conf->max_missing_bits != NGX_CONF_UNSET_UINT) {
+        if ( conf->max_missing_bits > MAX_MISSING_BITS) {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "doorman_max_missing_bits is too big");
+            return NGX_CONF_ERROR;
+        }
+        if (conf->init_missing_bits != NGX_CONF_UNSET_UINT && conf->init_missing_bits > conf->max_missing_bits) {
+            conf->init_missing_bits = conf->max_missing_bits;
+        }
+    }
+    if (conf->min_missing_bits != NGX_CONF_UNSET_UINT && conf->max_missing_bits != NGX_CONF_UNSET_UINT &&
+        conf->min_missing_bits > conf->max_missing_bits) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "doorman_min_missing_bits > doorman_max_missing_bits");
         return NGX_CONF_ERROR;
     }
 
