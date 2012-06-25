@@ -8,6 +8,7 @@ error_log   logs/debug.log debug;
 
 events {
     worker_connections  1024;
+    use epoll;
 }
 
 
