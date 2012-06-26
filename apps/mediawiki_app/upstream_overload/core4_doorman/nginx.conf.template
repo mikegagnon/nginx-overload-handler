@@ -2,7 +2,7 @@
 worker_processes  1;
 
 user nginx_user;
-
+worker_rlimit_nofile 65535;
 
 error_log   logs/debug.log debug;
 
