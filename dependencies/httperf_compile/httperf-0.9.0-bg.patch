@@ -1,16 +1,7 @@
-diff -rupN httperf-0.9.0/src/core.c httperf-0.9.0-bg/src/core.c
---- httperf-0.9.0/src/core.c	2012-06-25 19:22:15.634979255 -0700
-+++ httperf-0.9.0-bg/src/core.c	2012-06-25 19:26:47.703035057 -0700
-@@ -65,6 +65,8 @@
- #include <http.h>
- #include <conn.h>
- 
-+#define FD_SETSIZE 65535
-+
- /*if we don't have GNU compatible realloc, fake it*/
- #if HAVE_REALLOC == 0
- void *rpl_realloc(void *ptr, size_t size)
-@@ -938,6 +940,8 @@ core_connect (Conn *s)
+diff -rupN httperf-0.9.0/src/core.c httperf-0.9.0-bg4//src/core.c
+--- httperf-0.9.0/src/core.c	2007-04-07 00:01:56.000000000 -0700
++++ httperf-0.9.0-bg4//src/core.c	2012-05-14 20:12:33.389030045 -0700
+@@ -938,6 +938,8 @@ core_connect (Conn *s)
  	  if (myport < 0)
  	    goto failure;
  
@@ -19,9 +10,9 @@ diff -rupN httperf-0.9.0/src/core.c httperf-0.9.0-bg/src/core.c
  	  myaddr.sin_port = htons (myport);
  	  SYSCALL (BIND,
  		   result = bind (sd, (struct sockaddr *)&myaddr,
-diff -rupN httperf-0.9.0/src/gen/wsesslog.c httperf-0.9.0-bg/src/gen/wsesslog.c
---- httperf-0.9.0/src/gen/wsesslog.c	2012-06-25 19:22:15.630978595 -0700
-+++ httperf-0.9.0-bg/src/gen/wsesslog.c	2012-06-25 19:22:34.916909149 -0700
+diff -rupN httperf-0.9.0/src/gen/wsesslog.c httperf-0.9.0-bg4//src/gen/wsesslog.c
+--- httperf-0.9.0/src/gen/wsesslog.c	2007-04-07 00:01:56.000000000 -0700
++++ httperf-0.9.0-bg4//src/gen/wsesslog.c	2012-05-14 20:13:20.269029455 -0700
 @@ -90,7 +90,7 @@
  
  /* Maximum number of sessions that can be defined in the configuration
@@ -31,21 +22,9 @@ diff -rupN httperf-0.9.0/src/gen/wsesslog.c httperf-0.9.0-bg/src/gen/wsesslog.c
  
  #ifndef TRUE
  #define TRUE  (1)
-diff -rupN httperf-0.9.0/src/idleconn.c httperf-0.9.0-bg/src/idleconn.c
---- httperf-0.9.0/src/idleconn.c	2012-06-25 19:22:15.634979255 -0700
-+++ httperf-0.9.0-bg/src/idleconn.c	2012-06-25 19:26:55.267035016 -0700
-@@ -48,6 +48,8 @@
- #include <sys/resource.h>
- #include <sys/socket.h>
- 
-+#define FD_SETSIZE 65535
-+
- const char *prog_name;
- unsigned long num_conn, num_closed;
- struct timeval start_time;
-diff -rupN httperf-0.9.0/src/stat/print_reply.c httperf-0.9.0-bg/src/stat/print_reply.c
---- httperf-0.9.0/src/stat/print_reply.c	2012-06-25 19:22:15.630978595 -0700
-+++ httperf-0.9.0-bg/src/stat/print_reply.c	2012-06-25 19:22:34.916909149 -0700
+diff -rupN httperf-0.9.0/src/stat/print_reply.c httperf-0.9.0-bg4//src/stat/print_reply.c
+--- httperf-0.9.0/src/stat/print_reply.c	2007-04-07 00:01:56.000000000 -0700
++++ httperf-0.9.0-bg4//src/stat/print_reply.c	2012-05-14 20:12:33.393030056 -0700
 @@ -124,6 +124,14 @@ print_request (Call *call)
    size_t hdr_len, h_len, b_len;
    int i, first, end;
