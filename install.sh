@@ -16,6 +16,8 @@
 #
 # ==== install.sh ====
 #
+# NOTE: Need to reboot after you run install.sh
+#
 # Compiles and installs nginx-overload-handler (and it's dependencies as well
 # as a few demo web apps)
 #
@@ -65,4 +67,7 @@ sudo ./nginx_upstream_overload/install.sh
 
 # Create the fcgi_user; FastCGI workers will run as this user
 sudo ./dependencies/useradd.sh
+
+# Set open-file limit to 65535
+sudo ./dependencies/set_file_limits.sh
 
