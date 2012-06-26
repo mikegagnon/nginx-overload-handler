@@ -53,7 +53,6 @@ import logging
 DIRNAME = os.path.dirname(os.path.realpath(__file__))
 
 sys.path.append(os.path.join(DIRNAME, '..', 'common'))
-sys.path.append(os.path.join(DIRNAME, '..', 'bouncer'))
 
 import log
 log.FORMATTER_LOGFILE = logging.Formatter("%(asctime)s - %(levelname)10s - %(process)d - %(filename)20s : %(funcName)30s - %(message)s")
@@ -175,7 +174,7 @@ class ReceiveMessageEvent(Event):
         return "ReceiveMessageEvent(dest=%s, message=%s)" % \
             (self.sim.greenlets[self.dest], self.message)
 
-class UpstreamCpuEvent(Event):
+class UpstreamCpuEvent(ReceiveMessageEvent):
     pass
 
 class NewVisitorEvent(Event):
@@ -428,9 +427,11 @@ class PriorityQueue:
         raise ValueError("Tried pop an empty queue")
 
 class UpstreamJob:
-    def __init__(self, upstream_worker, job_time):
+    def __init__(self, message, job_time, job_id):
+        assert(isinstance(message, NewJobMessage))
+        self.message = message
         self.time = job_time
-        self.upstream_worker = upstream_worker
+        self.job_id = job_id
 
 # Perhaps implement this as an Agent, since it's essentially an event handler
 class UpstreamCpu:
@@ -448,27 +449,16 @@ class UpstreamCpu:
     #   and leave the system only happen at events. Thus cpu-time is function
     #   of number of jobs, number of cores, and wall clock time
     #
-    # The methods called in this class are strictly called during event handlers.
-    # E.g.:
-    #   - insert job-1
-    #   - insert job-2
-    #   - job-1 finishes
-    #   - insert job-3
-    #   - job-2 is terminated
 
-    # TODO: when a job gets popped it needs to be removed from queue
-    def __init__(self, sim):
+    def __init__(self, sim, cpuAgent):
         self.sim = sim
         self.num_cores = sim.config.num_cores
-        self.jobs = []
-        self.busy_upstreams = set()
+        self.jobs = set()
+        self.nextJobId = 0
 
-        # The "top job" is the job that is going to finish next
-        # the top_job field is a reference to an UpstreamJob in self.jobs
-        self.top_job = None
+        self.cpuAgent = cpuAgent
 
-        # the top_job_event is the event that will fire when the top job finishes
-        self.top_job_event = None
+        self.current_job_finish_event = None
 
         # the wallclock timestamp from the last event; used for measuring
         # elapsed wallclock time between successive events
@@ -480,77 +470,130 @@ class UpstreamCpu:
         delay = dest = message = None
         return JobFinishEvent(self.sim, delay, dest, message)
 
-    def getCpuSec(self, wall_clock_sec):
-        '''Returns the number of CPU seconds each job will get over the next
-        wall-clock seconds'''
+    def getCpuSecPerWallSec(self):
         if len(self.jobs) <= self.num_cores:
             # If there are more cores than jobs, then each
             # job gets it's own CPU; therefore each job
             # will get 1.0 cpu-second per wallclock second
-            cpu_sec_per_wall_sec = 1.0
+            return 1.0
         else:
             # Otherwise all jobs share all cpus precisely evenly
-            cpu_sec_per_wall_sec = float(self.num_cores) / float(self.jobs.num_items)
+            return float(self.num_cores) / float(len(self.jobs))
 
-        return wall_clock_sec * cpu_sec_per_wall_sec
+    def getCpuSec(self, wall_clock_sec):
+        '''Returns the number of CPU seconds each job will get over the next
+        wall-clock seconds'''
+        return wall_clock_sec * self.getCpuSecPerWallSec()
 
-    def getTopJobFinish(self):
-        '''Figures out when the top job is going to finish'''
-
-        # The amount of wallclock time need to finish the top job is the amount
-        # of wallclock-seconds needed to execute the cpu-seconds needed
-        return self.top_job.time * wall_sec_per_cpu_sec
+    def getWallSec(self, cpu_sec):
+        '''Returns the number of wall-clock seconds needed execute cpu_sec CPU seconds'''
+        return cpu_sec * (1.0 / self.getCpuSecPerWallSec())
 
     def updateJobs(self):
         '''
         Preconditions:
             during the time between self.last_clock and sim.time,
             the number of jobs in the system did not change
-        Returns a (prev, next) where old and new are JobFinishEvents.
-        prev is the JobFinishEvent that is currently in the event queue (which should be removed from the queue).
-            prev might be None, if there is no JobFinishEvent in the queue
-        next is the JobFinishEvent that should be added to the event queue
+        Postconditions:
+            each job has made equal progress during the elapsed time.
+            updates the time field for each job to reflect that status.
+            Returns None, or a single job that has finished (and removes
+            that job from the CPU). If multiple jobs have job.time == 0
+            (i.e. multiple jobs should finish) then the job that finishes
+            is the job that was added to the system first. An event should
+            fire within the same time unit that will remove the next job.
         '''
 
-        if len(self.jobs) == 0:
-            return (self.top_job_event, None)
+        finished_jobs = set()
 
         elapsed_sec = sim.time - self.last_event_time
         cpu_sec = getCpuSec(self, elapsed_sec)
 
-        # update job.time for all jobs and find the job that's going to finish next
-        min_job = None
+        # update job.time for all jobs
         for job in self.jobs:
             job.time -= cpu_sec
-            if min_job.time == None or job.time < min_job.time:
+            assert(job.time >= 0.0)
+            if job.time == 0.0:
+                finished_jobs.add(job)
+
+        if len(finished_jobs) == 0:
+            return None
+
+        finished_job = sorted(x, key=lambda job: job.job_id)[0]
+        self.jobs.remove(finished_job)
+        return finished_job
+
+    def newJob(self, message, job_time):
+        '''Adds a new job to the list of jobs being processed by the CPU.'''
+        job = UpstreamJob(message, job_time, self.nextJobId)
+        self.nextJobId += 1
+        self.jobs.add(job)
+
+        return job
+
+    def killJob(self, job):
+        '''Removes a job from the list of jobs being processed by the CPU.'''
+        self.jobs.remove(job)
+
+    def getNextFinishEvent(self):
+        '''Create a new event that will fire when the next job finishes.
+        The validity of the this new event assumes the UpstreamCpu will not
+        receive any events between this time and the next. If this assumption
+        is invalididate, then the event becomes invalid and should be replaced
+        by a new event'''
+
+        cpu_sec = getCpuSec(self, elapsed_sec)
+
+        min_job = None
+        for job in self.jobs:
+            if(min_job == None or job.time < min_job.time):
                 min_job = job
 
-    def newJob(self, upstream_worker, job_time):
-        '''Adds a new job to the list of jobs being processed to the CPUs.'''
-        assert(upstream_worker not in self.busy_upstreams)
+        if min_job == None:
+            return None
 
-        self.busy_upstreams.add(upstream_worker)
-        job = UpstreamJob(upstream_worker, job_time)
-        self.jobs.append(job)
+        # when will min_job finish?
+        delay = self.getWallSec(min_job.time)
+
+        # Create and return event
+        message = JobFinishMessage(self.sim)
+        return ReceiveMessageEvent(self.sim, delay, self.cpuAgent, message)
 
     def handleMessage(self, message):
+        '''finishes a job, kills a job, or creates a new job.
+        determines how much time has elapsed since the last event
+        and makes progress on each job based on the elapsed time since
+        the last event.
+        Returns a 4-tuple (old_event, new_event, new_job, finished_job).
+        The old_event is the previous finish_job_event that is now obsolete
+        (supplanated by new_event). The caller should remove old_event
+        from the event queue (if not None) and add new_event to the event_queue
+        (if not None).
+        new_job is a reference to the newly created job (or None no job created)
+        finished_job is a reference to the successfully finished job (or None if no job
+            successfully finished)
+        '''
 
         # Each job has made progress on the CPU since the last
         # event, so update the jobs accordingly
-        self.updateJobs()
-        #BOOKMARK
+        finished_job = self.updateJobs()
+        new_job = None
 
         if isinstance(message, JobFinishMessage):
-            pass
+            assert(finished_job != None)
         elif isinstance(message, KillJobMessage):
-            pass
+            self.killJob(message.job)
         elif isinstance(message, NewJobMessage):
-            self.newJob(message.upstream_worker, message.job_time, )
+            new_job = self.newJob(message, message.job_time)
         else:
             raise ValueError("Unexpected message type")
 
-        self.last_event_time = self.sim.time
+        next_event = self.getNextFinishEvent()
 
+        old_event = self.current_job_finish_event
+        self.current_job_finish_event = next_event
+        self.last_event_time = self.sim.time
+        return (old_event, self.current_job_finish_event, new_job, finished_job)
 
 class Config:
     def __init__(self, config_dict):
@@ -558,10 +601,8 @@ class Config:
 
 class Simulator:
 
-    def __init__(self, config_file, logger, **kwargs):
+    def __init__(self, config_dict, logger, **kwargs):
         self.logger = logger
-        with open(config_file) as f:
-            config_dict = json.load(f)
 
         self.logger.debug("config_file = %s", json.dumps(config_dict, sort_keys=True, indent=4))
         self.logger.debug("kwargs = %s", json.dumps(kwargs, sort_keys=True, indent=4))
@@ -618,6 +659,9 @@ if __name__ == "__main__":
     logger = log.getLogger(args)
     logger.info("Command line arguments: %s" % str(args))
 
-    sim = Simulator(args.config, logger)
+    with open(args.config) as f:
+        config_dict = json.load(f)
+
+    sim = Simulator(config_dict, logger)
     sim.run()
 
