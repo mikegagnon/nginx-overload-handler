@@ -58,8 +58,6 @@ import log
 log.FORMATTER_LOGFILE = logging.Formatter("%(asctime)s - %(levelname)10s - %(process)d - %(filename)20s : %(funcName)30s - %(message)s")
 log.FORMATTER_STDERR = logging.Formatter("%(levelname)10s - %(message)s")
 
-import bouncer_common
-
 def isInt(x):
     return isinstance(x, int)
 
@@ -257,14 +255,31 @@ class WebResponseMessage(Message):
 
 # Sent to an upstream worker when its job finishes successfully
 class JobFinishMessage(Message):
-    pass
+    def __init__(self, sim, job):
+        Message.__init__(self, sim)
+        self.job = job
+
+    def __str__(self):
+        return "JobFinishMessage(sender=%s, job=%s)" % \
+            (self.sim.greenlets[self.sender], self.job)
 
 class KillJobMessage(Message):
-    pass
+    def __init__(self, sim, job):
+        Message.__init__(self, sim)
+        self.job = job
+
+    def __str__(self):
+        return "KillJobMessage(sender=%s, job=%s)" % \
+            (self.sim.greenlets[self.sender], self.job)
 
 class NewJobMessage(Message):
-    pass
+    def __init__(self, sim, job_time):
+        Message.__init__(self, sim)
+        self.job_time = job_time
 
+    def __str__(self):
+        return "NewJobMessage(sender=%s, job_time=%f)" % \
+            (self.sim.greenlets[self.sender], self.job_time)
 
 # Agents (instantiated as greenlets)
 ###############################################################################
@@ -433,6 +448,10 @@ class UpstreamJob:
         self.time = job_time
         self.job_id = job_id
 
+    def __str__(self):
+        return "UpstreamJob(job_id=%d, job_time=%f, message=%s)" % \
+            (self.job_id, self.job_time, self.message)
+
 # Perhaps implement this as an Agent, since it's essentially an event handler
 class UpstreamCpu:
     '''Logic to figure out which upstream-worker jobs get how much CPU and when.
@@ -450,9 +469,13 @@ class UpstreamCpu:
     #   of number of jobs, number of cores, and wall clock time
     #
 
-    def __init__(self, sim, cpuAgent):
+    def __init__(self, num_cores, sim, cpuAgent):
+        ''' sim and cpuAgent are mostly treated like opaque objects and are
+        only used to to pass along to Event objects when they're created, etc.
+        The only value used from sim is sim.time
+        '''
         self.sim = sim
-        self.num_cores = sim.config.num_cores
+        self.num_cores = num_cores
         self.jobs = set()
         self.nextJobId = 0
 
@@ -489,10 +512,10 @@ class UpstreamCpu:
         '''Returns the number of wall-clock seconds needed execute cpu_sec CPU seconds'''
         return cpu_sec * (1.0 / self.getCpuSecPerWallSec())
 
-    def updateJobs(self):
+    def updateJobs(self, time):
         '''
         Preconditions:
-            during the time between self.last_clock and sim.time,
+            during the time between self.last_clock and time,
             the number of jobs in the system did not change
         Postconditions:
             each job has made equal progress during the elapsed time.
@@ -506,8 +529,12 @@ class UpstreamCpu:
 
         finished_jobs = set()
 
-        elapsed_sec = sim.time - self.last_event_time
-        cpu_sec = getCpuSec(self, elapsed_sec)
+        if self.last_event_time != None:
+            elapsed_sec = time - self.last_event_time
+        else:
+            elapsed_sec = 0.0
+
+        cpu_sec = self.getCpuSec(elapsed_sec)
 
         # update job.time for all jobs
         for job in self.jobs:
@@ -519,7 +546,7 @@ class UpstreamCpu:
         if len(finished_jobs) == 0:
             return None
 
-        finished_job = sorted(x, key=lambda job: job.job_id)[0]
+        finished_job = sorted(self.jobs, key=lambda job: job.job_id)[0]
         self.jobs.remove(finished_job)
         return finished_job
 
@@ -542,22 +569,18 @@ class UpstreamCpu:
         is invalididate, then the event becomes invalid and should be replaced
         by a new event'''
 
-        cpu_sec = getCpuSec(self, elapsed_sec)
-
-        min_job = None
-        for job in self.jobs:
-            if(min_job == None or job.time < min_job.time):
-                min_job = job
-
-        if min_job == None:
+        if len(self.jobs) == 0:
             return None
+
+        min_job = sorted(self.jobs, key=lambda job: (job.time, job.job_id))[0]
 
         # when will min_job finish?
         delay = self.getWallSec(min_job.time)
 
         # Create and return event
-        message = JobFinishMessage(self.sim)
-        return ReceiveMessageEvent(self.sim, delay, self.cpuAgent, message)
+        message = JobFinishMessage(self.sim, min_job)
+        event = ReceiveMessageEvent(self.sim, delay, self.cpuAgent, message)
+        return event
 
     def handleMessage(self, message):
         '''finishes a job, kills a job, or creates a new job.
@@ -573,14 +596,15 @@ class UpstreamCpu:
         finished_job is a reference to the successfully finished job (or None if no job
             successfully finished)
         '''
+        time = self.sim.time
 
         # Each job has made progress on the CPU since the last
         # event, so update the jobs accordingly
-        finished_job = self.updateJobs()
+        finished_job = self.updateJobs(time)
         new_job = None
 
         if isinstance(message, JobFinishMessage):
-            assert(finished_job != None)
+            assert(finished_job == message.job)
         elif isinstance(message, KillJobMessage):
             self.killJob(message.job)
         elif isinstance(message, NewJobMessage):
@@ -592,7 +616,7 @@ class UpstreamCpu:
 
         old_event = self.current_job_finish_event
         self.current_job_finish_event = next_event
-        self.last_event_time = self.sim.time
+        self.last_event_time = time
         return (old_event, self.current_job_finish_event, new_job, finished_job)
 
 class Config:
