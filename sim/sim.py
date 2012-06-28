@@ -50,6 +50,10 @@ import greenlet
 from random import choice
 import heapq
 import logging
+
+# floating point numbers are bad for precise simulations, because floating point numbers aren't precise
+from fractions import Fraction
+
 DIRNAME = os.path.dirname(os.path.realpath(__file__))
 
 sys.path.append(os.path.join(DIRNAME, '..', 'common'))
@@ -99,6 +103,7 @@ config_keys = {
 
 def validateConfig(config):
     '''fd is an open file containing the config
+    converts all floats to fractions
     returns a map with the following keys and values:
 
     Simulation control:
@@ -141,6 +146,8 @@ def validateConfig(config):
         value = config[key]
         if not valid_func(value):
             raise ValueError("The value for '%s' is invalid: %s" % (key, value))
+        if isinstance(value, float):
+            config[key] = Fraction(value)
 
 # Events
 ###############################################################################
@@ -148,7 +155,7 @@ def validateConfig(config):
 class Event:
     def __init__(self, sim, delay):
         '''Fire the event in delta seconds'''
-        self.time = sim.time + delay
+        self.time = sim.time + Fraction(delay)
         self.sim = sim
 
 class GameOverEvent(Event):
@@ -221,7 +228,7 @@ class ForwardedMessage(Message):
 class WebRequestMessage(Message):
     def __init__(self, sim, job_time, key, expire):
         Message.__init__(self, sim)
-        self.job_time = job_time
+        self.job_time = Fraction(job_time)
         self.key = key
         self.expire = expire
 
@@ -275,7 +282,7 @@ class KillJobMessage(Message):
 class NewJobMessage(Message):
     def __init__(self, sim, job_time):
         Message.__init__(self, sim)
-        self.job_time = job_time
+        self.job_time = Fraction(job_time)
 
     def __str__(self):
         return "NewJobMessage(sender=%s, job_time=%f)" % \
@@ -288,7 +295,7 @@ class NewJobMessage(Message):
 
 def VisitorAgent(sim):
     assert(greenlet.getcurrent().parent == sim.event_loop)
-    job_time = choice(sim.config.legit_jobs)
+    job_time = Fraction(choice(sim.config.legit_jobs))
 
     # Send request to Doorman
     request = WebRequestMessage(
@@ -373,7 +380,7 @@ def EventLoopAgent(sim):
     sim.load_balancer.switch(sim)
 
     # Schedule the game_over event
-    game_over = GameOverEvent(sim, delay=sim.config.time * 60.0)
+    game_over = GameOverEvent(sim, delay=sim.config.time * Fraction(60.0))
     sim.schedule(game_over)
 
     # Schedule the first visitor
@@ -382,7 +389,7 @@ def EventLoopAgent(sim):
 
     while True:
         event = sim.nextEvent()
-        sim.time = event.time
+        sim.time = Fraction(event.time)
         sim.logger.debug("%s %s", sim.logprefix(), event)
         if event == game_over:
             break
@@ -445,12 +452,12 @@ class UpstreamJob:
     def __init__(self, message, job_time, job_id):
         assert(isinstance(message, NewJobMessage))
         self.message = message
-        self.time = job_time
+        self.time = Fraction(job_time)
         self.job_id = job_id
 
     def __str__(self):
-        return "UpstreamJob(job_id=%d, job_time=%f, message=%s)" % \
-            (self.job_id, self.job_time, self.message)
+        return "UpstreamJob(job_id=%d, time=%f, message=%s)" % \
+            (self.job_id, self.time, self.message)
 
 # Perhaps implement this as an Agent, since it's essentially an event handler
 class UpstreamCpu:
@@ -469,7 +476,7 @@ class UpstreamCpu:
     #   of number of jobs, number of cores, and wall clock time
     #
 
-    def __init__(self, num_cores, sim, cpuAgent):
+    def __init__(self, num_cores, sim, cpuAgent, max_jobs=1000):
         ''' sim and cpuAgent are mostly treated like opaque objects and are
         only used to to pass along to Event objects when they're created, etc.
         The only value used from sim is sim.time
@@ -480,7 +487,7 @@ class UpstreamCpu:
         self.nextJobId = 0
 
         self.cpuAgent = cpuAgent
-
+        self.max_jobs = max_jobs
         self.current_job_finish_event = None
 
         # the wallclock timestamp from the last event; used for measuring
@@ -498,19 +505,19 @@ class UpstreamCpu:
             # If there are more cores than jobs, then each
             # job gets it's own CPU; therefore each job
             # will get 1.0 cpu-second per wallclock second
-            return 1.0
+            return Fraction(1.0)
         else:
             # Otherwise all jobs share all cpus precisely evenly
-            return float(self.num_cores) / float(len(self.jobs))
+            return Fraction(self.num_cores) / Fraction(len(self.jobs))
 
     def getCpuSec(self, wall_clock_sec):
         '''Returns the number of CPU seconds each job will get over the next
         wall-clock seconds'''
-        return wall_clock_sec * self.getCpuSecPerWallSec()
+        return Fraction(wall_clock_sec) * self.getCpuSecPerWallSec()
 
     def getWallSec(self, cpu_sec):
         '''Returns the number of wall-clock seconds needed execute cpu_sec CPU seconds'''
-        return cpu_sec * (1.0 / self.getCpuSecPerWallSec())
+        return Fraction(cpu_sec) * (Fraction(1.0) / self.getCpuSecPerWallSec())
 
     def updateJobs(self, time):
         '''
@@ -526,22 +533,27 @@ class UpstreamCpu:
             is the job that was added to the system first. An event should
             fire within the same time unit that will remove the next job.
         '''
+        time = Fraction(time)
 
         finished_jobs = set()
 
         if self.last_event_time != None:
             elapsed_sec = time - self.last_event_time
         else:
-            elapsed_sec = 0.0
+            elapsed_sec = Fraction(0.0)
 
         cpu_sec = self.getCpuSec(elapsed_sec)
-
         # update job.time for all jobs
+        print "update"
         for job in self.jobs:
             job.time -= cpu_sec
+            print "job%d = %f" % (job.job_id, job.time)
             assert(job.time >= 0.0)
             if job.time == 0.0:
+                print "finished"
                 finished_jobs.add(job)
+            elif job.time < 0.00001:
+                print "almost finished"
 
         if len(finished_jobs) == 0:
             return None
@@ -596,7 +608,7 @@ class UpstreamCpu:
         finished_job is a reference to the successfully finished job (or None if no job
             successfully finished)
         '''
-        time = self.sim.time
+        time = Fraction(self.sim.time)
 
         # Each job has made progress on the CPU since the last
         # event, so update the jobs accordingly
@@ -608,6 +620,7 @@ class UpstreamCpu:
         elif isinstance(message, KillJobMessage):
             self.killJob(message.job)
         elif isinstance(message, NewJobMessage):
+            assert(len(self.jobs) < self.max_jobs)
             new_job = self.newJob(message, message.job_time)
         else:
             raise ValueError("Unexpected message type")
