@@ -36,6 +36,7 @@ echo $TRACE_FILENAME
 $DOORMAN_LEGIT --stderr off --trace-filename $TRACE_FILENAME --url "/index.php?title=Main_Page" --regex MediaWiki $* &
 sleep $TEST_TIME
 kill $!
+pkill -f "doorman_overload\.sh"
 cat $TRACE_FILENAME | $DOORMAN_ANALYZE > $SUMMARY_FILENAME
 
 echo "done"
