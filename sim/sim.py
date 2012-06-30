@@ -40,7 +40,6 @@
 #       * event_loop
 #
 # TODO: ensure all exceptions get propagated to critical and break execution
-#
 
 import os
 import sys
@@ -52,6 +51,9 @@ import heapq
 import logging
 
 # floating point numbers are bad for precise simulations, because floating point numbers aren't precise
+# TODO: Is using Fraction instead of float OK? I'm worried about numerators and
+# denominators growing exorbitantly large, leading to big performance hits.
+# Maybe Decimal is the right thing
 from fractions import Fraction
 
 DIRNAME = os.path.dirname(os.path.realpath(__file__))
