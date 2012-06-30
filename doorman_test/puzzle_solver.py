@@ -185,16 +185,15 @@ class ClientThread(threading.Thread):
     def request(self, url):
 
         self.logger.debug("%d Requesting %s", self.thread_id, url)
-        conn = httplib.HTTPConnection(self.server, timeout=self.timeout)
-        conn.request("GET", url)
         try:
+            conn = httplib.HTTPConnection(self.server, timeout=self.timeout)
+            conn.request("GET", url)
             response = conn.getresponse()
+            if response.status != 200:
+                return ("%s" % response.status, None)
+            text = response.read()
         except socket.timeout:
             return("timeout", None)
-
-        if response.status != 200:
-            return ("%s" % response.status, None)
-        text = response.read()
 
         if self.regex_target.search(text):
             self.logger.debug("%d Received target response", self.thread_id)
