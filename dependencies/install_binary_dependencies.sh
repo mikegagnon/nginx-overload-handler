@@ -53,3 +53,6 @@ apt-get install -y \
     python-pip \
     python-software-properties
 
+# Server benchmarking tools such as ab
+apt-get install -y apache2-utils
+
