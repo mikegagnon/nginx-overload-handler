@@ -1130,7 +1130,7 @@ ngx_http_upstream_free_overload_peer(
     // nginx and the fastcgi workers, so that way nginx will always know (with high confidence) when a fastcgi
     // worker is truly idle. But until, then upstream_overload can ensure workers are truly idle when they
     // are freed by ---killing the worker after it is freed---
-    send_overload_alert(peer_state, peer, pc->log);
+    // send_overload_alert(peer_state, peer, pc->log);
 
     dd_log3(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_free_overload_peer(pc=%p, request_data=%p, connection_state=%d): releasing lock",
         pc, request_data, connection_state);
