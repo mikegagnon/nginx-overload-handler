@@ -43,20 +43,32 @@ class Bayes:
 
     def buildModel(self):
         '''
-        initializes self.token_model, which maps (token, category) pairs to
+        initializes self.token_model, self.category_model, and self.token_freq
+        token_model maps (token, category) pairs to
         P(TOKEN == token | CATEGORY == category), i.e. the probability
-        that you observe that token, given that the instance belongs to
-        category
+        that you observe that token, given that the instance belongs to category
+        category_model maps category to the probability that a given exemplar
+        belongs to category
+        token_freq maps each token the probability that token is observed (regardless
+        of category)
         '''
         self.token_model = {}
         self.total_observations = 0.0
+        self.token_freq = {}
         for category in self.observations:
             self.total_observations += float(len(self.observations[category]))
             for exemplar in self.observations[category]:
                 for token in exemplar:
+                    if token not in self.token_freq:
+                        self.token_freq[token] = 0.0
+                    self.token_freq[token] += 1.0
                     if (token, category) not in self.token_model:
                         self.token_model[(token, category)] = 0.0
                     self.token_model[(token, category)] += 1.0
+
+        for token in self.token_freq:
+            self.token_freq[token] /= self.total_observations
+            print "%s --> %f" % (token, self.token_freq[token])
 
         num_categories = float(len(self.observations.keys()))
         self.category_model = {}
@@ -67,6 +79,15 @@ class Bayes:
         for (token, category), count in sorted(self.token_model.items()):
             self.token_model[(token, category)] = float(count) / float(len(self.observations[category]))
             print "%s --> %f" % ((token, category), self.token_model[(token, category)])
+
+
+    def classify(self, observation):
+        '''
+        observation is a set of tokens
+        '''
+        pass
+#        for cat, cat_prob in self.category_model:
+            
 
 
 x = {
