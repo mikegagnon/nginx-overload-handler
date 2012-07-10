@@ -259,17 +259,13 @@ class Classifier:
         #for token in tokens:
         #    for cat in self.category_model:
         #print "classify(%s): " % tokens
-        for token in model_tokens:
-            for cat in self.category_model:
-                # prob = probability that an exemplar from cat has this token
-                prob = model.get((token, cat), self.default_prob)
-                #present = "here"
-                if token not in tokens:
-                    # prob = probability that an exemplar from cat DOES NOT have this token
-                    prob = 1.0 - prob
-                    #present = "----"
-                #print "%s %s, %s --> %f" % (present, token, cat, prob)
-                products[cat] *= prob
+        for token in tokens:
+            if token in model_tokens:
+                for cat in self.category_model:
+                    # prob = probability that an exemplar from cat has this token
+                    prob = model.get((token, cat), self.default_prob)
+                    #print "%s %s, %s --> %f" % (present, token, cat, prob)
+                    products[cat] *= prob
 
         max_product = 0.0
         max_cat = None
@@ -284,8 +280,8 @@ class Classifier:
 if __name__ == "__main__":
     import os
     d = "/home/beergarden/Desktop/trec05p-1/spam25"
-    num_ham = 1000
-    num_spam = 1000
+    num_ham = 100
+    num_spam = 100
     index_filename = os.path.join(d, "index")
     ham_filenames = set()
     spam_filenames = set()
@@ -314,14 +310,14 @@ if __name__ == "__main__":
 
     for filename in ham_filenames:
         with open(filename) as f:
-            tokens = splitTokens(f.read(), "\s+", 3)
+            tokens = splitTokens(f.read(), "\s+", 2)
             observations["good"].append(tokens)
 
     for filename in spam_filenames:
         with open(filename) as f:
-            tokens = splitTokens(f.read(), "\s+", 3)
+            tokens = splitTokens(f.read(), "\s+", 2)
             observations["bad"].append(tokens)
 
-    v = Validate(observations)
+    v = Validate(observations, small_model=True)
     v.validate()
 
