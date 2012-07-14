@@ -22,66 +22,53 @@ import itertools
 import random
 import json
 import re
+import os
+import argparse
 
-class NotEnoughDataException(Exception):
-    pass
+import logging
 
-def splitTokens(string, regex_str="\s+", ngrams=1):
-    '''
-    splits string according to regex and returns set of n-gram tokens
-    '''
-    r = re.compile(regex_str)
-    token_list = r.split(string)
-    tokens = set()
-    for i in xrange(len(token_list) - ngrams + 1):
-        print i
-        seq = str(token_list[i:i + ngrams])
-        tokens.add(seq)
-    return tokens
+DIRNAME = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(DIRNAME, '..', 'common'))
+
+import log
 
 class Validate:
 
-    def __init__(self, observations, model_size=5000, small_model=True):
-        assert(len(observations.keys()) == 2)
-        assert("good" in observations)
-        assert("bad" in observations)
+    def __init__(self, positive, negative, logger, **kwargs):
+        self.positive = positive
+        self.negative = negative
+        self.logger = logger
+        self.kwargs = kwargs
 
-        self.observations = observations
-        self.model_size = model_size
-        self.small_model = small_model
-
-    def test_fold(self, test, train):
-        print "fold"
-        print "test: %s" % test
-        print "train: %s" % train
-        classifier = Classifier(train, self.model_size)
+    def test_fold(self, test_positive, test_negative, train_positive, train_negative, fold_num):
+        classifier = Classifier(train_positive, train_negative, **self.kwargs)
         tp = 0
         fp = 0
         tn = 0
         fn = 0
-        for good_example in test["good"]:
-            result = classifier.classify(good_example, self.small_model)
-            print "classified good_example %s as %s" % (good_example, result)
-            if result == "good":
-                tn += 1
-            else:
-                fp += 1
-        for bad_example in test["bad"]:
-            result = classifier.classify(bad_example, self.small_model)
-            print "classified bad_example %s as %s" % (bad_example, result)
-            if result == "bad":
+        count = 0
+        for positive_example in test_positive:
+            count += 1
+            result = classifier.classify(positive_example)
+            if result == "positive":
                 tp += 1
+                self.logger.debug("(%d, %d) true positive", fold_num, count)
             else:
                 fn += 1
-        print "tp = %d" % tp
-        print "fp = %d" % fp
-        print "tn = %d" % tn
-        print "fn = %d" % fn
+                self.logger.debug("(%d, %d) false neative", fold_num, count)
+        for negative_example in test_negative:
+            count += 1
+            result = classifier.classify(negative_example)
+            if result == "negative":
+                tn += 1
+                self.logger.debug("(%d, %d) true negative", fold_num, count)
+            else:
+                fp += 1
+                self.logger.debug("(%d, %d) false positive", fold_num, count)
         self.tp += tp
         self.fp += fp
         self.tn += tn
         self.fn += fn
-        print
 
     def validate(self, num_folds=10):
         # do num_folds_times
@@ -92,232 +79,197 @@ class Validate:
         self.fp = 0
         self.tn = 0
         self.fn = 0
-        num_test = {}
-        for cat, exemplars in self.observations.items():
-            num_exemplars = len(exemplars)
-            num_test_cat = max(1, int(float(num_exemplars) / float(num_folds)))
-            num_train_cat = num_exemplars - num_test_cat
-            if num_test_cat < 1 or num_train_cat < 1:
-                raise NotEnoughDataException(cat)
-            num_test[cat] = num_test_cat
 
         for i in xrange(0, num_folds):
-            test = {}
-            train = {}
-            for cat, exemplars in self.observations.items():
-                random.shuffle(exemplars)
-                test_list = exemplars[0:num_test[cat]]
-                train_list = exemplars[num_test[cat]:]
-                test[cat] = test_list
-                train[cat] = train_list
-            self.test_fold(test, train)
+            random.shuffle(self.positive)
+            random.shuffle(self.negative)
+
+            num_test_positive = max(1, int(len(self.positive) / float(num_folds)))
+            num_test_negative = max(1, int(len(self.negative) / float(num_folds)))
+
+            train_positive = self.positive[0:num_test_positive]
+            test_positive = self.positive[num_test_positive:]
+            train_negative = self.negative[0:num_test_negative]
+            test_negative = self.negative[num_test_negative:]
+
+            self.test_fold(test_positive, test_negative, train_positive, train_negative, i)
 
         sys.stderr.write("tp = %d\n" % self.tp)
         sys.stderr.write("fp = %d\n" % self.fp)
         sys.stderr.write("tn = %d\n" % self.tn)
         sys.stderr.write("fn = %d\n" % self.fn)
 
+class Prob:
+
+    def __init__(self):
+        '''
+        for a given token,
+        positive_count = num occurences of token in positive dataset
+        positive_prob = P(token | positive)
+        similar definition for negative
+        '''
+        self.positive_count = 0.0
+        self.negative_count = 0.0
+        self.positive_prob = None
+        self.negative_prob = None
+
+    def inc(self, category):
+        assert(category == "positive" or category == "negative")
+        if category == "positive":
+            self.positive_count += 1.0
+        else:
+            self.negative_count += 1.0
+
+    def rank(self):
+        return abs(self.positive_prob - self.negative_prob)
+
+    def done(self, num_positive_messages, num_negative_messages):
+        self.positive_count = max(self.positive_count, 0.5)
+        self.negative_count = max(self.negative_count, 0.5)
+        self.positive_prob = self.positive_count / float(num_positive_messages)
+        self.negative_prob = self.negative_count / float(num_negative_messages)
+
+    def __str__(self):
+        return "rank=%f, pcount=%d, ncount=%d, pprob=%s, nprob=%s" % \
+            (self.rank(),
+            self.positive_count, self.negative_count, self.positive_prob, self.negative_prob)
+
 class Classifier:
 
-    def __init__(self, observations, model_size=5000):
+    def __init__(self, positive, negative, model_size=5000, rare_threshold=0.05):
         '''
-        obsevations is a dict that maps category names (e.g. "good" and "bad")
-        to a list of exemplars. Each exemplar is a set of tokens.
-        Example observations ==
-        {
-            "good" : [
-               set("a", "b", "c"),
-               set("c", "d")
-            ],
-            "bad" : [
-               set("a"),
-               set("b", "c", "d"),
-               set("x", "y"),
-            ]
-        }
+        positive is a list of "positive" messages, where each message is a set of tokens
+        And similarly for negative
         '''
+        self.positive = positive
+        self.negative = negative
+        self.model_size = model_size
+        self.rare_threshold = rare_threshold
+        self.buildModel()
 
-        self.observations = observations
-        self.buildModels()
-        self.buildFeatureRank()
-        self.abridgeModel(model_size)
-
-    def abridgeModel(self, model_size):
+    def buildModel(self):
         '''
-        remove all but the N most important tokens from the model
-        (where N == model_size)
+        sets self.model, which maps tokens to corresponding Prob objects
+        sets self.positive_prior
+        sets self.negative_prior
         '''
 
-        tokens = self.tokenRank[:model_size]
-        tokens = [pair[1] for pair in tokens]
-        tokens = set(tokens)
-        #print "tokens = %s" % tokens
+        num_positive_messages = len(self.positive)
+        num_negative_messages = len(self.negative)
+        total_messages = num_positive_messages + num_negative_messages
+        self.positive_prior = float(num_positive_messages) / float(total_messages)
+        self.negative_prior = float(num_negative_messages) / float(total_messages)
 
-        self.small_token_model = {}
-        self.small_tokens = set()
-        for (token, cat), prob in self.token_model.items():
-            if token in tokens:
-                self.small_token_model[(token, cat)] = prob
-                self.small_tokens.add(token)
+        model = {}
 
-        #print "small_token_model"
-        #for (token, category), prob in sorted(self.small_token_model.items()):
-            #print "%s --> %f" % ((token, category), prob)
+        # count tokens
+        for category, messages in (("positive", self.positive), ("negative", self.negative)):
+            for token in itertools.chain(*messages):
+                if token not in model:
+                    model[token] = Prob()
+                model[token].inc(category)
+
+        # calculate probabilities for tokens
+        [token.done(num_positive_messages, num_negative_messages) for token in model.values()]
+
+        # filter out rare tokens
+        for token, prob in model.items():
+            if max(prob.positive_prob, prob.negative_prob) < self.rare_threshold:
+                del(model[token])
+
+        # sort according to the information gain for each token, and take best N
+        sorted_model = sorted(model.items(), reverse=True, cmp=lambda x,y: cmp(x[1].rank(), y[1].rank()))
+        sorted_model = sorted_model[:self.model_size]
+
+        self.model = dict(sorted_model)
+
+    def __str__(self):
+        items = sorted(self.model.items(), reverse=True, cmp=lambda x,y: cmp(x[1].rank(), y[1].rank()))
+        lines = ["'%s' --> %s" % (token, prob) for token, prob in items]
+        return "\n".join(lines)
 
 
-    def buildFeatureRank(self):
-        '''
-        builds an abridged version of self.token_model for only the most important
-        features
-        '''
+    def classify(self, message):
 
-        category_pairs = list(itertools.combinations(self.category_model.keys(), 2))
+        positive_product = self.positive_prior
+        negative_product = self.negative_prior
 
-        # importance of a token t = abs(P(t | good) - P(t | bad))
-        self.tokenRank = []
-        for token, _ in self.token_freq.items():
-            max_importance = 0.0
-            for cat1, cat2 in category_pairs:
-                p1 = self.token_model.get((token, cat1), 0.0)
-                p2 = self.token_model.get((token, cat2), 0.0)
-                importance = abs(p1 - p2)
-                max_importance = max(max_importance, importance)
-            self.tokenRank.append((max_importance, token))
+        for token in message:
+            if token in self.model:
+                positive_product *= self.model[token].positive_prob
+                negative_product *= self.model[token].negative_prob
 
-        self.tokenRank.sort(reverse=True)
-        #print "importance"
-        #for importance, token in self.tokenRank:
-            #print "token %s --> %f" % (token, importance)
-
-    def buildModels(self):
-        '''
-        initializes self.token_model, self.category_model, and self.token_freq
-        token_model maps (token, category) pairs to
-        P(TOKEN == token | CATEGORY == category), i.e. the probability
-        that you observe that token, given that the instance belongs to category
-        category_model maps category to the probability that a given exemplar
-        belongs to category
-        token_freq maps each token the probability that token is observed (regardless
-        of category)
-        '''
-        self.token_model = {}
-        self.total_observations = 0.0
-        self.token_freq = {}
-        for category in self.observations:
-            self.total_observations += float(len(self.observations[category]))
-            for exemplar in self.observations[category]:
-                for token in exemplar:
-                    if token not in self.token_freq:
-                        self.token_freq[token] = 0.0
-                    self.token_freq[token] += 1.0
-                    if (token, category) not in self.token_model:
-                        self.token_model[(token, category)] = 0.0
-                    self.token_model[(token, category)] += 1.0
-
-        for token in self.token_freq:
-            self.token_freq[token] /= self.total_observations
-            #print "%s --> %f" % (token, self.token_freq[token])
-
-        num_categories = float(len(self.observations.keys()))
-        self.category_model = {}
-        for category in self.observations:
-            self.category_model[category] = float(len(self.observations[category])) / self.total_observations
-            #print "%s --> %f" % (category, self.category_model[category])
-
-        #print "token_model"
-        min_prob = 1.0
-        for (token, category), count in sorted(self.token_model.items()):
-            self.token_model[(token, category)] = float(count) / float(len(self.observations[category]))
-            prob = self.token_model[(token, category)]
-            #print "%s --> %f" % ((token, category), prob)
-            min_prob = min(min_prob, prob)
-
-        self.default_prob = min_prob / 2.0
-        #print "default_prob = %f" % self.default_prob
-
-    def classify(self, tokens, small_model=True):
-        '''
-        for each cat:
-            p(cat | features) = P(cat) * product[P(f_i|cat) ]
-        '''
-        if small_model:
-            model = self.small_token_model
-            model_tokens = self.small_tokens
+        if positive_product > negative_product:
+            return "positive"
         else:
-            model = self.token_model
-            model_tokens = self.token_freq.keys()
+            return "negative"
 
-        #print "model"
-        #print model
+def splitTokensNgrams(string, regex_str="\s+", ngrams=1):
+    '''
+    splits string according to regex and returns set of n-gram tokens
+    '''
+    r = re.compile(regex_str)
+    token_list = r.split(string)
+    token_list = filter(lambda t: t != '', token_list)
+    tokens = set()
+    for i in xrange(len(token_list) - ngrams + 1):
+        seq = str(token_list[i:i + ngrams])
+        tokens.add(seq)
+    return tokens
 
-        products = {}
-        for cat in self.category_model:
-            products[cat] = self.category_model[cat]
+def splitTokens(string, regex_str="\s+"):
+    '''
+    splits string according to regex and returns set of n-gram tokens
+    '''
+    r = re.compile(regex_str)
+    tokens = r.split(string)
+    tokens = filter(lambda t: t != '', tokens)
+    return set(tokens)
 
-        # wrong -- also need to take 1 - prob for tokens that don't exist
-        # should probably just loop around tokens in the small model
-        #for token in tokens:
-        #    for cat in self.category_model:
-        #print "classify(%s): " % tokens
-        for token in tokens:
-            if token in model_tokens:
-                for cat in self.category_model:
-                    # prob = probability that an exemplar from cat has this token
-                    prob = model.get((token, cat), self.default_prob)
-                    #print "%s %s, %s --> %f" % (present, token, cat, prob)
-                    products[cat] *= prob
+def splitTokensMap(string, regex_str="\s+", map_func=str.lower):
+    '''
+    splits string according to regex and returns set of n-gram tokens
+    '''
+    tokens = splitTokens(string, regex_str)
+    return set([map_func(t) for t in tokens])
 
-        max_product = 0.0
-        max_cat = None
-        for cat, product in products.items():
-            if product > max_product:
-                max_product = product
-                max_cat = cat
-
-        #print "classify(%s) --> %s" % (tokens, max_cat)
-        return max_cat
+def load_samples(filenames, do_lines=False, tokenize_func=splitTokensMap):
+    messages = []
+    for filename in filenames:
+        with open(filename, 'r') as f:
+            if do_lines:
+               temp_messages = f.readlines()
+            else:
+               temp_messages = [f.read()]
+        temp_messages = [tokenize_func(m) for m in temp_messages]
+        messages += temp_messages
+    return messages
 
 if __name__ == "__main__":
-    import os
-    d = "/home/beergarden/Desktop/trec05p-1/spam25"
-    num_ham = 100
-    num_spam = 100
-    index_filename = os.path.join(d, "index")
-    ham_filenames = set()
-    spam_filenames = set()
-    with open(index_filename) as f:
-        for line in f:
-            parts = line.split()
-            assert(len(parts) == 2)
-            assert(parts[0] == "spam" or parts[0] == "ham")
-            filename = os.path.join(d, parts[1])
-            if parts[0] == "spam":
-                spam_filenames.add(filename)
-            else:
-                ham_filenames.add(filename)
+    cwd = os.getcwd()
 
-    ham_filenames = list(ham_filenames)
-    spam_filenames = list(spam_filenames)
-    random.shuffle(ham_filenames)
-    random.shuffle(spam_filenames)
-    ham_filenames = ham_filenames[0:num_ham]
-    spam_filenames = spam_filenames[0:num_spam]
+    parser = argparse.ArgumentParser(description='Naive bayesian classifier')
 
-    observations = {
-        "good" : [],
-        "bad" : []
-    }
+    parser.add_argument("-p", "--positive", type=str, required=True, nargs="+",
+                    help="REQUIRED. List of files containing positive samples")
+    parser.add_argument("-n", "--negative", type=str, required=True, nargs="+",
+                    help="REQUIRED. List of files containing negative samples")
+    parser.add_argument("-l", "--line", action='store_true',
+                    help="If set then each line in sample files is considered a distinct sample. "
+                    "(If not set then then each file is considered a different sample)")
+    parser.add_argument("-m", "--model-size", type=int, default=5000,
+                    help="Default=%(default)s. Number of features to include in model")
+    parser.add_argument("-r", "--rare", type=float, default=0.05,
+                    help="Default=%(default)s. A feature must occur in at least RARE proportion "
+                    "of positive or negative samples for it to be part of the model")
 
-    for filename in ham_filenames:
-        with open(filename) as f:
-            tokens = splitTokens(f.read(), "\s+", 2)
-            observations["good"].append(tokens)
+    log.add_arguments(parser)
+    args = parser.parse_args()
+    logger = log.getLogger(args)
 
-    for filename in spam_filenames:
-        with open(filename) as f:
-            tokens = splitTokens(f.read(), "\s+", 2)
-            observations["bad"].append(tokens)
+    positive = load_samples(args.positive, do_lines=args.line)
+    negative = load_samples(args.negative, do_lines=args.line)
 
-    v = Validate(observations, small_model=True)
-    v.validate()
-
+    validate = Validate(positive, negative, logger, \
+        model_size=args.model_size, rare_threshold=args.rare)
+    validate.validate()
