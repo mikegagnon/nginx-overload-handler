@@ -591,6 +591,9 @@ send_overload_alert(
     ngx_http_upstream_overload_peer_t *peer,
     ngx_log_t *log)
 {
+
+    // SIGSERVICE: mark this peer as being evicted
+
     char buf[STATIC_ALLOC_STR_BYTES];
 
     if (overload_conf.alert_pipe_path[0] == '\0') {
@@ -888,6 +891,8 @@ ngx_http_upstream_init_overload_peer(
     request_data->peer_index = NGX_PEER_INVALID;
     request_data->freed = 0;
 
+    // SIGSERVICE: set request_data->req_str
+
     r->upstream->peer.data = request_data;
 
     dd2("_init_overload_peer(r=%p, us=%p): exiting --> returned NGX_OK", r, us);
@@ -1006,6 +1011,7 @@ ngx_http_upstream_get_overload_peer(
     }
 
     peer = &peer_state->peer[request_data->peer_index];
+    // SIGSERVICE: mark this peer as non-evicted
 
     // push the peer onto the busy list
     ngx_peer_list_push(&peer_state->busy_list, "busy_list", peer, pc->log);
@@ -1087,6 +1093,9 @@ ngx_http_upstream_free_overload_peer(
     request_data->freed = 1;
 
     peer = &peer_state->peer[peer_index];
+
+    // SIGSERVICE: send message to alert_router with copy of request string
+    // and identifying this request as evicted or not
 
     dd_log4(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_free_overload_peer(pc=%p, request_data=%p, connection_state=%d): peer_index==%d",
         pc, request_data, connection_state, peer_index);
