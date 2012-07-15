@@ -185,7 +185,7 @@ class Classifier:
 
     def __str__(self):
         items = sorted(self.model.items(), reverse=True, cmp=lambda x,y: cmp(x[1].rank(), y[1].rank()))
-        lines = ["'%s' --> %s" % (token, prob) for token, prob in items]
+        lines = ["%s,%f,%f" % (token, prob.positive_prob, prob.negative_prob) for token, prob in items]
         return "\n".join(lines)
 
 
@@ -250,6 +250,8 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Naive bayesian classifier')
 
+    parser.add_argument("-o", "--output", choices=["validate", "model"], default="validate",
+                    help="Default=%(default)s. Run a validation or output a model?")
     parser.add_argument("-p", "--positive", type=str, required=True, nargs="+",
                     help="REQUIRED. List of files containing positive samples")
     parser.add_argument("-n", "--negative", type=str, required=True, nargs="+",
@@ -270,6 +272,13 @@ if __name__ == "__main__":
     positive = load_samples(args.positive, do_lines=args.line)
     negative = load_samples(args.negative, do_lines=args.line)
 
-    validate = Validate(positive, negative, logger, \
-        model_size=args.model_size, rare_threshold=args.rare)
-    validate.validate()
+    if args.output == "validate":
+        validate = Validate(positive, negative, logger, \
+            model_size=args.model_size, rare_threshold=args.rare)
+        validate.validate()
+    elif args.output == "model":
+        c = Classifier(positive, negative, model_size=args.model_size, rare_threshold=args.rare)
+        print c
+    else:
+        raise ValueError()
+
