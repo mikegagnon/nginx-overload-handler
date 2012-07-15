@@ -231,6 +231,9 @@ struct ngx_http_upstream_overload_peer_s {
     // busy == 0 if this peer is idle, busy != 0 if this peer is busy
     ngx_uint_t                          busy;
 
+    // evicted == 0 if not yet evicted, and == 1 if evicted
+    ngx_uint_t                          evicted;
+
     // peer objects will be stored in an array, but peers can also be
     // linked together in doubly linked lists
     ngx_http_upstream_overload_peer_t  *prev;
@@ -336,6 +339,9 @@ typedef struct {
     // because there is a bug in nginx that causes peer.free to be
     // be called multiple times for the same connection
     ngx_uint_t                           freed;
+
+    // a string summarizing the request -- used by signature service and doorman
+    ngx_str_t                            request_str;
 
     // The index of the peer that is handling this request
     ngx_uint_t                           peer_index;

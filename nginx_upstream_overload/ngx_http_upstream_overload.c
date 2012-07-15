@@ -592,8 +592,6 @@ send_overload_alert(
     ngx_log_t *log)
 {
 
-    // SIGSERVICE: mark this peer as being evicted
-
     char buf[STATIC_ALLOC_STR_BYTES];
 
     if (overload_conf.alert_pipe_path[0] == '\0') {
@@ -876,6 +874,12 @@ ngx_http_upstream_init_overload_peer(
     ngx_http_request_t *r,
     ngx_http_upstream_srv_conf_t *us)
 {
+    static ngx_str_t    request_str_varname = ngx_string("request_uri");
+    static ngx_uint_t   request_str_hash = 0;
+    if (request_str_hash == 0) {
+        request_str_hash = ngx_hash_key(request_str_varname.data, request_str_varname.len);
+    }
+
     ngx_http_upstream_overload_request_data_t *request_data;
     ngx_upstream_overload_peer_data_t *peer_data = us->peer.data;
 
@@ -891,7 +895,18 @@ ngx_http_upstream_init_overload_peer(
     request_data->peer_index = NGX_PEER_INVALID;
     request_data->freed = 0;
 
-    // SIGSERVICE: set request_data->req_str
+    // set request_data->request_str
+    ngx_variable_value_t *value = ngx_http_get_variable(r, &request_str_varname, request_str_hash);
+    if (value->not_found) {
+        dd_error1(NGX_LOG_ERR, r->connection->log, 0, "request_str: could not find variable: %V", &request_str_varname);
+        ngx_str_null(&request_data->request_str);
+    } else {
+        request_data->request_str.len = value->len;
+        request_data->request_str.data = ngx_pcalloc(r->pool, value->len);
+        ngx_cpystrn(request_data->request_str.data, value->data, value->len + 1);
+        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+           "request_str: %V == '%V'", &request_str_varname, &request_data->request_str);
+    }
 
     r->upstream->peer.data = request_data;
 
@@ -1000,6 +1015,7 @@ ngx_http_upstream_get_overload_peer(
 
         dd_log2(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_get_overload_peer(pc=%p, request_data=%p): No peers available; cannot forward request.\n\n", pc, request_data);
 
+        peer_state->busy_list.head->evicted = 1;
         send_overload_alert(peer_state, peer_state->busy_list.head, pc->log);
 
         ngx_http_upstream_overload_update_stats(pc->log, peer_state, 1, 1, 1);
@@ -1011,7 +1027,7 @@ ngx_http_upstream_get_overload_peer(
     }
 
     peer = &peer_state->peer[request_data->peer_index];
-    // SIGSERVICE: mark this peer as non-evicted
+    peer->evicted = 0;
 
     // push the peer onto the busy list
     ngx_peer_list_push(&peer_state->busy_list, "busy_list", peer, pc->log);
@@ -1029,6 +1045,7 @@ ngx_http_upstream_get_overload_peer(
 
     // update evicted statistics and send alert if needed
     if (peer_state->idle_list.len < overload_conf.num_spare_backends) {
+        peer_state->busy_list.head->evicted = 1;
         send_overload_alert(peer_state, peer_state->busy_list.head, pc->log);
         ngx_http_upstream_overload_update_stats(pc->log, peer_state, 1, 0, 1);
     } else {
@@ -1093,6 +1110,11 @@ ngx_http_upstream_free_overload_peer(
     request_data->freed = 1;
 
     peer = &peer_state->peer[peer_index];
+    if (peer->evicted) {
+        dd_log1(NGX_LOG_DEBUG_HTTP, pc->log, 0, "request_str evicted:'%V'", &request_data->request_str);
+    } else {
+        dd_log1(NGX_LOG_DEBUG_HTTP, pc->log, 0, "request_str completed:'%V'", &request_data->request_str);
+    }
 
     // SIGSERVICE: send message to alert_router with copy of request string
     // and identifying this request as evicted or not
