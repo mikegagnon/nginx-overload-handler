@@ -59,6 +59,8 @@ from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 
+import Queue
+import threading
 import time
 
 from bouncer_common import *
@@ -68,6 +70,35 @@ HEART_BEAT_PERIOD=60
 
 class GetBouncerException(ValueError):
     pass
+
+class PipeReader(threading.Thread):
+
+    def __init__(self, filename, queue, logger):
+        threading.Thread.__init__(self)
+        self.filename = filename
+        self.queue = queue
+        self.logger = logger
+
+    def run(self):
+        while True:
+            try:
+                self.logger.info("Waiting for pipe to open")
+                with open(self.filename) as alert_pipe:
+                    self.logger.debug("Pipe opened")
+                    #self.requestHeartbeat()
+                    while True:
+                        self.logger.info("Waiting for message")
+                        pipe_message = alert_pipe.readline()
+                        if pipe_message == "":
+                            self.logger.info("Pipe closed")
+                            break
+                        self.queue.put(pipe_message)
+
+
+            except Exception as e:
+                self.logger.exception("unexpected exception")
+                time.sleep(1)
+
 
 class AlertRouter:
 
@@ -124,60 +155,52 @@ class AlertRouter:
         except Thrift.TException, e:
             self.logger.error("Thrift exception: %s" % e)
 
-    def getBouncer(self, pipe_message):
-        '''Returns a BoucerAddress object for bouncer that should receive the alert.
-        Returns None if the pipe_message should be ignored.
-        Throws a GetBouncerException exception if there is a problem.'''
+    def parseMessage(self, pipe_message):
+        self.logger.debug("pipe_message=%s", pipe_message)
         if pipe_message == "init":
             self.logger.debug("Ignoring 'init' pipe_message")
-            return None
+            return "init", None
+        elif pipe_message.startswith("evicted:"):
+            return "evicted", None
+        elif pipe_message.startswith("completed:"):
+            return "completed", None
         else:
             if pipe_message in self.config.worker_map:
-                return self.config.worker_map[pipe_message]
+                return "bouncer", self.config.worker_map[pipe_message]
             else:
                 raise GetBouncerException("Error: Received alert from pipe that I do not recognize '%s'" % pipe_message)
 
     def run(self):
+        queue = Queue.Queue()
+        pipereader = PipeReader(self.config.alert_pipe, queue, self.logger)
+        pipereader.start()
 
         while True:
             try:
-                self.logger.info("Waiting for pipe to open")
-                with open(self.config.alert_pipe) as alert_pipe:
-                    self.logger.debug("Pipe opened")
-                    self.requestHeartbeat()
-                    while True:
-                        self.logger.info("Waiting for message")
-                        rfds, _, _ = select( [alert_pipe], [], [], HEART_BEAT_PERIOD)
-                        # if reading alert_pipe timed out
-                        if len(rfds) == 0:
-                            self.requestHeartbeat()
-                        else:
-                            self.logger.debug("Received message (or pipe closed)")
-                            pipe_message = alert_pipe.readline()
-                            if pipe_message == "":
-                                self.logger.info("Pipe closed")
-                                break
-                            else:
-                                pipe_message = pipe_message.rstrip()
-                                self.logger.debug('Received from pipe: "%s"' % pipe_message)
-                                try:
-                                    self.logger.debug("Getting bouncer")
-                                    bouncer = self.getBouncer(pipe_message)
-                                    self.logger.debug("Got bouncer")
-                                except GetBouncerException, e:
-                                    self.logger.error(e.message)
-                                    bouncer = None
+                pipe_message = queue.get(timeout=HEART_BEAT_PERIOD)
+            except Queue.Empty:
+                self.requestHeartbeat()
+                continue
 
-                                if bouncer:
-                                    self.logger.info("Sending alert")
-                                    self.sendAlert(bouncer, pipe_message)
-                                    self.logger.debug("Sent alert")
-                                else:
-                                    self.logger.debug("Not sending alert")
+            pipe_message = pipe_message.rstrip()
+            self.logger.debug('Received from pipe: "%s"' % pipe_message)
+            try:
+                self.logger.debug("Parsing message")
+                message_type, message = self.parseMessage(pipe_message)
+                self.logger.debug("Got message type = %s", message_type)
+            except GetBouncerException, e:
+                self.logger.error(e.message)
+                message_type, message = None, None
 
-            except Exception as e:
-                self.logger.exception("unexpected exception")
-                time.sleep(1)
+            if message_type == "bouncer":
+                bouncer = message
+                self.logger.info("Sending alert")
+                self.sendAlert(bouncer, pipe_message)
+                self.logger.debug("Sent alert")
+            elif message_type == "evicted" or message_type == "completed":
+                self.logger.info("Forwarding to sig service: %s", pipe_message[:40])
+            else:
+                self.logger.debug("Ignoring message")
 
 if __name__ == "__main__":
 
