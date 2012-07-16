@@ -609,6 +609,35 @@ send_overload_alert(
     }
 }
 
+static void
+send_sigservice_message(
+    ngx_http_upstream_overload_peer_state_t *state,
+    ngx_http_upstream_overload_peer_t *peer,
+    ngx_str_t * request_str,
+    ngx_log_t *log)
+{
+
+    char buf[MAX_SIG_SERVICE_MESSAGE];
+
+    if (overload_conf.alert_pipe_path[0] == '\0') {
+        dd_log0(NGX_LOG_DEBUG_HTTP, log, 0, "can't send message because messages are disabled");
+    } else {
+        dd_log1(NGX_LOG_DEBUG_HTTP, log, 0, "sending sigservice message for peer %d", peer->peer_config->index);
+        init_alert_pipe(state, log);
+
+        if (state->alert_pipe != NGX_INVALID_FILE) {
+            if (peer->evicted) {
+                ngx_snprintf((u_char *) buf, sizeof(buf), "evicted:%V\n%Z", request_str);
+            } else {
+                ngx_snprintf((u_char *) buf, sizeof(buf), "completed:%V\n%Z", request_str);
+            }
+            write_alert(state, buf, (size_t) ngx_strlen(buf), log);
+        } else {
+            dd_log0(NGX_LOG_DEBUG_HTTP, log, 0, "can't send message because state->alert_pipe == NGX_INVALID_FILE");
+        }
+    }
+}
+
 // initializes state by copying the peer configuation into state
 static ngx_int_t
 ngx_http_upstream_overload_init_peer_state(
@@ -1162,6 +1191,7 @@ ngx_http_upstream_free_overload_peer(
     // worker is truly idle. But until, then upstream_overload can ensure workers are truly idle when they
     // are freed by ---killing the worker after it is freed---
     send_overload_alert(peer_state, peer, pc->log);
+    send_sigservice_message(peer_state, peer, &request_data->request_str, pc->log);
 
     dd_log3(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_free_overload_peer(pc=%p, request_data=%p, connection_state=%d): releasing lock",
         pc, request_data, connection_state);

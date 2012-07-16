@@ -39,6 +39,7 @@
 #define DEFAULT_NUM_SPARE_BACKENDS 1
 #define DEFAULT_ALERT_PIPE_PATH ""
 #define STATIC_ALLOC_STR_BYTES 256
+#define MAX_SIG_SERVICE_MESSAGE 2048
 
 // TODO: Make this a config option
 // Number of seconds in window used calculating stats
