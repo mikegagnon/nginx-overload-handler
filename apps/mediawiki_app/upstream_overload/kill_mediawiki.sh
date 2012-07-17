@@ -19,11 +19,11 @@
 # USAGE: sudo ./kill_mediawiki.sh
 #
 
-pkill -f "php_bouncer.py"
+pkill -f "python.*php_bouncer.py"
 pkill -f "php-cgi"
-pkill -f "alert_router.py"
+pkill -f "python.*alert_router.py"
 sleep 2
-pkill -9 -f "php_bouncer.py"
+pkill -9 -f "python.*php_bouncer.py"
 pkill -9 -f "php-cgi"
-pkill -9 -f "alert_router.py"
+pkill -9 -f "python.*alert_router.py"
 
