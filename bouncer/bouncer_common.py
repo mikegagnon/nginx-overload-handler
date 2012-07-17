@@ -23,8 +23,15 @@
 #
 # {
 #    "alert_pipe" : "/home/nginx_user/alert_pipe",
-#    "sigservice_addr" : "127.0.0.1",
-#    "sigservice_port" : 4001,
+#    "sigservice" : {
+#       "addr" : "127.0.0.1",
+#       "port" : 4001,
+#       "sig_file" : "/home/nginx_user/sig_file",
+#       "max_sample_size" : 100,
+#       "update_requests" : 100,
+#       "min_delay" : 1,
+#       "max_delay" : 5
+#    },
 #    "bouncers" : [
 #       {
 #           "bouncer_addr" : "10.51.23.65",
@@ -57,7 +64,8 @@
 #     alert to the bouncer daemon on 10.51.23.65, which is listening on port
 #     10012.
 #   - And so on for the bouncer on .66
-#
+#   - For description of sigservice config run sigservice.py -h
+#       - the sigservice part of the config is optional
 
 import sys
 import json
@@ -79,8 +87,7 @@ class Config:
     def __init__(self, fd):
         '''fd is an open file containing the config
         sets:
-            self.sigservice_addr
-            self.sigservice_port
+            self.sigservice to a dict
             self.alert_pipe to the path of alert_pipe.
             self.worker_map which is a dict that maps every FCGI worker string
                 to a BouncerAddress object.
@@ -97,13 +104,25 @@ class Config:
         self.bouncer_map = {}
         self.bouncer_list = []
 
-        if "sigservice_addr" not in json_config:
-            raise BadConfig("sigservice_addr is not defined")
-        self.sigservice_addr = str(json_config["sigservice_addr"])
+        if "sigservice" not in json_config:
+            self.sigservice = None
+        else:
+            self.sigservice = json_config["sigservice"]
 
-        if "sigservice_port" not in json_config:
-            raise BadConfig("sigservice_port is not defined")
-        self.sigservice_port = str(json_config["sigservice_port"])
+            if "addr" not in self.sigservice:
+                raise BadConfig("sigservice[addr] is not defined")
+            if "port" not in self.sigservice:
+                raise BadConfig("sigservice[port] is not defined")
+            if "sig_file" not in self.sigservice:
+                raise BadConfig("sigservice[sig_file] is not defined")
+            if "max_sample_size" not in self.sigservice:
+                raise BadConfig("sigservice[max_sample_size] is not defined")
+            if "update_requests" not in self.sigservice:
+                raise BadConfig("sigservice[update_requests] is not defined")
+            if "min_delay" not in self.sigservice:
+                raise BadConfig("sigservice[min_delay] is not defined")
+            if "max_delay" not in self.sigservice:
+                raise BadConfig("sigservice[max_delay] is not defined")
 
         if "alert_pipe" not in json_config:
             raise BadConfig("alert_pipe is not defined")
@@ -131,8 +150,7 @@ class Config:
     def __str__(self):
         '''Just for debugging'''
         result = {}
-        result['sigervice_addr'] = self.sigservice_addr
-        result['sigservice_port'] = self.sigservice_port
+        result['sigservice'] = self.sigservice
         result['alert_pipe'] = self.alert_pipe
         result['worker_map'] = self.worker_map
         result['bouncer_map'] = self.bouncer_map

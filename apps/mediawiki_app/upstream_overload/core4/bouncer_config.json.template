@@ -1,7 +1,14 @@
 {
     "alert_pipe" : "TEMPLATE_ALERT_PIPE_PATH",
-    "sigservice_addr" : "127.0.0.1",
-    "sigservice_port" : 4001,
+    "sigservice" : {
+        "addr" : "127.0.0.1",
+        "port" : 4001,
+        "sig_file" : "/home/nginx_user/sig_file",
+        "max_sample_size" : 100,
+        "update_requests" : 100,
+        "min_delay" : 1,
+        "max_delay" : 5
+    },
     "bouncers" : [
         {
             "bouncer_addr" : "127.0.0.1",

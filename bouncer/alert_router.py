@@ -138,8 +138,6 @@ class AlertRouter:
                 self.logger.error("Error while requesting heartbeat from Bouncer %s:%d --> %s" % (bouncer.addr, bouncer.port, exception))
 
     def sendAlert(self, bouncer, alert_message):
-        # TODO catch remote exception
-
         try:
           transport = TSocket.TSocket(bouncer.addr, bouncer.port)
           transport = TTransport.TBufferedTransport(transport)
@@ -159,13 +157,12 @@ class AlertRouter:
             self.logger.error("Thrift exception: %s" % e)
 
     def sendNotice(self, category, request_str):
-        # TODO catch remote exception
         if category != "evicted" and category != "completed":
             self.logger.error("Unsupported category: %s", category)
             return
 
         try:
-          transport = TSocket.TSocket(self.config.sigservice_addr, self.config.sigservice_port)
+          transport = TSocket.TSocket(self.config.sigservice["addr"], self.config.sigservice["port"])
           transport = TTransport.TBufferedTransport(transport)
           protocol = TBinaryProtocol.TBinaryProtocol(transport)
           client = SignatureService.Client(protocol)
@@ -229,8 +226,11 @@ class AlertRouter:
                 self.sendAlert(bouncer, pipe_message)
                 self.logger.debug("Sent alert")
             elif message_type == "evicted" or message_type == "completed":
-                self.logger.info("Forwarding to sig service: %s", pipe_message[:40])
-                self.sendNotice(message_type, message)
+                if self.config.sigservice != None:
+                    self.logger.info("Forwarding to sig service: %s", pipe_message[:40])
+                    self.sendNotice(message_type, message)
+                else:
+                    self.logger.info("Ignoring sig-service notice: %s", pipe_message[:40])
             else:
                 self.logger.debug("Ignoring message")
 

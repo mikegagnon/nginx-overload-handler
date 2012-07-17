@@ -38,6 +38,7 @@ import time
 DIRNAME = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(DIRNAME, 'gen-py'))
 sys.path.append(os.path.join(DIRNAME, '..', 'common'))
+sys.path.append(os.path.join(DIRNAME, '..', 'bouncer'))
 
 import log
 
@@ -52,6 +53,7 @@ from thrift.Thrift import TException
 from SignatureService import SignatureService
 from SignatureService.ttypes import *
 
+from bouncer_common import Config
 
 class LearnThread(threading.Thread):
 
@@ -83,6 +85,8 @@ class LearnThread(threading.Thread):
             while not (num_new_samples >= self.update_requests and (time.time() - last_update >= self.min_delay)):
                 try:
                     timeout = self.max_delay - (time.time() - last_update)
+                    if timeout <= 0.0:
+                        raise Queue.Empty()
                     self.logger.debug("waiting for %fs before next update", timeout)
                     category, request_str = self.queue.get(timeout=timeout)
                     self.logger.debug("Received sample: %s --> %s", category, request_str)
@@ -112,7 +116,9 @@ class LearnThread(threading.Thread):
 
 class SigServer:
 
-    def __init__(self, port, max_sample_size, update_requests, min_delay, max_delay, logger):
+    def __init__(self, sig_file, addr, port, max_sample_size, update_requests, min_delay, max_delay, logger):
+        self.sig_file = sig_file
+        self.addr = addr
         self.port = port
         self.queue = Queue.Queue()
         self.max_sample_size = max_sample_size
@@ -148,6 +154,13 @@ class SigServer:
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Signature service')
+    parser.add_argument("-c", "--config", type=str, default=None,
+                        help="Default=%(default)s. Config filename. If given, then overrides all other command line args.")
+    parser.add_argument("-f", "--sig-file", type=str, default="signature.txt",
+                        help="Default=%(default)s. Signature file that sigservice produces. Should be mounted "
+                        "on ramdisk for maximum performance.")
+    parser.add_argument("-a", "--addr", type=str, default="127.0.0.1",
+                        help="Default=%(default)d. Alert router will send notifcations to SigService at ADDR")
     parser.add_argument("-p", "--port", type=int, default=4001,
                         help="Default=%(default)d. Port to listen from")
     parser.add_argument("-m", "--max-sample-size", type=int, default=100,
@@ -164,16 +177,28 @@ if __name__ == "__main__":
     log.add_arguments(parser)
     args = parser.parse_args()
     logger = log.getLogger(args)
-    logger.info("Command line arguments: %s" % str(args))
 
-
-    s = SigServer(
-        args.port,
-        args.max_sample_size,
-        args.update_requests,
-        args.min_delay,
-        args.max_delay,
-        logger)
+    if args.config != None:
+        logger.info("Config file: %s", args.config)
+        try:
+            with open(args.config) as f:
+                config = Config(f)
+        except:
+            logger.critical("Error while parsing config file. View bouncer/bouncer_common.py for format of config.")
+            raise
+        logger.info("config: %s", config)
+        s = SigServer(logger=logger, **config.sigservice)
+    else:
+        logger.info("Command line arguments: %s" % str(args))
+        s = SigServer(
+            args.sig_file,
+            args.addr,
+            args.port,
+            args.max_sample_size,
+            args.update_requests,
+            args.min_delay,
+            args.max_delay,
+            logger)
 
     s.run()
 
