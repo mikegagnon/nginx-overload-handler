@@ -295,7 +295,7 @@ void main(int argc, char *argv[]) {
     bayes_feature *current, *tmp;
 
     int classification = classify(features, apriori_positive, argv[2]);
-    printf("%d\n", classification);
+    printf("%s\n", classification > 0 ? "positive" : "negative");
 
 }
 

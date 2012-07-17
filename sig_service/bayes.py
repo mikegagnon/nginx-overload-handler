@@ -226,6 +226,10 @@ def splitTokens(string, regex_str="\s+"):
     tokens = filter(lambda t: t != '', tokens)
     return set(tokens)
 
+invalid_url_char = re.compile("[^a-z0-9%]")
+def splitTokensUrl(string):
+    return set(invalid_url_char.sub(' ', string.lower()).split())
+
 def splitTokensMap(string, regex_str="\s+", map_func=str.lower):
     '''
     splits string according to regex and returns set of n-gram tokens
@@ -233,7 +237,7 @@ def splitTokensMap(string, regex_str="\s+", map_func=str.lower):
     tokens = splitTokens(string, regex_str)
     return set([map_func(t) for t in tokens])
 
-def load_samples(filenames, do_lines=False, tokenize_func=splitTokensMap):
+def load_samples(filenames, do_lines=False, tokenize_func=splitTokensUrl):
     messages = []
     for filename in filenames:
         with open(filename, 'r') as f:
@@ -250,12 +254,14 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Naive bayesian classifier')
 
-    parser.add_argument("-o", "--output", choices=["validate", "model"], default="validate",
+    parser.add_argument("-o", "--output", choices=["validate", "model", "classify"], default="validate",
                     help="Default=%(default)s. Run a validation or output a model?")
     parser.add_argument("-p", "--positive", type=str, required=True, nargs="+",
                     help="REQUIRED. List of files containing positive samples")
     parser.add_argument("-n", "--negative", type=str, required=True, nargs="+",
                     help="REQUIRED. List of files containing negative samples")
+    parser.add_argument("-c", "--classify", type=str, default=None,
+                    help="REQUIRED iff OUTPUT = classify. String to classify.")
     parser.add_argument("-l", "--line", action='store_true',
                     help="If set then each line in sample files is considered a distinct sample. "
                     "(If not set then then each file is considered a different sample)")
@@ -279,6 +285,11 @@ if __name__ == "__main__":
     elif args.output == "model":
         c = Classifier(positive, negative, model_size=args.model_size, rare_threshold=args.rare)
         print c
+    elif args.output == "classify":
+        if args.classify == None:
+            raise ValueError()
+        c = Classifier(positive, negative, model_size=args.model_size, rare_threshold=args.rare)
+        print c.classify(splitTokensUrl(args.classify))
     else:
         raise ValueError()
 
