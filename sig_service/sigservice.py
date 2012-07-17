@@ -16,14 +16,24 @@
 #
 # ==== sigservice.py ====
 #
+# Note: calculating/estimating the a prior probability of high-density is tricky
+# because we classify before admittance, but we only train on samples after they're
+# admitted. So the a priori probability of high-density might truly be 0.99
+# but the SigService might see twice as many low-density requests as high density
+# requests.
+#
+# So really, the Doorman is the only component that can estimate this probability.
+#
 
 import bayes
 import sys
 import os
 import argparse
 
+import threading
 import logging
 import Queue
+import time
 
 DIRNAME = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(DIRNAME, 'gen-py'))
@@ -39,7 +49,9 @@ from thrift.protocol import TBinaryProtocol
 from thrift.server import TServer
 from thrift.Thrift import TException
 
-import log
+from SignatureService import SignatureService
+from SignatureService.ttypes import *
+
 
 class LearnThread(threading.Thread):
 
@@ -57,23 +69,27 @@ class LearnThread(threading.Thread):
         self.max_delay = max_delay
         self.logger = logger
 
+    def tokenize(self, request_str):
+        return bayes.splitTokensUrl(request_str)
+
     def run(self):
-        last_update = time.time()
         self.evicted = []
         self.completed = []
 
         while True:
+            last_update = time.time()
             num_new_samples = 0
             # read in a bunch of request_str's until its time to create a new signature
             while not (num_new_samples >= self.update_requests and (time.time() - last_update >= self.min_delay)):
                 try:
                     timeout = self.max_delay - (time.time() - last_update)
+                    self.logger.debug("waiting for %fs before next update", timeout)
                     category, request_str = self.queue.get(timeout=timeout)
                     self.logger.debug("Received sample: %s --> %s", category, request_str)
                     num_new_samples += 1
                     if category == "evicted":
                         self.evicted.append(self.tokenize(request_str))
-                    if category == "completed":
+                    elif category == "completed":
                         self.completed.append(self.tokenize(request_str))
                     else:
                         self.logger.error("Unexpected message from queue: (%s, %s)", category, request_str)
@@ -81,18 +97,29 @@ class LearnThread(threading.Thread):
                     self.logger.info("update_time expired; time to build a new signature")
                     break
 
+            elapsed = time.time() - last_update
+            self.logger.info("Time since last update: %fs", elapsed)
+            self.logger.info("Samples since last update: %d", num_new_samples)
+
+            self.logger.info("Building new signature")
             self.evicted = self.evicted[-self.max_sample_size:]
             self.completed = self.completed[-self.max_sample_size:]
+            for i, sample in enumerate(self.evicted):
+                self.logger.info("evicted-%d: %s", i, sample)
+            for i, sample in enumerate(self.completed):
+                self.logger.info("completed-%d: %s", i, sample)
 
 
-class SignatureService:
+class SigServer:
 
-    def __init__(self, port, logger, update_requests, update_time):
+    def __init__(self, port, max_sample_size, update_requests, min_delay, max_delay, logger):
         self.port = port
-        self.logger = logger
-        self.update_requests = update_requests
-        self.update_time = update_time
         self.queue = Queue.Queue()
+        self.max_sample_size = max_sample_size
+        self.update_requests = update_requests
+        self.min_delay = min_delay
+        self.max_delay = max_delay
+        self.logger = logger
 
     def evicted(self, request_str):
         self.queue.put(("evicted", request_str))
@@ -101,6 +128,12 @@ class SignatureService:
         self.queue.put(("completed", request_str))
 
     def run(self):
+
+        # launch learn thread
+        lt = LearnThread(self.queue, self.max_sample_size, self.update_requests, self.min_delay, self.max_delay, self.logger)
+        lt.start()
+
+        # Launch thrift service
         processor = SignatureService.Processor(self)
         transport = TSocket.TServerSocket(port=self.port)
         tfactory = TTransport.TBufferedTransportFactory()
@@ -112,4 +145,35 @@ class SignatureService:
         server.serve()
         self.logger.info("finished")
 
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description='Signature service')
+    parser.add_argument("-p", "--port", type=int, default=4001,
+                        help="Default=%(default)d. Port to listen from")
+    parser.add_argument("-m", "--max-sample-size", type=int, default=100,
+                        help="Default=%(default)d. Maximium number of samples to use (from each category) when developing a signature")
+    parser.add_argument("-u", "--update-requests", type=int, default=100,
+                        help="Default=%(default)d. If UPDATE-REQUESTS samples come in (and at least MIN-DELAY seconds have elapsed since "
+                        "the last signature) then develop a new signature")
+    parser.add_argument("-n", "--min-delay", type=float, default=1.0,
+                        help="Default=%(default)f. Minimum number of seconds that must pass between successive signature updates")
+    parser.add_argument("-x", "--max-delay", type=float, default=5.0,
+                        help="Default=%(default)f. Maximum number of seconds that may pass before a new signature is generated")
+
+
+    log.add_arguments(parser)
+    args = parser.parse_args()
+    logger = log.getLogger(args)
+    logger.info("Command line arguments: %s" % str(args))
+
+
+    s = SigServer(
+        args.port,
+        args.max_sample_size,
+        args.update_requests,
+        args.min_delay,
+        args.max_delay,
+        logger)
+
+    s.run()
 

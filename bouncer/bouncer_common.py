@@ -22,7 +22,9 @@
 # ==== Example config ====
 #
 # {
-#    "alert_pipe" : "/home/nginx_user/alert_pipe"
+#    "alert_pipe" : "/home/nginx_user/alert_pipe",
+#    "sigservice_addr" : "127.0.0.1",
+#    "sigservice_port" : 4001,
 #    "bouncers" : [
 #       {
 #           "bouncer_addr" : "10.51.23.65",
@@ -77,6 +79,8 @@ class Config:
     def __init__(self, fd):
         '''fd is an open file containing the config
         sets:
+            self.sigservice_addr
+            self.sigservice_port
             self.alert_pipe to the path of alert_pipe.
             self.worker_map which is a dict that maps every FCGI worker string
                 to a BouncerAddress object.
@@ -92,6 +96,14 @@ class Config:
         self.worker_map = {}
         self.bouncer_map = {}
         self.bouncer_list = []
+
+        if "sigservice_addr" not in json_config:
+            raise BadConfig("sigservice_addr is not defined")
+        self.sigservice_addr = str(json_config["sigservice_addr"])
+
+        if "sigservice_port" not in json_config:
+            raise BadConfig("sigservice_port is not defined")
+        self.sigservice_port = str(json_config["sigservice_port"])
 
         if "alert_pipe" not in json_config:
             raise BadConfig("alert_pipe is not defined")
@@ -119,6 +131,8 @@ class Config:
     def __str__(self):
         '''Just for debugging'''
         result = {}
+        result['sigervice_addr'] = self.sigservice_addr
+        result['sigservice_port'] = self.sigservice_port
         result['alert_pipe'] = self.alert_pipe
         result['worker_map'] = self.worker_map
         result['bouncer_map'] = self.bouncer_map

@@ -1,5 +1,7 @@
 {
     "alert_pipe" : "TEMPLATE_ALERT_PIPE_PATH",
+    "sigservice_addr" : "127.0.0.1",
+    "sigservice_port" : 4001,
     "bouncers" : [
         {
             "bouncer_addr" : "127.0.0.1",

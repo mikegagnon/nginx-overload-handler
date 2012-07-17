@@ -39,6 +39,7 @@ import argparse
 DIRNAME = os.path.dirname(os.path.realpath(__file__))
 
 sys.path.append(os.path.join(DIRNAME, 'gen-py'))
+sys.path.append(os.path.join(DIRNAME, '..', 'sig_service', 'gen-py'))
 sys.path.append(os.path.join(DIRNAME, '..', 'common'))
 
 import log
@@ -53,6 +54,11 @@ from select import select
 from BouncerService import BouncerService
 from BouncerService.ttypes import *
 from BouncerService.constants import *
+
+from SignatureService import SignatureService
+from SignatureService.ttypes import *
+from SignatureService.constants import *
+
 
 from thrift import Thrift
 from thrift.transport import TSocket
@@ -131,9 +137,6 @@ class AlertRouter:
             except Thrift.TException, exception:
                 self.logger.error("Error while requesting heartbeat from Bouncer %s:%d --> %s" % (bouncer.addr, bouncer.port, exception))
 
-    # TODO: Find and fix bug. During one run the boucner hung after
-    # printing "Sending alert" suggesting this method never finished
-    # for some reason.
     def sendAlert(self, bouncer, alert_message):
         # TODO catch remote exception
 
@@ -155,15 +158,43 @@ class AlertRouter:
         except Thrift.TException, e:
             self.logger.error("Thrift exception: %s" % e)
 
+    def sendNotice(self, category, request_str):
+        # TODO catch remote exception
+        if category != "evicted" and category != "completed":
+            self.logger.error("Unsupported category: %s", category)
+            return
+
+        try:
+          transport = TSocket.TSocket(self.config.sigservice_addr, self.config.sigservice_port)
+          transport = TTransport.TBufferedTransport(transport)
+          protocol = TBinaryProtocol.TBinaryProtocol(transport)
+          client = SignatureService.Client(protocol)
+
+          transport.open()
+
+          if category == "evicted":
+              client.evicted(request_str)
+          elif category == "completed":
+              client.completed(request_str)
+          else:
+              assert(False)
+
+          transport.close()
+
+          self.logger.info("Successfully sent %s notice '%s' to Signature service", category, request_str[:60])
+
+        except Thrift.TException, e:
+            self.logger.error("Thrift exception: %s" % e)
+
     def parseMessage(self, pipe_message):
         self.logger.debug("pipe_message=%s", pipe_message)
         if pipe_message == "init":
             self.logger.debug("Ignoring 'init' pipe_message")
             return "init", None
         elif pipe_message.startswith("evicted:"):
-            return "evicted", None
+            return "evicted", pipe_message[8:]
         elif pipe_message.startswith("completed:"):
-            return "completed", None
+            return "completed", pipe_message[10:]
         else:
             if pipe_message in self.config.worker_map:
                 return "bouncer", self.config.worker_map[pipe_message]
@@ -199,6 +230,7 @@ class AlertRouter:
                 self.logger.debug("Sent alert")
             elif message_type == "evicted" or message_type == "completed":
                 self.logger.info("Forwarding to sig service: %s", pipe_message[:40])
+                self.sendNotice(message_type, message)
             else:
                 self.logger.debug("Ignoring message")
 

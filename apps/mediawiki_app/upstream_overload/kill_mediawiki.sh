@@ -22,8 +22,10 @@
 pkill -f "python.*php_bouncer.py"
 pkill -f "php-cgi"
 pkill -f "python.*alert_router.py"
+pkill -f "python.*sigservice.py"
 sleep 2
 pkill -9 -f "python.*php_bouncer.py"
 pkill -9 -f "php-cgi"
 pkill -9 -f "python.*alert_router.py"
+pkill -9 -f "python.*sigservice.py"
 

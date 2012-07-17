@@ -26,4 +26,5 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 $DIR/run_bouncer.sh &
 $DIR/run_alert_router.sh &
+$DIR/run_sigservice.sh &
 
