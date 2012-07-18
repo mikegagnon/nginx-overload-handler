@@ -57,7 +57,8 @@ from bouncer_common import Config
 
 class LearnThread(threading.Thread):
 
-    def __init__(self, queue, max_sample_size, update_requests, min_delay, max_delay, logger):
+    def __init__(self, queue, sig_file, max_sample_size, update_requests, \
+        min_delay, max_delay, bayes_classifier, logger):
         '''
         creates a new signature whenever it receives at least update_requests requests
         or max_delay seconds have passed since that last signature.
@@ -65,6 +66,12 @@ class LearnThread(threading.Thread):
         '''
         threading.Thread.__init__(self)
         self.queue = queue
+        self.bayes_classifier = bayes_classifier
+
+        # make sure bayes_classifier is valid
+        test = bayes.Classifier( [], [], **self.bayes_classifier)
+
+        self.sig_file = sig_file
         self.max_sample_size = max_sample_size
         self.update_requests = update_requests
         self.min_delay = min_delay
@@ -112,12 +119,24 @@ class LearnThread(threading.Thread):
                 self.logger.info("evicted-%d: %s", i, sample)
             for i, sample in enumerate(self.completed):
                 self.logger.info("completed-%d: %s", i, sample)
+            classifier = bayes.Classifier(self.evicted, self.completed, **self.bayes_classifier)
+            with open(self.sig_file, 'w') as f:
+                f.write(str(classifier) + "\n")
+
 
 
 class SigServer:
 
-    def __init__(self, sig_file, addr, port, max_sample_size, update_requests, min_delay, max_delay, logger):
+    def __init__(self, sig_file, addr, port, max_sample_size, update_requests, \
+        min_delay, max_delay, bayes_classifier, logger):
+
         self.sig_file = sig_file
+        self.bayes_classifier = bayes_classifier
+
+        classifier = bayes.Classifier( [], [], **self.bayes_classifier)
+        with open(self.sig_file, 'w') as f:
+            f.write(str(classifier) + "\n")
+
         self.addr = addr
         self.port = port
         self.queue = Queue.Queue()
@@ -136,7 +155,7 @@ class SigServer:
     def run(self):
 
         # launch learn thread
-        lt = LearnThread(self.queue, self.max_sample_size, self.update_requests, self.min_delay, self.max_delay, self.logger)
+        lt = LearnThread(self.queue, self.sig_file, self.max_sample_size, self.update_requests, self.min_delay, self.max_delay, self.bayes_classifier, self.logger)
         lt.start()
 
         # Launch thrift service
@@ -159,8 +178,12 @@ if __name__ == "__main__":
     parser.add_argument("-f", "--sig-file", type=str, default="signature.txt",
                         help="Default=%(default)s. Signature file that sigservice produces. Should be mounted "
                         "on ramdisk for maximum performance.")
+    parser.add_argument("-bm", "--bayes-model-size", type=int, default=5000,
+                        help="Default=%(default)d. Size of Bayes model; see bayes.py")
+    parser.add_argument("-br", "--bayes-rare-threshold", type=float, default=0.01,
+                        help="Default=%(default)f. Rarity threshold for Bayes model; see bayes.py")
     parser.add_argument("-a", "--addr", type=str, default="127.0.0.1",
-                        help="Default=%(default)d. Alert router will send notifcations to SigService at ADDR")
+                        help="Default=%(default)s. Alert router will send notifcations to SigService at ADDR")
     parser.add_argument("-p", "--port", type=int, default=4001,
                         help="Default=%(default)d. Port to listen from")
     parser.add_argument("-m", "--max-sample-size", type=int, default=100,
@@ -198,6 +221,10 @@ if __name__ == "__main__":
             args.update_requests,
             args.min_delay,
             args.max_delay,
+            {
+                "model_size" : args.bayes_model_size,
+                "rare_threshold" : args.bayes_rare_threshold,
+            },
             logger)
 
     s.run()

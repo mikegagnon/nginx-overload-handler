@@ -1,6 +1,10 @@
 {
     "alert_pipe" : "TEMPLATE_ALERT_PIPE_PATH",
     "sigservice" : {
+        "bayes_classifier" : {
+            "model_size" : 5000,
+            "rare_threshold" : 0.01
+        },
         "addr" : "127.0.0.1",
         "port" : 4001,
         "sig_file" : "/home/nginx_user/sig_file",

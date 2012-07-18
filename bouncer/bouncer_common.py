@@ -24,6 +24,10 @@
 # {
 #    "alert_pipe" : "/home/nginx_user/alert_pipe",
 #    "sigservice" : {
+#       "bayes_classifier" : {
+#           "model_size" : 5000,
+#           "rare_threshold" : 0.01
+#       },
 #       "addr" : "127.0.0.1",
 #       "port" : 4001,
 #       "sig_file" : "/home/nginx_user/sig_file",
@@ -66,6 +70,7 @@
 #   - And so on for the bouncer on .66
 #   - For description of sigservice config run sigservice.py -h
 #       - the sigservice part of the config is optional
+#       - for the description of bayes classifier, run bayes.py -h
 
 import sys
 import json
@@ -109,6 +114,12 @@ class Config:
         else:
             self.sigservice = json_config["sigservice"]
 
+            if "bayes_classifier" not in self.sigservice:
+                raise BadConfig("sigservice[bayes_classifier] is not defined")
+            if "model_size" not in self.sigservice["bayes_classifier"]:
+                raise BadConfig("sigservice[bayes_classifier][model_size] is not defined")
+            if "rare_threshold" not in self.sigservice["bayes_classifier"]:
+                raise BadConfig("sigservice[bayes_classifier][rare_threshold] is not defined")
             if "addr" not in self.sigservice:
                 raise BadConfig("sigservice[addr] is not defined")
             if "port" not in self.sigservice:

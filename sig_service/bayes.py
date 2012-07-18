@@ -126,8 +126,15 @@ class Prob:
     def done(self, num_positive_messages, num_negative_messages):
         self.positive_count = max(self.positive_count, 0.5)
         self.negative_count = max(self.negative_count, 0.5)
-        self.positive_prob = self.positive_count / float(num_positive_messages)
-        self.negative_prob = self.negative_count / float(num_negative_messages)
+        if num_positive_messages == 0:
+            self.positive_prob = 1.0 / float(num_negative_messages + 1)
+        else:
+            self.positive_prob = self.positive_count / float(num_positive_messages)
+
+        if num_negative_messages == 0:
+            self.negative_prob = 1.0 / float(num_positive_messages + 1)
+        else:
+            self.negative_prob = self.negative_count / float(num_negative_messages)
 
     def __str__(self):
         return "rank=%f, pcount=%d, ncount=%d, pprob=%s, nprob=%s" % \
@@ -157,8 +164,8 @@ class Classifier:
         num_positive_messages = len(self.positive)
         num_negative_messages = len(self.negative)
         total_messages = num_positive_messages + num_negative_messages
-        self.positive_prior = float(num_positive_messages) / float(total_messages)
-        self.negative_prior = float(num_negative_messages) / float(total_messages)
+        self.positive_prior = 0.5
+        self.negative_prior = 0.5
 
         model = {}
 
@@ -227,6 +234,7 @@ def splitTokens(string, regex_str="\s+"):
     return set(tokens)
 
 invalid_url_char = re.compile("[^a-z0-9%]")
+# TODO: urldecode?
 def splitTokensUrl(string):
     return set(invalid_url_char.sub(' ', string.lower()).split())
 
