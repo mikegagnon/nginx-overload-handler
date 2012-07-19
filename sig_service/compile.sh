@@ -24,8 +24,8 @@
 # $DIR is the absolute path for the directory containing this bash script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+DOORMAN_DIR="$DIR/../nginx_doorman"
 thrift -gen py -o $DIR $DIR/SignatureService.thrift
-gcc -c $DIR/bayes.c
-gcc -c $DIR/bayes_test.c
-gcc $DIR/bayes.o $DIR/bayes_test.o -o $DIR/bayes_test
+gcc -c $DOORMAN_DIR/bayes.c -I $DOORMAN_DIR
+gcc $DIR/bayes.o $DIR/bayes_test.c -I $DOORMAN_DIR -o $DIR/bayes_test
 

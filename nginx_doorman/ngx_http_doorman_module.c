@@ -117,6 +117,7 @@
 
 // is there a better way to include this .h?
 #include "../nginx_upstream_overload/ngx_http_upstream_overload.h"
+#include "bayes.h"
 
 // Defined in upstream_overload module
 // This extern is a hacky way for doorman and load balancer to share memory, but
