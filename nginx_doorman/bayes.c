@@ -24,6 +24,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 /**
  * clears feature hashtable and sets *features = NULL
@@ -144,18 +145,11 @@ char *get_tokens(char *buf, char **token, double * positive, double * negative, 
  * returns number of features read, or a negative number on error
  */
 int load_model(bayes_feature **features, int fd) {
-    char line[MAX_MODEL_LINE_LEN];
-    char *result;
-    int i;
-    int newlines_found;
-    int end_i;
     char *token_str;
     double positive, negative;
-    char *end_str;
     int count = 0;
     char file_buf[MODEL_FILE_BUF_SIZE];
     char *buf;
-    ssize_t next_line_i = 0;
     int err;
 
     delete_model(features);

@@ -33,7 +33,7 @@ void find(bayes_feature *features, char * str) {
     }
 }
 
-void main(int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
     bayes_feature *features = NULL; //, *current;
     double apriori_positive = 0.5;
 
@@ -53,10 +53,10 @@ void main(int argc, char *argv[]) {
         fprintf(stderr, "Error loading model\n");
         exit(1);
     }
-    bayes_feature *current, *tmp;
 
     int classification = classify(features, apriori_positive, argv[2]);
     printf("%s\n", classification > 0 ? "positive" : "negative");
 
+    return 0;
 }
 
