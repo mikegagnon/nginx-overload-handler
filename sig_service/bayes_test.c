@@ -16,8 +16,11 @@
  * ==== tester for bayesian classifier ====
  */
 
-#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <errno.h>
+#include <stdio.h>
 #include "bayes.h"
 
 void find(bayes_feature *features, char * str) {
@@ -39,8 +42,8 @@ void main(int argc, char *argv[]) {
         exit(1);
     }
 
-    FILE *f = fopen(argv[1], "r");
-    if (f == NULL) {
+    int f = open(argv[1], O_RDONLY);
+    if (f == -1) {
         fprintf(stderr, "Error: while opening %s: %s\n", argv[1], strerror(errno));
         exit(1);
     }

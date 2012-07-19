@@ -20,6 +20,8 @@
 
 #define MAX_TOKEN_STR_LEN 128
 #define MAX_MODEL_LINE_LEN 180
+#define MAX_TOKENS  5000
+#define MODEL_FILE_BUF_SIZE ((MAX_MODEL_LINE_LEN + 1) * MAX_TOKENS)
 
 typedef struct {
     char token[MAX_TOKEN_STR_LEN];
@@ -37,4 +39,4 @@ typedef struct {
 void delete_model(bayes_feature ** features);
 bayes_feature *find_feature(bayes_feature *features, char *token);
 void add_feature(bayes_feature **features, char *token, double positive_prob, double negative_prob);
-
+int load_model(bayes_feature **features, int fd);

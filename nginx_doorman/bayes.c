@@ -14,13 +14,16 @@
  *  limitations under the License.
  *
  * ==== bayesian classifier for Doorman ====
+ * TODO: have sig service perform cross validation, and have load_model
+ * read in the results.
  */
 
 #include "uthash.h"
 #include "bayes.h"
 #include <string.h>
-#include <stdio.h>
-#include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 /**
  * clears feature hashtable and sets *features = NULL
@@ -66,6 +69,62 @@ bayes_feature *find_feature(bayes_feature *features, char *token) {
     return feature;
 }
 
+// err != 0 means error; all err values < -1
+// WARNING: this func is not thoroughly tested; it likely contains subtle errors not detected
+// by the regression test
+char *get_tokens(char *buf, char **token, double * positive, double * negative, int *err) {
+    *token = buf;
+    char *pos = NULL;
+    char *neg = NULL;
+    char *endptr;
+    *err = 0;
+
+    // find pos and neg
+    // convert all commas an newlines to nulls
+    for(; buf != NULL; buf++) {
+        if (*buf == ',') {
+            *buf = '\0';
+            if (pos == NULL) {
+                pos = buf + 1;
+            } else if (neg == NULL) {
+                neg = buf + 1;
+            } else {
+                // too many commas
+                *err = -2;
+                return NULL;
+            }
+        }
+        else if (*buf == '\n') {
+            if (pos == NULL || neg == NULL) {
+                // not enough commas
+                *err = -3;
+                return NULL;
+            }
+            // keep skipping newlines until you find a non-newline char
+            for ( ; buf != NULL; buf++) {
+                if (*buf == '\n') {
+                    *buf = '\0';
+                } else {
+                    break;
+                }
+            }
+            break;
+        }
+    }
+
+    *positive = strtod(pos, &endptr);
+    if (endptr == pos) {
+        *err = -4;
+        return NULL;
+    }
+    *negative = strtod(neg, &endptr);
+    if (endptr == neg) {
+        *err = -5;
+        return NULL;
+    }
+    return buf;
+}
+
 /**
  * if *features is not NULL, then clears the previous model
  * loads in a model from model_str and sets *features to point to the
@@ -82,108 +141,53 @@ bayes_feature *find_feature(bayes_feature *features, char *token) {
  * double values.
  * TOKEN should contain fewer than MAX_TOKEN_STR_LEN characters or it
  * will be truncated.
- * returns number of features read, or -1 if error
+ * returns number of features read, or a negative number on error
  */
-int load_model(bayes_feature **features, FILE *file) {
+int load_model(bayes_feature **features, int fd) {
     char line[MAX_MODEL_LINE_LEN];
     char *result;
     int i;
     int newlines_found;
-    int first_comma_i;
-    int second_comma_i;
     int end_i;
-    char *token_str, *pos_str, *neg_str;
+    char *token_str;
     double positive, negative;
     char *end_str;
     int count = 0;
+    char file_buf[MODEL_FILE_BUF_SIZE];
+    char *buf;
+    ssize_t next_line_i = 0;
+    int err;
 
     delete_model(features);
 
-    while (1) {
-        // get a line from the file
-        result = fgets(line, MAX_MODEL_LINE_LEN, file);
-        if (result == NULL) {
-            break;
-        }
-        else if (line[0] == '\n') {
-            continue;
-        }
+    ssize_t bytes_read = read(fd, file_buf, MODEL_FILE_BUF_SIZE);
+    if (bytes_read >= MODEL_FILE_BUF_SIZE) {
+        return -1;
+    }
 
-        // make sure there is 1 newline
-        newlines_found = 0;
-        for (i = 0; i <= MAX_MODEL_LINE_LEN; i++) {
-            if (line[i] == '\n') {
-                newlines_found += 1;
-            } else if (line[i] == '\0') {
-                break;
-            }
-        }
-        if (newlines_found != 1) {
+    // make it a null terminated str for easier parsing
+    file_buf[bytes_read] = '\0';
+    buf = file_buf;
+    while (*buf != '\0') {
+        buf = get_tokens(buf, &token_str, &positive, &negative, &err);
+        if (err != 0) {
             goto abort_load_model;
         }
-
-        // find the two commas
-        first_comma_i = 0;
-        second_comma_i = 0;
-        end_i = 0;
-        for (i = 0; i <= MAX_MODEL_LINE_LEN; i++) {
-            if (line[i] == ',') {
-                if (first_comma_i == 0) {
-                    first_comma_i = i;
-                } else if (second_comma_i == 0) {
-                    second_comma_i = i;
-                } else {
-                    // too many commas
-                    goto abort_load_model;
-                }
-            } else if (line[i] == '\0') {
-                if (end_i == 0) {
-                    end_i = i;
-                }
-                break;
-            } else if (line[i] == '\n') {
-                if (end_i == 0) {
-                    end_i = i;
-                } else {
-                    // too many newlines
-                    goto abort_load_model;
-                }
-            }
-        }
-        // not enough commas
-        if (first_comma_i == 0 || second_comma_i == 0) {
-            goto abort_load_model;
-        }
-
-        // convert commads to null termianted strings, for easier parsing
-        line[first_comma_i] = '\0';
-        line[second_comma_i] = '\0';
-
-        token_str = line;
-        pos_str = &line[first_comma_i + 1];
-        neg_str = &line[second_comma_i + 1];
-
-        positive = strtod(pos_str, &end_str);
-        if (end_str != &line[second_comma_i]) {
-            goto abort_load_model;
-        }
-        negative = strtod(neg_str, &end_str);
-        if (end_str != &line[end_i]) {
-            goto abort_load_model;
-        }
-
-
         add_feature(features, token_str, positive, negative);
         count++;
     }
 
-    fclose(file);
+    if (close(fd) != 0) {
+        err = -1;
+        goto abort_load_model;
+    }
+
     return count;
 
 abort_load_model:
-    fclose(file);
+    close(fd);
     delete_model(features);
-    return -1;
+    return err;
 
 }
 
