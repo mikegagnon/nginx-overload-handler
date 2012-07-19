@@ -25,5 +25,7 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 thrift -gen py -o $DIR $DIR/SignatureService.thrift
-gcc $DIR/bayes.c -o $DIR/bayes
+gcc -c $DIR/bayes.c
+gcc -c $DIR/bayes_test.c
+gcc $DIR/bayes.o $DIR/bayes_test.o -o $DIR/bayes_test
 

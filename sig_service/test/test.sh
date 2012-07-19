@@ -35,7 +35,7 @@ rm -f $OUTPUT_FILE
 
 while read line; do
     PY_RESULT=`$DIR/../bayes.py -p $DIR/sample_positive_train.txt -n $DIR/sample_negative_train.txt -l -o classify -c "$line"`
-    C_RESULT=`$DIR/../bayes $MODEL_FILE "$line"`
+    C_RESULT=`$DIR/../bayes_test $MODEL_FILE "$line"`
     if [ "$PY_RESULT" == "$C_RESULT" ]
     then
         echo "match $PY_RESULT" >> $OUTPUT_FILE
