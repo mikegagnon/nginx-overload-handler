@@ -26,7 +26,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 DOORMAN_DIR="$DIR/../nginx_doorman"
 thrift -gen py -o $DIR $DIR/SignatureService.thrift
-OPT="-W -Wall -Wpointer-arith -Wno-unused-parameter -Wunused-function -Wunused-variable -Wunused-value -Werror"
+OPT="-g -W -Wall -Wpointer-arith -Wno-unused-parameter -Wunused-function -Wunused-variable -Wunused-value -Werror"
 
 rm $DIR/bayes.o $DIR/bayes_test
 gcc $OPT -c $DOORMAN_DIR/bayes.c -I $DOORMAN_DIR -o $DIR/bayes.o

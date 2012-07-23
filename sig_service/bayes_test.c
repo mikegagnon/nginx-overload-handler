@@ -23,6 +23,15 @@
 #include <stdio.h>
 #include "bayes.h"
 
+void print_model(bayes_feature *features) {
+    bayes_feature *current, *tmp;
+    int i = 0;
+    HASH_ITER(hh, features, current, tmp) {
+        printf("'%s', %f, %f\n", current->token, current->positive_prob, current->negative_prob);
+        i++;
+    }
+}
+
 void find(bayes_feature *features, char * str) {
     bayes_feature *current;
     current = find_feature(features, str);
@@ -49,10 +58,12 @@ int main(int argc, char *argv[]) {
     }
 
     int result = load_model(&features, f);
-    if (result <= 0) {
-        fprintf(stderr, "Error loading model\n");
+    if (result < 0) {
+        fprintf(stderr, "Error loading model = %d\n", result);
         exit(1);
     }
+
+    print_model(features);
 
     int classification = classify(features, apriori_positive, argv[2]);
     printf("%s\n", classification > 0 ? "positive" : "negative");

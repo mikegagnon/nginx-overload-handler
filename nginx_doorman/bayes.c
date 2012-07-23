@@ -74,15 +74,27 @@ bayes_feature *find_feature(bayes_feature *features, char *token) {
 // WARNING: this func is not thoroughly tested; it likely contains subtle errors not detected
 // by the regression test
 char *get_tokens(char *buf, char **token, double * positive, double * negative, int *err) {
-    *token = buf;
+    *token = NULL;
+    *positive = -1.0;
+    *negative = -1.0;
     char *pos = NULL;
     char *neg = NULL;
     char *endptr;
     *err = 0;
 
+    // This part can actually only be activated on the first call to get_tokens
+    // if the buf begins with a newline
+    for ( ; *buf != '\0'; buf++) {
+        if (*buf != '\n') {
+            break;
+        }
+    }
+
+    *token = buf;
+
     // find pos and neg
-    // convert all commas an newlines to nulls
-    for(; buf != NULL; buf++) {
+    // convert all commas and newlines to nulls
+    for(; *buf != '\0'; buf++) {
         if (*buf == ',') {
             *buf = '\0';
             if (pos == NULL) {
@@ -102,7 +114,7 @@ char *get_tokens(char *buf, char **token, double * positive, double * negative, 
                 return NULL;
             }
             // keep skipping newlines until you find a non-newline char
-            for ( ; buf != NULL; buf++) {
+            for ( ; *buf != '\0'; buf++) {
                 if (*buf == '\n') {
                     *buf = '\0';
                 } else {
@@ -113,15 +125,17 @@ char *get_tokens(char *buf, char **token, double * positive, double * negative, 
         }
     }
 
-    *positive = strtod(pos, &endptr);
-    if (endptr == pos) {
-        *err = -4;
-        return NULL;
-    }
-    *negative = strtod(neg, &endptr);
-    if (endptr == neg) {
-        *err = -5;
-        return NULL;
+    if (pos != NULL && neg != NULL) {
+        *positive = strtod(pos, &endptr);
+        if (endptr == pos) {
+            *err = -4;
+            return NULL;
+        }
+        *negative = strtod(neg, &endptr);
+        if (endptr == neg) {
+            *err = -5;
+            return NULL;
+        }
     }
     return buf;
 }
@@ -167,8 +181,10 @@ int load_model(bayes_feature **features, int fd) {
         if (err != 0) {
             goto abort_load_model;
         }
-        add_feature(features, token_str, positive, negative);
-        count++;
+        else if (positive >= 0.0 && negative >= 0.0) {
+            add_feature(features, token_str, positive, negative);
+            count++;
+        }
     }
 
     if (close(fd) != 0) {
