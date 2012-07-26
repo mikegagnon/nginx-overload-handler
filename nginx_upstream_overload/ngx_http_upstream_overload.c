@@ -620,9 +620,8 @@ send_sigservice_message(
     char buf[MAX_SIG_SERVICE_MESSAGE];
 
     if (overload_conf.alert_pipe_path[0] == '\0') {
-        dd_log0(NGX_LOG_DEBUG_HTTP, log, 0, "can't send message because messages are disabled");
+        dd_log0(NGX_LOG_DEBUG_HTTP, log, 0, "signature: can't send message because messages are disabled");
     } else {
-        dd_log1(NGX_LOG_DEBUG_HTTP, log, 0, "sending sigservice message for peer %d", peer->peer_config->index);
         init_alert_pipe(state, log);
 
         if (state->alert_pipe != NGX_INVALID_FILE) {
@@ -631,9 +630,10 @@ send_sigservice_message(
             } else {
                 ngx_snprintf((u_char *) buf, sizeof(buf), "completed:%V\n%Z", request_str);
             }
+            dd_log2(NGX_LOG_DEBUG_HTTP, log, 0, "signature: sending sigservice message for peer %d, --> %s", peer->peer_config->index, buf);
             write_alert(state, buf, (size_t) ngx_strlen(buf), log);
         } else {
-            dd_log0(NGX_LOG_DEBUG_HTTP, log, 0, "can't send message because state->alert_pipe == NGX_INVALID_FILE");
+            dd_log0(NGX_LOG_DEBUG_HTTP, log, 0, "signature: can't send message because state->alert_pipe == NGX_INVALID_FILE");
         }
     }
 }
@@ -931,7 +931,7 @@ ngx_http_upstream_init_overload_peer(
         ngx_str_null(&request_data->request_str);
     } else {
         request_data->request_str.len = value->len;
-        request_data->request_str.data = ngx_pcalloc(r->pool, value->len);
+        request_data->request_str.data = ngx_pcalloc(r->pool, value->len + 1);
         ngx_cpystrn(request_data->request_str.data, value->data, value->len + 1);
         ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
            "request_str: %V == '%V'", &request_str_varname, &request_data->request_str);

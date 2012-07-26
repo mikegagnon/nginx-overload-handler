@@ -117,12 +117,35 @@
 
 // is there a better way to include this .h?
 #include "../nginx_upstream_overload/ngx_http_upstream_overload.h"
+
 #include "bayes.h"
 
 // Defined in upstream_overload module
 // This extern is a hacky way for doorman and load balancer to share memory, but
 // it works for now.
 //extern struct ngx_http_upstream_overload_peer_state_s *upstream_overload_peer_state;
+
+// Reload the signature file every RELOAD_SIG_PERIOD seconds
+// TODO improvements:
+//  - Add a unique ID at the top of every signature file. That way Doorman can peek at
+//    the file to determine if it needs reloading
+//  - Have RELOAD_SIG_PERIOD specified via a config parameter
+//  - Only reload signatures when an attack us occuring (or has occured recently)
+#define RELOAD_SIG_PERIOD 1.0
+
+// TODO: config param. Also note this must be on ramdisk for good performance
+#define DOORMAN_SIGFILE  "/home/nginx_user/signature.txt"
+
+// TODO: make this non global and shared-mem safe. Each worker
+// can probably just load its own signature
+bayes_feature * doorman_bayes_model = NULL;
+
+// TODO: adapt this probability based on observations
+#define APRIORI_POSITIVE 0.5
+
+// suspicious requests receive puzzles that take 2^SIG_SERVICE_PENALTY times as long to solve
+// TODO: take confidence score into account when choosing puzzle complexity
+#define SIG_SERVICE_PENALTY 4.0
 
 // md5 has 16-byte hashes
 #define DOORMAN_HASH_LEN 16
@@ -143,9 +166,12 @@ typedef ngx_uint_t doorman_request_type_t;
 // TODO: this global variable is a hack. find a safe, efficient place to put it (and method for accessing it)
 // in shared memory.
 // Holds the last time the puzzle complexity was updated
-time_t      last_puzzle_change  = INVALID_TIME;
-//ngx_uint_t  num_missing_bits    = 0;
-double  num_missing_bits    = 0.0;
+time_t last_puzzle_change = INVALID_TIME;
+
+// Last time the signature was reloaded
+time_t last_sig_reload = INVALID_TIME;
+
+double num_missing_bits = 0.0;
 
 /**
  * Behavior of adapative puzzle
@@ -208,7 +234,7 @@ typedef struct {
     //      expire_delta
     // when validating a puzzle solution, this will be set the expire time
     //      grabbed from the arguments
-    // associated with $doorman_expire
+    // associated with $doqorman_expire
     u_char expire_data[DOORMAN_EXPIRE_STR_SIZE];
     ngx_str_t                  expire;
 
@@ -825,6 +851,32 @@ static void ngx_http_doorman_stats(ngx_http_doorman_aggregate_stats_t * stats, n
 }
 
 static void
+ngx_http_doorman_reload_signature(ngx_http_request_t *r, ngx_http_doorman_conf_t *conf)
+{
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+       "doorman signature: reloading");
+
+    delete_model(&doorman_bayes_model);
+
+    int fd = open(DOORMAN_SIGFILE, O_RDONLY);
+    if (fd == -1) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+            "doorman signature: could not open file '%s'", DOORMAN_SIGFILE);
+        return;
+    }
+
+    int num_features = load_model(&doorman_bayes_model, fd);
+    if (num_features < 0) {
+        ngx_log_error(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+            "doorman signature: error parsing file '%s': error=%d", DOORMAN_SIGFILE, num_features);
+    } else {
+        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+            "doorman signature: read %d feature(s) from '%s'", num_features, DOORMAN_SIGFILE);
+    }
+    last_sig_reload = ngx_time();
+}
+
+static void
 ngx_http_doorman_update_puzzle(ngx_http_request_t *r, ngx_http_doorman_conf_t *conf)
 {
     ngx_http_doorman_aggregate_stats_t stats;
@@ -915,8 +967,50 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
         return NGX_ERROR;
     }
 
+
     /**
-     * Update the puzzle complexity if need be
+     * Relad the signature if needed
+     *************************************************************************/
+    if (last_sig_reload == INVALID_TIME ||
+        ngx_time() - last_sig_reload > RELOAD_SIG_PERIOD) {
+        ngx_http_doorman_reload_signature(r, conf);
+    }
+
+    /**
+     * Classify the request
+     *************************************************************************/
+    static ngx_str_t    request_str_varname = ngx_string("request_uri");
+    static ngx_uint_t   request_str_hash = 0;
+    ngx_str_t           request_str;
+    if (request_str_hash == 0) {
+        request_str_hash = ngx_hash_key(request_str_varname.data, request_str_varname.len);
+    }
+
+    ngx_variable_value_t *value = ngx_http_get_variable(r, &request_str_varname, request_str_hash);
+    if (value->not_found) {
+        dd_error1(NGX_LOG_ERR, r->connection->log, 0, "request_str: could not find variable: %V", &request_str_varname);
+        ngx_str_null(&request_str);
+    } else {
+        request_str.len = value->len;
+        request_str.data = ngx_pcalloc(r->pool, value->len + 1);
+        ngx_cpystrn(request_str.data, value->data, value->len + 1);
+        request_str.data[value->len] = '\0';
+        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+           "request_str: %V == '%s'", &request_str_varname, request_str.data);
+    }
+
+    int classification = classify(doorman_bayes_model, 0.5, (char*) request_str.data);
+    if (classification > 0) {
+        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+           "doorman signature request_str: %V == '%s' --> suspected high-density", &request_str_varname, request_str.data);
+    } else {
+        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+           "doorman signature request_str: %V == '%s' --> suspected low-density", &request_str_varname, request_str.data);
+    }
+
+
+    /**
+     * Update the puzzle complexity if needed
      *************************************************************************/
     if (last_puzzle_change == INVALID_TIME ||
         ngx_time() - last_puzzle_change > PUZZLE_UPDATE_PERIOD) {
@@ -1076,8 +1170,17 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "doorman actual_hash str: \"%V\"", &temp_str);
 
+    double num_missing_bits_request = num_missing_bits;
+    if (classification > 0) {
+        // if the request is suspected to be high-density then increase missing bits
+        num_missing_bits_request += SIG_SERVICE_PENALTY;
+        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "doorman signature missing_bits: suspcious request, increasing missing bits "
+                   "from %f to %f", num_missing_bits, num_missing_bits_request);
+    }
+
     // initialize the $doorman_missing_bits variable
-    ngx_snprintf(ctx->missing_bits.data, sizeof(ctx->missing_bits_data), "%d%Z", (ngx_uint_t) num_missing_bits);
+    ngx_snprintf(ctx->missing_bits.data, sizeof(ctx->missing_bits_data), "%d%Z", (ngx_uint_t) num_missing_bits_request);
     ctx->missing_bits.len = ngx_strlen(ctx->missing_bits_data);
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman: missing_bits == '%V'", &ctx->missing_bits);
