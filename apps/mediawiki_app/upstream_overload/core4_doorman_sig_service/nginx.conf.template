@@ -1,0 +1,124 @@
+
+worker_processes  1;
+
+user nginx_user;
+worker_rlimit_nofile 65535;
+
+error_log   logs/debug.log debug;
+
+events {
+    worker_connections  1024;
+    use epoll;
+}
+
+
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
+
+    # allow 100 MB uploads
+    client_max_body_size 100m;
+
+    sendfile        on;
+
+    keepalive_timeout  65;
+
+    server {
+        listen       80;
+        server_name  TEMPLATE_SERVER_NAME;
+
+        location / {
+            root   TEMPLATE_MEDIAWIKI_PATH;
+            index  index.html index.htm;
+        }
+
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   html;
+        }
+
+        location /puzzle_ssi/ {
+            ssi on;
+            root   TEMPLATE_PUZZLE_SSI_PATH_NGX;
+        }
+
+        location /puzzle_static/ {
+            root   TEMPLATE_PUZZLE_STATIC_PATH_NGX;
+        }
+
+        location /load.php/ {
+            include /usr/local/nginx/conf/fastcgi_params;
+            fastcgi_pass my_backend;
+            fastcgi_index index.php;
+            fastcgi_param SCRIPT_FILENAME TEMPLATE_MEDIAWIKI_PATH$fastcgi_script_name;
+        }
+
+        location ~ \.php$ {
+            # re_delta#This must match the URI part related to the MD5 hash and expiration time.
+            doorman $arg_key,$arg_expire;
+
+            # the names of URL arguments that hold puzzle key and expire time (respectively)
+            doorman_arg_key_name        key;
+            doorman_arg_expire_name     expire;
+
+            doorman_burst_len    1;
+            doorman_sleep_time 200;
+
+            # Number of seconds before puzzle expires
+            doorman_expire_delta 60;
+            doorman_init_missing_bits 0;
+
+            ## The MD5 hash is built from a secret token + uri + args
+            # The doorman module strips the admitkey argument from doorman_md5
+            # For the URL to work properly the admitkey param MUST BE THE LAST param in the URL
+            doorman_md5 secret$doorman_orig_uri$doorman_orig_args$doorman_expire;
+
+            ## If they key is expired
+            if ($doorman_result = "0") {
+                return 403;
+            }
+
+            ## If the hash is incorrect (or non-existent) then $doorman is a null string.
+            if ($doorman_result = "") {
+                rewrite ^.*$ /puzzle_ssi/puzzle.html;
+            }
+
+
+            include /usr/local/nginx/conf/fastcgi_params;
+            fastcgi_pass my_backend;
+            fastcgi_index index.php;
+            fastcgi_param SCRIPT_FILENAME TEMPLATE_MEDIAWIKI_PATH$fastcgi_script_name;
+        }
+    }
+
+    # FastCGI requests will be load balanced using the upstream_overload module
+
+    num_spare_backends 7;
+    alert_pipe TEMPLATE_ALERT_PIPE_PATH;
+
+    upstream my_backend  {
+
+        #activate the upstream_overload module
+        overload;
+
+        server    localhost:9000;
+        server    localhost:9001;
+        server    localhost:9002;
+        server    localhost:9003;
+        server    localhost:9004;
+        server    localhost:9005;
+        server    localhost:9006;
+        server    localhost:9007;
+        server    localhost:9008;
+        server    localhost:9009;
+        server    localhost:9010;
+        server    localhost:9011;
+        server    localhost:9012;
+        server    localhost:9013;
+        server    localhost:9014;
+        server    localhost:9015;
+        server    localhost:9016;
+        server    localhost:9017;
+    }
+}
+
