@@ -121,8 +121,10 @@ class LearnThread(threading.Thread):
             self.logger.info("fp = %d", fp)
             self.logger.info("tn = %d", tn)
             self.logger.info("fn = %d", fn)
-            self.logger.info("fp-rate = %f", float(fp) / (fp + tn))
-            self.logger.info("fn-rate = %f", float(fn) / (fn + tp))
+            if fp + tn > 0:
+                self.logger.info("fp-rate = %f", float(fp) / (fp + tn))
+            if fn + tp > 0:
+                self.logger.info("fn-rate = %f", float(fn) / (fn + tp))
 
             self.logger.info("Building new signature")
             self.evicted = self.evicted[-self.max_sample_size:]
