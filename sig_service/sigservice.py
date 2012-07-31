@@ -24,6 +24,11 @@
 #
 # So really, the Doorman is the only component that can estimate this probability.
 #
+# TODO: sig service should do cross valdiation and estimate FP/FN rate.
+# Then it should fiddle with thresholds until it achieves good FP/FN rate.
+#
+# Also: the classification might work better if it takes into account missing features
+#
 
 import bayes
 import sys

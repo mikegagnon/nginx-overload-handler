@@ -909,7 +909,7 @@ ngx_http_doorman_update_puzzle(ngx_http_request_t *r, ngx_http_doorman_conf_t *c
     } else if (stats.success_rate > MAX_SUCCESS_RATE) {
         ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman puzzle: success_rate==%1.3f > max_success_rate==%1.3f (throughout==%1.3f)", stats.success_rate, MAX_SUCCESS_RATE, stats.throughput_rate);
-        ngx_http_doorman_dec_missing_bits(r, conf, 0.2);
+        ngx_http_doorman_dec_missing_bits(r, conf, 3.0);
     } else {
         ngx_log_debug4(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman puzzle: min_success_rate==%1.3f <= success_rate==%1.3f <= max_success_rate==%1.3f (throughput==%1.3f)",
@@ -1173,7 +1173,7 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
     double num_missing_bits_request = num_missing_bits;
     if (classification > 0) {
         // if the request is suspected to be high-density then increase missing bits
-        num_missing_bits_request += SIG_SERVICE_PENALTY;
+        num_missing_bits_request *= SIG_SERVICE_PENALTY;
         ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "doorman signature missing_bits: suspcious request, increasing missing bits "
                    "from %f to %f", num_missing_bits, num_missing_bits_request);
@@ -1204,7 +1204,7 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "doorman meta_hash str: \"%V\"", &ctx->meta_hash);
 
-    ngx_http_doorman_truncate(actual_hash_buf, (ngx_uint_t) num_missing_bits);
+    ngx_http_doorman_truncate(actual_hash_buf, (ngx_uint_t) num_missing_bits_request);
     ngx_http_doorman_hashval_to_str(&ctx->trunc_hash, actual_hash_buf);
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "doorman trunc_hash str: \"%V\"", &ctx->trunc_hash);
