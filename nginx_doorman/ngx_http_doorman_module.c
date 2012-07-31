@@ -861,7 +861,6 @@ ngx_http_doorman_reload_signature(ngx_http_request_t *r, ngx_http_doorman_conf_t
     int fd = open(DOORMAN_SIGFILE, O_RDONLY);
     if (fd == -1) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
             "doorman signature: could not open file '%s'", DOORMAN_SIGFILE);
         return;
     }
