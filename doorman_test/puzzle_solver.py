@@ -234,6 +234,7 @@ class ClientThread(threading.Thread):
                     # cpu-intensive
                     before = time.time()
                     success = True
+                    keyed_url = None
                     try:
                         keyed_url = solver.solve()
                     except PuzzleTimeout:
