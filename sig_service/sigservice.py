@@ -117,12 +117,12 @@ class LearnThread(threading.Thread):
             self.logger.info("Evaluating signature accuracy")
             validate = bayes.Validate(self.evicted, self.completed, self.logger)
             tp, fp, tn, fn = validate.validate()
-            self.logger.info("tp = %d", self.tp)
-            self.logger.info("fp = %d", self.fp)
-            self.logger.info("tn = %d", self.tn)
-            self.logger.info("fn = %d", self.fn)
-            self.logger.info("fp-rate = %f", float(self.fp) / (self.fp + self.tn))
-            self.logger.info("fn-rate = %f", float(self.fn) / (self.fn + self.tp))
+            self.logger.info("tp = %d", tp)
+            self.logger.info("fp = %d", fp)
+            self.logger.info("tn = %d", tn)
+            self.logger.info("fn = %d", fn)
+            self.logger.info("fp-rate = %f", float(fp) / (fp + tn))
+            self.logger.info("fn-rate = %f", float(fn) / (fn + tp))
 
             self.logger.info("Building new signature")
             self.evicted = self.evicted[-self.max_sample_size:]
