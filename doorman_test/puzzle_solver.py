@@ -167,13 +167,13 @@ class PuzzleSolver:
 class ClientThread(threading.Thread):
     '''A thread that represents a web client'''
 
-    def __init__(self, logger, queue, cpu, server, url, timeout, regex_target, \
+    def __init__(self, logger, queue, cpu, server, urls, timeout, regex_target, \
         stall, thread_id, stall_after_puzzle, regex_puzzle = r"/puzzle_static/puzzle\.js"):
         self.queue = queue
         self.logger = logger
         self.cpu = cpu
         self.server = server
-        self.url = url
+        self.urls = urls
         self.timeout = timeout
         self.regex_target = re.compile(regex_target)
         self.regex_puzzle = re.compile(regex_puzzle)
@@ -210,7 +210,9 @@ class ClientThread(threading.Thread):
 
         while True:
             before = time.time()
-            (status, response) = self.request(self.url)
+            url = random.choice(self.urls)
+            self.logger.debug("requesting %s", url)
+            (status, response) = self.request(url)
             now = time.time()
             latency = now - before
 
@@ -343,8 +345,10 @@ def run_client(name, desc, default_puzzle_threads, default_timeout, stall_after_
 
     parser.add_argument("-s", "--server",  type=str, required=True,
                     help="the domain part of the URL to submit requests to; e.g. 'localhost'")
-    parser.add_argument("-u", "--url",  type=str, required=True,
-                    help="the rest of the url (not including SERVER); e.g. '/index.php'")
+    parser.add_argument("-u", "--url",  type=str, default=None,
+                    help="Default=%(default)s. the rest of the url (not including SERVER); e.g. '/index.php'")
+    parser.add_argument("-f", "--url-file",  type=str, default=None,
+                    help="Default=%(default)s. filename contains urls, one per line (not including SERVER); e.g. '/index.php'")
     parser.add_argument("-to", "--timeout",  type=float, default=default_timeout,
                     help="Default=%(default)s. Connections timeout after TIMEOUT seconds.")
     parser.add_argument("-r", "--regex",  type=str, required=True,
@@ -379,9 +383,22 @@ def run_client(name, desc, default_puzzle_threads, default_timeout, stall_after_
 
     queue = Queue.Queue()
 
+    if args.url_file:
+        urls = []
+        with open(args.url_file) as f:
+            for line in f:
+                urls.append(line.strip())
+    elif args.url:
+        urls = [args.url]
+    else:
+        logger.error("Missing --url or --url-file arguments")
+        sys.exit(1)
+
+    logger.info("urls = %s", urls)
+
     for i in xrange(0, args.threads):
         logger.debug("Launching %d/%d", i + 1, args.threads)
-        legit = ClientThread(logger, queue, cpu, args.server, args.url, args.timeout, \
+        legit = ClientThread(logger, queue, cpu, args.server, urls, args.timeout, \
             args.regex, args.stall, i + 1, stall_after_puzzle)
         legit.start()
 
