@@ -1002,10 +1002,10 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
 
     int classification = classify(doorman_bayes_model, 0.5, (char*) request_str.data);
     if (classification > 0) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+        dd_error2(NGX_LOG_ERR, r->connection->log, 0,
            "doorman signature request_str: %V == '%s' --> suspected high-density", &request_str_varname, request_str.data);
     } else {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+        dd_error2(NGX_LOG_ERR, r->connection->log, 0,
            "doorman signature request_str: %V == '%s' --> suspected low-density", &request_str_varname, request_str.data);
     }
 
