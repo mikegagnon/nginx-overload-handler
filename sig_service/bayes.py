@@ -94,10 +94,11 @@ class Validate:
 
             self.test_fold(test_positive, test_negative, train_positive, train_negative, i)
 
-        sys.stderr.write("tp = %d\n" % self.tp)
-        sys.stderr.write("fp = %d\n" % self.fp)
-        sys.stderr.write("tn = %d\n" % self.tn)
-        sys.stderr.write("fn = %d\n" % self.fn)
+        self.logger.debug("tp = %d", self.tp)
+        self.logger.debug("fp = %d", self.fp)
+        self.logger.debug("tn = %d", self.tn)
+        self.logger.debug("fn = %d", self.fn)
+        return (self.tp, self.fp, self.tn, self.fn)
 
 class Prob:
 

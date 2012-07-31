@@ -24,10 +24,7 @@
 #
 # So really, the Doorman is the only component that can estimate this probability.
 #
-# TODO: sig service should do cross valdiation and estimate FP/FN rate.
-# Then it should fiddle with thresholds until it achieves good FP/FN rate.
-#
-# Also: the classification might work better if it takes into account missing features
+# TODO: the classification might work better if it takes into account missing features
 #
 
 import bayes
@@ -116,6 +113,16 @@ class LearnThread(threading.Thread):
             elapsed = time.time() - last_update
             self.logger.info("Time since last update: %fs", elapsed)
             self.logger.info("Samples since last update: %d", num_new_samples)
+
+            self.logger.info("Evaluating signature accuracy")
+            validate = bayes.Validate(self.evicted, self.completed, self.logger)
+            tp, fp, tn, fn = validate.validate()
+            self.logger.info("tp = %d", self.tp)
+            self.logger.info("fp = %d", self.fp)
+            self.logger.info("tn = %d", self.tn)
+            self.logger.info("fn = %d", self.fn)
+            self.logger.info("fp-rate = %f", float(self.fp) / (self.fp + self.tn))
+            self.logger.info("fn-rate = %f", float(self.fn) / (self.fn + self.tp))
 
             self.logger.info("Building new signature")
             self.evicted = self.evicted[-self.max_sample_size:]
