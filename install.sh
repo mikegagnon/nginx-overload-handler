@@ -65,6 +65,9 @@ sudo ./nginx_upstream_overload/install.sh
 # Compile the Bouncer process manager
 ./bouncer/compile.sh
 
+# Compile the signature service
+./sig_service/compile.sh
+
 # Create the fcgi_user; FastCGI workers will run as this user
 sudo ./dependencies/useradd.sh
 
