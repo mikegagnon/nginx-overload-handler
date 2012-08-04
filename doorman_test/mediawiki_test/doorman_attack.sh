@@ -28,11 +28,12 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-FILENAME_BASE=`echo "attack_$*" | sed 's/\s/_/g'`
+FILENAME_BASE=`echo "attack_$*" | sed 's/\s/_/g' | tr '/' '_'`
 TRACE_FILENAME="$DIR/results/$FILENAME_BASE.csv"
 SUMMARY_FILENAME="$DIR/results/$FILENAME_BASE.json"
 echo $TRACE_FILENAME
 
+# TODO: should use $DOORMAN_ATTACK? is this a bug?
 $DOORMAN_LEGIT --stderr off --trace-filename $TRACE_FILENAME --url "/dummy_vuln.php" --regex MediaWiki $* &
 
 sleep $TEST_TIME
