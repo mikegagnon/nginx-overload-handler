@@ -17,7 +17,7 @@
 # ==== Tests doorman by sending attacks and solving puzzles fast ====
 #
 
-import puzzle_solver
+import puzzle_solver_threadless as puzzle_solver
 
 puzzle_solver.run_client( \
     "doorman_legit.py", \
