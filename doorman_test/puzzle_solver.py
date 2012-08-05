@@ -436,7 +436,7 @@ def run_client(name, desc, default_puzzle_threads, default_timeout, stall_after_
     # need to slow down the rate
     actual_duration = time.time() - start
     if actual_duration > expected_duration * 1.05:
-        logger.error("Actual duration (%f) significantly longer then specified duration (%f). Could not send requests " + \
+        logger.error("Actual duration (%f) significantly longer then specified duration (%f). Could not send requests " \
             "fast enough" % (actual_duration, args.duration))
 
     gevent.joinall(jobs)
