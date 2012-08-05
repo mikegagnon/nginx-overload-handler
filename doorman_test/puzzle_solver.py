@@ -451,7 +451,18 @@ def run_client(name, desc, default_puzzle_threads, default_timeout, stall_after_
         logger.debug("Actual duration (%f) NOT significantly longer then specified duration (%f). Sent requests " \
             "fast enough" % (actual_duration, expected_duration))
 
-    gevent.joinall(jobs)
+    # could not get joinall to work
+    for i in range(0, int(args.timeout) + 1):
+        # get rid of all jobs that have finished
+        jobs = filter(lambda j: not j.ready(), jobs)
+        if len(jobs) == 0:
+            break
+        gevent.sleep(1)
+
+    jobs = filter(lambda j: not j.ready(), jobs)
+    if len(jobs) > 0:
+        for job in jobs:
+            job.kill(block=True, timeout=1)    
     monitor.kill()
 
 
