@@ -419,25 +419,33 @@ def run_client(name, desc, default_puzzle_threads, default_timeout, stall_after_
 
     expected_duration = 0.0
     puzzles_being_solved = [0]
+    overslept = 0.0
 
     for i in range(0, requests):
         job = ClientGreenlet.spawn(logger, queue, args.server, urls, args.timeout, \
                     args.regex, i + 1, args.concurrent_puzzles, puzzles_being_solved)
         jobs.append(job)
         if args.poisson:
-            sleep_time = random.expovariate(1.0/period)
+            expected_sleep_time = random.expovariate(1.0/period)
         else:
-            sleep_time = period
-        logger.debug("sleeping for %f sec before next request", sleep_time )
-        gevent.sleep(sleep_time)
-        expected_duration += sleep_time
+            expected_sleep_time = period
+        expected_duration += expected_sleep_time
+        # If you overslept last time, then reduce your sleeptime now in order to catch up
+        expected_sleep_time = max(0, expected_sleep_time - overslept)
+        logger.debug("sleeping for %f sec before next request", expected_sleep_time)
+        before = time.time()
+	if expected_sleep_time > 0.0:
+	        gevent.sleep(expected_sleep_time)
+        actual_sleep_time = time.time() - before
+        #overslept = max(0, actual_sleep_time - expected_sleep_time)
+        overslept = max(0, actual_sleep_time - expected_sleep_time)
 
     # if actual_duration significantly longer than duration, then this process is too CPU bound
     # need to slow down the rate
     actual_duration = time.time() - start
-    if actual_duration > expected_duration * 1.05:
+    if actual_duration > (expected_duration * 1.05):
         logger.error("Actual duration (%f) significantly longer then specified duration (%f). Could not send requests " \
-            "fast enough" % (actual_duration, args.duration))
+            "fast enough" % (actual_duration, expected_duration))
 
     gevent.joinall(jobs)
     monitor.kill()
