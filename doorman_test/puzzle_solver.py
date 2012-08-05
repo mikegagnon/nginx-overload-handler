@@ -210,10 +210,10 @@ class ClientGreenlet(Greenlet):
             response = urllib2.urlopen("http://%s%s" % (self.server, url), timeout=self.timeout)
         except socket.timeout:
             latency = time.time() - before
-            return("timeout", None, latency)
+            return("timeout", None, None, latency)
         except HTTPError, e:
             latency = time.time() - before
-            return ("%s" % e.code, None, latency)
+            return ("%s" % e.code, None, None, latency)
 
 
         text = response.read()
@@ -223,18 +223,20 @@ class ClientGreenlet(Greenlet):
 
         if self.regex_target.search(text):
             self.logger.debug("%d Received target response", self.greenlet_id)
-            return ("200", None, latency)
+            return ("200", "target", None, latency)
         elif self.regex_puzzle.search(text):
             self.logger.debug("%d, Received puzzle response", self.greenlet_id)
-            return ("200", text, latency)
+            return ("200", "puzzle", text, latency)
         else:
-            raise ValueError("%d Did not recognize response: %s ...", self.greenlet_id, text[:100])
+            self.logger.error("%d Did not recognize response: %s ...", self.greenlet_id, text[:100])
+            return ("200", "other", text, latency)
+            #raise ValueError("%d Did not recognize response: %s ..." % (self.greenlet_id, text[:100]))
 
     def run(self):
 
         url = random.choice(self.urls)
         self.logger.debug("requesting %s", url)
-        (status, response, latency) = self.request(url)
+        (status, category, response, latency) = self.request(url)
         now = time.time()
 
 
@@ -242,12 +244,12 @@ class ClientGreenlet(Greenlet):
             self.queue.put((status, None, now, latency, None))
             return
         # If the web-app served a page
-        elif response == None:
+        elif category == "target":
             self.queue.put((status, "web-app", now, latency, None))
             return
 
         # If the doorman served a puzzle
-        else:
+        elif category == "puzzle":
             solver = PuzzleSolver(self.logger, response, self.timeout)
             self.queue.put((status, "give-puzzle", now, latency, solver.bits))
 
@@ -412,39 +414,41 @@ def run_client(name, desc, default_puzzle_threads, default_timeout, stall_after_
     monitor = Monitor.spawn(logger, queue, args.history, args.trace_filename)
 
     jobs = []
-    start = time.time()
 
     period = 1.0 / args.rate
     requests = args.rate * args.duration
 
+    # the total amount of time this greenlet should have spent sleeping
     expected_duration = 0.0
-    puzzles_being_solved = [0]
-    overslept = 0.0
 
+    puzzles_being_solved = [0]
+
+    start_time = time.time()
     for i in range(0, requests):
         job = ClientGreenlet.spawn(logger, queue, args.server, urls, args.timeout, \
                     args.regex, i + 1, args.concurrent_puzzles, puzzles_being_solved)
         jobs.append(job)
         if args.poisson:
-            expected_sleep_time = random.expovariate(1.0/period)
+            sleep_time = random.expovariate(1.0/period)
         else:
-            expected_sleep_time = period
-        expected_duration += expected_sleep_time
+            sleep_time = period
+        actual_duration = time.time() - start_time
         # If you overslept last time, then reduce your sleeptime now in order to catch up
-        expected_sleep_time = max(0, expected_sleep_time - overslept)
-        logger.debug("sleeping for %f sec before next request", expected_sleep_time)
-        before = time.time()
-	if expected_sleep_time > 0.0:
-	        gevent.sleep(expected_sleep_time)
-        actual_sleep_time = time.time() - before
-        #overslept = max(0, actual_sleep_time - expected_sleep_time)
-        overslept = max(0, actual_sleep_time - expected_sleep_time)
+        overslept = max(0, actual_duration - expected_duration)
+        requested_sleep_time = max(0, sleep_time - overslept)
+        expected_duration += sleep_time
+        logger.debug("sleeping for %f sec before next request", requested_sleep_time)
+	if requested_sleep_time > 0.0:
+	        gevent.sleep(requested_sleep_time)
 
     # if actual_duration significantly longer than duration, then this process is too CPU bound
     # need to slow down the rate
-    actual_duration = time.time() - start
+    actual_duration = time.time() - start_time
     if actual_duration > (expected_duration * 1.05):
         logger.error("Actual duration (%f) significantly longer then specified duration (%f). Could not send requests " \
+            "fast enough" % (actual_duration, expected_duration))
+    else:
+        logger.debug("Actual duration (%f) NOT significantly longer then specified duration (%f). Sent requests " \
             "fast enough" % (actual_duration, expected_duration))
 
     gevent.joinall(jobs)
