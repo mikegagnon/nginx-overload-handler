@@ -381,6 +381,8 @@ def run_client(name, desc, default_puzzle_threads, default_timeout, stall_after_
                     help="Default=%(default)s. An id to identify this process in the logs")
     parser.add_argument("-y", "--history",  type=int, default=20,
                     help="Default=%(default)s. When displaying averages, only use the last HISTORY measurements.")
+    parser.add_argument("-p", "--poisson", action="store_true", default=False,
+                    help="Set this flag to issue requests as poisson process. Else, issue requests as a non-random process.")
     parser.add_argument("-a", "--trace-filename",  type=str, default= name + ".csv",
                     help = '''Default=%(default)s. Name of output tracefile. The output tracefile is
                         a CSV with one row per event. Each row has 4 fields: (1) status, (2) event,
@@ -415,18 +417,25 @@ def run_client(name, desc, default_puzzle_threads, default_timeout, stall_after_
     period = 1.0 / args.rate
     requests = args.rate * args.duration
 
+    expected_duration = 0.0
     puzzles_being_solved = [0]
 
     for i in range(0, requests):
         job = ClientGreenlet.spawn(logger, queue, args.server, urls, args.timeout, \
                     args.regex, i + 1, args.concurrent_puzzles, puzzles_being_solved)
         jobs.append(job)
-        gevent.sleep(period)
+        if args.poisson:
+            sleep_time = random.expovariate(1.0/period)
+        else:
+            sleep_time = period
+        logger.debug("sleeping for %f sec before next request", sleep_time )
+        gevent.sleep(sleep_time)
+        expected_duration += sleep_time
 
     # if actual_duration significantly longer than duration, then this process is too CPU bound
     # need to slow down the rate
     actual_duration = time.time() - start
-    if actual_duration > args.duration * 1.05:
+    if actual_duration > expected_duration * 1.05:
         logger.error("Actual duration (%f) significantly longer then specified duration (%f). Could not send requests " + \
             "fast enough" % (actual_duration, args.duration))
 
