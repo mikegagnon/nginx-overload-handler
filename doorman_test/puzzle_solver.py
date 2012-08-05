@@ -15,25 +15,43 @@
 #  limitations under the License.
 #
 # ==== Simulates web clients and solves Doorman puzzles ====
-#
+# without using threads
 
 import hashlib
-import socket
+import re
+import argparse
+
+# requires 1.03b or higher, because it contains a critical bug fix for timeouts
+import gevent
+from gevent import Greenlet
+from gevent import monkey
+from gevent import queue as Queue
+
+# convert std libary methods to use greenlets
+monkey.patch_all()
+
+#from gevent import httplib
+from gevent import socket
+import urllib2
+from urllib2 import HTTPError
 import time
+
 import os
 import sys
-import argparse
-import threading
-import Queue
-import re
-#import urllib2
-import httplib
-import random
 
 DIRNAME = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(DIRNAME, '..', 'common'))
 
 import log
+import random
+
+TIMEOUT=10
+
+# when you call urllib2.urlopen above, it doesn't actually issue a request.
+# rather gevent, queue's it up and issues the request later.
+# if the queue delay is long that it takes longer than TIMEOUT then the system is clogged
+class GeventBacklogged(Exception):
+    pass
 
 class PuzzleTimeout(Exception):
     pass
@@ -160,124 +178,124 @@ class PuzzleSolver:
                 elapsed_time = time.time() - self.start_time
                 if elapsed_time > self.timeout:
                     raise PuzzleTimeout("Timed out after %.2f seconds" % elapsed_time)
-                time.sleep(self.sleep_time)
+                #gevent.sleep(self.sleep_time)
+                gevent.sleep(10)
 
         raise ValueError("Bad puzzle; exhausted possibilities")
 
-class ClientThread(threading.Thread):
-    '''A thread that represents a web client'''
 
-    def __init__(self, logger, queue, cpu, server, urls, timeout, regex_target, \
-        stall, thread_id, stall_after_puzzle, regex_puzzle = r"/puzzle_static/puzzle\.js"):
+class ClientGreenlet(Greenlet):
+
+    def __init__(self, logger, queue, server, urls, timeout, regex_target, \
+        greenlet_id, concurrent_puzzles, puzzles_being_solved, regex_puzzle = r"/puzzle_static/puzzle\.js"):
+
+        Greenlet.__init__(self)
         self.queue = queue
         self.logger = logger
-        self.cpu = cpu
         self.server = server
         self.urls = urls
         self.timeout = timeout
         self.regex_target = re.compile(regex_target)
         self.regex_puzzle = re.compile(regex_puzzle)
-        self.stall = stall
-        self.thread_id = thread_id
-        self.stall_after_puzzle = stall_after_puzzle
-        threading.Thread.__init__(self)
+        self.greenlet_id = greenlet_id
+        self.concurrent_puzzles = concurrent_puzzles
+        self.puzzles_being_solved = puzzles_being_solved
 
     def request(self, url):
 
-        self.logger.debug("%d Requesting %s", self.thread_id, url)
+        self.logger.debug("%d Requesting %s", self.greenlet_id, url)
+
+        before = time.time()
         try:
-            conn = httplib.HTTPConnection(self.server, timeout=self.timeout)
-            conn.request("GET", url)
-            response = conn.getresponse()
-            if response.status != 200:
-                return ("%s" % response.status, None)
-            text = response.read()
+            response = urllib2.urlopen("http://%s%s" % (self.server, url), timeout=self.timeout)
         except socket.timeout:
-            return("timeout", None)
+            latency = time.time() - before
+            return("timeout", None, latency)
+        except HTTPError, e:
+            latency = time.time() - before
+            return ("%s" % e.code, None, latency)
+
+
+        text = response.read()
+        latency = time.time() - before
+        if (latency > self.timeout):
+            raise GeventBacklogged("this machine can't send requests that fast")
 
         if self.regex_target.search(text):
-            self.logger.debug("%d Received target response", self.thread_id)
-            return ("200", None)
+            self.logger.debug("%d Received target response", self.greenlet_id)
+            return ("200", None, latency)
         elif self.regex_puzzle.search(text):
-            self.logger.debug("%d, Received puzzle response", self.thread_id)
-            return ("200", text)
+            self.logger.debug("%d, Received puzzle response", self.greenlet_id)
+            return ("200", text, latency)
         else:
-            raise ValueError("%d Did not recognize response: %s ...", self.thread_id, text[:100])
+            raise ValueError("%d Did not recognize response: %s ...", self.greenlet_id, text[:100])
 
     def run(self):
 
-        time.sleep(random.uniform(0.0, 2.0))
+        url = random.choice(self.urls)
+        self.logger.debug("requesting %s", url)
+        (status, response, latency) = self.request(url)
+        now = time.time()
 
-        while True:
+
+        if status != "200":
+            self.queue.put((status, None, now, latency, None))
+            return
+        # If the web-app served a page
+        elif response == None:
+            self.queue.put((status, "web-app", now, latency, None))
+            return
+
+        # If the doorman served a puzzle
+        else:
+            solver = PuzzleSolver(self.logger, response, self.timeout)
+            self.queue.put((status, "give-puzzle", now, latency, solver.bits))
+
+            if self.concurrent_puzzles > 0 and self.puzzles_being_solved[0] >= self.concurrent_puzzles:
+                self.logger.debug("%d, Received %d-bit puzzle, but puzzle concurrency is maxed out", \
+                    self.greenlet_id, solver.bits)
+                return
+
+            self.puzzles_being_solved[0] += 1
+
+            self.logger.info("%d, Solving %d-bit puzzle", self.greenlet_id, solver.bits)
+
+            # cpu_intensive
             before = time.time()
-            url = random.choice(self.urls)
-            self.logger.debug("requesting %s", url)
-            (status, response) = self.request(url)
+            success = True
+            keyed_url = None
+            try:
+                keyed_url = solver.solve()
+            except PuzzleTimeout:
+                success = False
+
+            self.puzzles_being_solved[0] -= 1
+
             now = time.time()
             latency = now - before
 
+            if success:
+                self.queue.put((None, "solve-puzzle", now, latency, solver.bits))
+                self.logger.info("%d, done with %d-bit puzzle: %s", self.greenlet_id, solver.bits, keyed_url)
+            else:
+                self.queue.put((None, "solve-puzzle-timeout", now, latency, solver.bits))
+                self.logger.info("%d, failed with %d-bit puzzle: %s", self.greenlet_id, solver.bits, keyed_url)
+                return
+
+            # re-send the request, this time with puzzle solution
+            (status, response, latency) = self.request(keyed_url)
+
             if status != "200":
                 self.queue.put((status, None, now, latency, None))
-
-            # If the web-app served a page
             elif response == None:
                 self.queue.put((status, "web-app", now, latency, None))
-            # If the doorman served a puzzle
             else:
-                solver = PuzzleSolver(self.logger, response, self.timeout)
-                self.queue.put((status, "give-puzzle", now, latency, solver.bits))
+                self.logger.error("%d expecting web-app page but received something else", self.greenlet_id)
 
-                # You can only compute the puzzle if there aren't already max number of puzzle threads
-                if self.cpu.acquire(blocking = False):
-                    # You now have permssion to use the CPU
-
-                    self.logger.info("%d, Solving %d-bit puzzle", self.thread_id, solver.bits)
-
-                    # cpu-intensive
-                    before = time.time()
-                    success = True
-                    keyed_url = None
-                    try:
-                        keyed_url = solver.solve()
-                    except PuzzleTimeout:
-                        success = False
-
-                    now = time.time()
-                    latency = now - before
-
-                    if success:
-                        self.queue.put((None, "solve-puzzle", now, latency, solver.bits))
-                        self.logger.info("%d, done with %d-bit puzzle: %s", self.thread_id, solver.bits, keyed_url)
-                    else:
-                        self.queue.put((None, "solve-puzzle-timeout", now, latency, solver.bits))
-                        self.logger.info("%d, failed with %d-bit puzzle: %s", self.thread_id, solver.bits, keyed_url)
-
-                    self.cpu.release()
-
-                    # Send the puzzle solution to the server to effect high-density work
-                    before = time.time()
-                    (status, response) = self.request(keyed_url)
-                    now = time.time()
-                    latency = now - before
-                    #self.queue.put((status, "web-app", now, latency, None))
-
-                    if status != "200":
-                        self.queue.put((status, None, now, latency, None))
-                    elif response == None:
-                        self.queue.put((status, "web-app", now, latency, None))
-                    else:
-                        self.logger.error("%d expecting web-app page but received something else", self.thread_id)
-                        self.queue.put((status, "error", now, latency, None))
-
-                    # No need to sleep
-                    if not self.stall_after_puzzle:
-                        continue
-
-            time.sleep(self.stall)
-
-class Monitor(threading.Thread):
+class Monitor(Greenlet):
 
     def __init__(self, logger, queue, history_len, trace_filename):
+        Greenlet.__init__(self)
         self.queue = queue
         self.logger = logger
         self.tracefile = open(trace_filename, 'w')
@@ -285,9 +303,7 @@ class Monitor(threading.Thread):
         # indexed by response type
         self.rec_dict = {}
 
-
         self.history_len = history_len
-        threading.Thread.__init__(self)
 
     def run(self):
         first_timestamp = None
@@ -334,6 +350,8 @@ class Monitor(threading.Thread):
                 avg = float(sum(trunc)) / float(len(trunc))
                 self.logger.info("avg (%s, %s) latency: %f", status, event, avg)
 
+
+
 def run_client(name, desc, default_puzzle_threads, default_timeout, stall_after_puzzle):
 
     desc += " WARNING: this script does not have an off switch. You must forcefully kill it with someting like " + \
@@ -353,12 +371,12 @@ def run_client(name, desc, default_puzzle_threads, default_timeout, stall_after_
                     help="Default=%(default)s. Connections timeout after TIMEOUT seconds.")
     parser.add_argument("-r", "--regex",  type=str, required=True,
                     help="regular expression that positively matches the target web-app page, NOT the puzzle page, and NOT 403 pages or anything else; e.g. MediaWiki")
-    parser.add_argument("-t", "--threads",  type=int, default=10,
-                    help="Default=%(default)s. The total number of threads to run")
-    parser.add_argument("-z", "--puzzle-threads",  type=int, default=default_puzzle_threads,
-                    help="Default=%(default)s. The maximum number of threads allowed to work on puzzles at the same time. If PUZZLE_THREADS <= 0, then PUZZLE_THREADS will be set to THREADS.")
-    parser.add_argument("-st", "--stall",  type=float, default=0.2,
-                    help="Default=%(default)s. The number of seconds to stall when needed")
+    parser.add_argument("-e", "--rate",  type=int, default=10,
+                    help="Default=%(default)s. Number of requests per second")
+    parser.add_argument("-d", "--duration",  type=int, default=5,
+                    help="Default=%(default)s. Duration of trial in seconds.")
+    parser.add_argument("-z", "--concurrent-puzzles",  type=int, default=default_puzzle_threads,
+                    help="Default=%(default)s. The maximum number of clients allowed to work on puzzles at the same time. If CONCURRENT_PUZZLES <= 0, then CONCURRENT_PUZZLES will be set to infinity.")
     parser.add_argument("-i", "--id",  type=str, default=1,
                     help="Default=%(default)s. An id to identify this process in the logs")
     parser.add_argument("-y", "--history",  type=int, default=20,
@@ -371,15 +389,8 @@ def run_client(name, desc, default_puzzle_threads, default_timeout, stall_after_
     log.add_arguments(parser)
     args = parser.parse_args()
 
-    if args.puzzle_threads <= 0:
-        args.puzzle_threads = args.threads
-
     logger = log.getLogger(args, name="%s.%s" % (name, args.id))
     logger.info("Command line arguments: %s" % str(args))
-
-    # By settings bounded-value == #threads, it means every thread can work on puzzles
-    # at the same time. This only makes sense when the puzzles aren't CPU bound
-    cpu = threading.BoundedSemaphore(value=args.puzzle_threads)
 
     queue = Queue.Queue()
 
@@ -396,14 +407,32 @@ def run_client(name, desc, default_puzzle_threads, default_timeout, stall_after_
 
     logger.info("urls = %s", urls)
 
-    for i in xrange(0, args.threads):
-        logger.debug("Launching %d/%d", i + 1, args.threads)
-        legit = ClientThread(logger, queue, cpu, args.server, urls, args.timeout, \
-            args.regex, args.stall, i + 1, stall_after_puzzle)
-        legit.start()
+    monitor = Monitor.spawn(logger, queue, args.history, args.trace_filename)
 
-    monitor = Monitor(logger, queue, args.history, args.trace_filename)
-    monitor.start()
+    jobs = []
+    start = time.time()
+
+    period = 1.0 / args.rate
+    requests = args.rate * args.duration
+
+    puzzles_being_solved = [0]
+
+    for i in range(0, requests):
+        job = ClientGreenlet.spawn(logger, queue, args.server, urls, args.timeout, \
+                    args.regex, i + 1, args.concurrent_puzzles, puzzles_being_solved)
+        jobs.append(job)
+        gevent.sleep(period)
+
+    # if actual_duration significantly longer than duration, then this process is too CPU bound
+    # need to slow down the rate
+    actual_duration = time.time() - start
+    if actual_duration > args.duration * 1.05:
+        logger.error("Actual duration (%f) significantly longer then specified duration (%f). Could not send requests " + \
+            "fast enough" % (actual_duration, args.duration))
+
+    gevent.joinall(jobs)
+    monitor.kill()
+
 
 if __name__ == "__main__":
     cwd = os.getcwd()
@@ -424,4 +453,7 @@ if __name__ == "__main__":
     solver.sleep_time = args.sleep_time or solver.sleep_time
     solver.burst_len = args.burst_len or solver.burst_len
     print solver.solve()
+
+
+
 
