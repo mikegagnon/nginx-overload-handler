@@ -28,7 +28,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-FILENAME_BASE=`echo "legit_$*" | sed 's/\s/_/g'`
+FILENAME_BASE=`echo "legit_$*" | sed 's/\s/_/g' | tr '/' '_'`
 TRACE_FILENAME="$DIR/results/$FILENAME_BASE.csv"
 SUMMARY_FILENAME="$DIR/results/$FILENAME_BASE.json"
 echo $TRACE_FILENAME
