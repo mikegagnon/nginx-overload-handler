@@ -34,6 +34,7 @@ monkey.patch_all()
 from gevent import socket
 import urllib2
 from urllib2 import HTTPError
+from urllib2 import URLError
 import time
 
 import os
@@ -211,6 +212,9 @@ class ClientGreenlet(Greenlet):
         except socket.timeout:
             latency = time.time() - before
             return("timeout", None, None, latency)
+        except URLError:
+            latency = time.time() - before
+            return("timeout", None, None, latency)
         except HTTPError, e:
             latency = time.time() - before
             return ("%s" % e.code, None, None, latency)
@@ -285,7 +289,7 @@ class ClientGreenlet(Greenlet):
                 return
 
             # re-send the request, this time with puzzle solution
-            (status, response, latency) = self.request(keyed_url)
+            (status, category, response, latency) = self.request(keyed_url)
 
             if status != "200":
                 self.queue.put((status, None, now, latency, None))
@@ -354,7 +358,7 @@ class Monitor(Greenlet):
 
 
 
-def run_client(name, desc, default_puzzle_threads, default_timeout, stall_after_puzzle):
+def run_client(name, desc, default_concurrent_puzzles, default_timeout):
 
     desc += " WARNING: this script does not have an off switch. You must forcefully kill it with someting like " + \
         "pkill -f 'python.*%s'" % name
@@ -377,7 +381,7 @@ def run_client(name, desc, default_puzzle_threads, default_timeout, stall_after_
                     help="Default=%(default)s. Number of requests per second")
     parser.add_argument("-d", "--duration",  type=int, default=5,
                     help="Default=%(default)s. Duration of trial in seconds.")
-    parser.add_argument("-z", "--concurrent-puzzles",  type=int, default=default_puzzle_threads,
+    parser.add_argument("-z", "--concurrent-puzzles",  type=int, default=default_concurrent_puzzles,
                     help="Default=%(default)s. The maximum number of clients allowed to work on puzzles at the same time. If CONCURRENT_PUZZLES <= 0, then CONCURRENT_PUZZLES will be set to infinity.")
     parser.add_argument("-i", "--id",  type=str, default=1,
                     help="Default=%(default)s. An id to identify this process in the logs")
@@ -425,7 +429,7 @@ def run_client(name, desc, default_puzzle_threads, default_timeout, stall_after_
 
     start_time = time.time()
     for i in range(0, requests):
-        job = ClientGreenlet.spawn(logger, queue, args.server, urls, args.timeout, \
+        job = ClientGreenlet.spawn(logger, queue, args.server, urls, args.timeout + 10, \
                     args.regex, i + 1, args.concurrent_puzzles, puzzles_being_solved)
         jobs.append(job)
         if args.poisson:

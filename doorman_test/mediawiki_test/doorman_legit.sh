@@ -33,11 +33,8 @@ TRACE_FILENAME="$DIR/results/$FILENAME_BASE.csv"
 SUMMARY_FILENAME="$DIR/results/$FILENAME_BASE.json"
 echo $TRACE_FILENAME
 
-$DOORMAN_LEGIT --stderr off --trace-filename $TRACE_FILENAME --url "/index.php?title=Main_Page" --regex MediaWiki $* &
-sleep $TEST_TIME
-kill $!
-pkill -f "doorman_overload\.sh"
+$DOORMAN_LEGIT --stderr ERROR --trace-filename $TRACE_FILENAME --url "/index.php?title=Main_Page" --regex MediaWiki $* 
 cat $TRACE_FILENAME | $DOORMAN_ANALYZE > $SUMMARY_FILENAME
 
-echo "done"
+echo "done legit"
 
