@@ -207,13 +207,13 @@ abort_load_model:
  * sets dest to empty string when done
  * returns pointer of beginning of next token
  */
-char * get_token(char *source, char *dest, int max_bytes) {
+char * get_token(char *source, char *dest, int max_bytes, char * end) {
     char c;
     int i = 0;
     int j = 0;
 
     // First, skip over nonvalid chars
-    while (source[i] != '\0') {
+    while (source[i] != '\0' && source != end) {
         c = source[i];
         if ((c >= 'A' && c <= 'Z') ||
             (c >= 'a' && c <= 'z') ||
@@ -225,7 +225,7 @@ char * get_token(char *source, char *dest, int max_bytes) {
     }
 
     // Then, read in the token
-    while (source[i] != '\0' && j < max_bytes - 1) {
+    while (source[i] != '\0' && j < max_bytes - 1 && source != end) {
         c = source[i];
         if (c >= 'A' && c <= 'Z') {
             dest[j] = c - 'A' + 'a';
@@ -250,18 +250,19 @@ char * get_token(char *source, char *dest, int max_bytes) {
 /**
  * classified string according to features. apriori_positive is the a priori probability that
  * the string is positive.
+ * end should be NULL (in which case it is ignored) or point to the first byte __after__ string
  * returns  1 if classified as a positive
  * returns -1 if negative
  */
-int classify(bayes_feature *features, double apriori_positive, char *string) {
+int classify(bayes_feature *features, double apriori_positive, char *string, char * end) {
     bayes_feature *feature;
     char token[MAX_TOKEN_STR_LEN];
     double positive = apriori_positive;
     double negative = 1.0 - apriori_positive;
 
     while(1) {
-        string = get_token(string, token, MAX_TOKEN_STR_LEN);
-        if (token[0] == '\0') {
+        string = get_token(string, token, MAX_TOKEN_STR_LEN, end);
+        if (token[0] == '\0' || token >= end) {
             break;
         }
         feature = find_feature(features, token);
