@@ -35,7 +35,7 @@ OUTPUT_LIST_FILE=`echo $JSON_FILE | sed s'/.json$//'`".titles"
 
 TRACE_SIZE=$2
 if [ -z "$TRACE_SIZE" ]; then
-    TRACE_SIZE=10 # default if not provided
+    TRACE_SIZE=10000 # default if not provided
 fi
 
 ./trace_gen.py $JSON_FILE $TRACE_SIZE 1 > $OUTPUT_TRACE_FILE

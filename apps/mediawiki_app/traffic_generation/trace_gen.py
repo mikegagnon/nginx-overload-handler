@@ -25,6 +25,7 @@
 import json
 import sys
 import random
+from variate import Variate
 
 JSON_FILE = sys.argv[1]
 TRACE_SIZE = int(sys.argv[2])
@@ -39,12 +40,12 @@ DEBUG_PRINTOUT_FREQ = 10000
 ENABLE_DEBUG_OUT = True
 ENABLE_STATS = True
 
-def pick_rand(counts, sum_counts):
-    i = random.randint(0, sum_counts - 1)
-    for item, count in counts.items():
-        i -= count
-        if i < 0:
-            return item
+# def pick_rand(counts, sum_counts):
+#    i = random.randint(0, sum_counts - 1)
+#    for item, count in counts.items():
+#        i -= count
+#        if i < 0:
+#            return item
 
 if (ENABLE_DEBUG_OUT): sys.stderr.write("opening input json\n")
 with open(JSON_FILE) as f:    
@@ -52,16 +53,19 @@ with open(JSON_FILE) as f:
 # to track progress for large files
 if (ENABLE_DEBUG_OUT): sys.stderr.write("opened input json\n")
 
-sum_counts = sum(master_counts.values())
+# sum_counts = sum(master_counts.values())
 counts = {}
 
 trials = 1
 trace_size = TRACE_SIZE
+v = Variate(master_counts)
+
 for j in range(0, trials):
     for i in range(0, trace_size):
         if (ENABLE_DEBUG_OUT):
             if (i % DEBUG_PRINTOUT_FREQ == 0): sys.stderr.write("picked %d\n" % (i))
-        item = pick_rand(master_counts, sum_counts)
+        # item = pick_rand(master_counts, sum_counts)
+        item = v.getRand()
         
         if (ENABLE_STATS):
             if item not in counts:
