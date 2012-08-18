@@ -19,7 +19,7 @@
  *
  * ==== maturity ====
  *
- * Experimental development. Testing using nginx-1.0.12
+ * Experimental development. Testing using nginx-1.2.0
  *
  * ==== TODO ====
  *  - a bunch of things (see todos throughout code)
@@ -903,7 +903,7 @@ ngx_http_upstream_init_overload_peer(
     ngx_http_request_t *r,
     ngx_http_upstream_srv_conf_t *us)
 {
-    static ngx_str_t    request_str_varname = ngx_string("request_uri");
+    static ngx_str_t    request_str_varname = ngx_string("sig_key");
     static ngx_uint_t   request_str_hash = 0;
     if (request_str_hash == 0) {
         request_str_hash = ngx_hash_key(request_str_varname.data, request_str_varname.len);
