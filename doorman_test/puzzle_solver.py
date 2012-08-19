@@ -179,8 +179,7 @@ class PuzzleSolver:
                 elapsed_time = time.time() - self.start_time
                 if elapsed_time > self.timeout:
                     raise PuzzleTimeout("Timed out after %.2f seconds" % elapsed_time)
-                #gevent.sleep(self.sleep_time)
-                gevent.sleep(10)
+                gevent.sleep(self.sleep_time)
 
         raise ValueError("Bad puzzle; exhausted possibilities")
 
