@@ -17,66 +17,97 @@
 ################################################################################
 #
 # Generates a trace to simulate realistic Wikipedia traffic
-# given input file with pageview counts/hour from wpdumps server in JSON format
 #
-# usage: ./trace_gen.py <wp-pageviewcount-json> <trace-size>
+# usage: ./trace_gen.py NOUN_JSON_FILE VERB_JSON_FILE TRACE_SIZE
 #
-
+#!/usr/bin/python
 import json
 import sys
 import random
 from variate import Variate
 
-JSON_FILE = sys.argv[1]
-TRACE_SIZE = int(sys.argv[2])
+NOUN_JSON_FILE = sys.argv[1]
+VERB_JSON_FILE = sys.argv[2]
+TRACE_SIZE = int(sys.argv[3])
 
-PROB_EDIT = 0.2
-PROB_VIEW = 1 - 0.2
-EDIT_STR = "EDIT"
-VIEW_STR = "VIEW"
-DELIM_STR = ", "
-WP_PREFIX_URL = "http://bg2.hellasec.com/index.php?title="
+SERVER_NAME="http://bg2.hellasec.com"
+
 DEBUG_PRINTOUT_FREQ = 10000
 ENABLE_DEBUG_OUT = True
-ENABLE_STATS = True
-
-# def pick_rand(counts, sum_counts):
-#    i = random.randint(0, sum_counts - 1)
-#    for item, count in counts.items():
-#        i -= count
-#        if i < 0:
-#            return item
+# RUN_STATS_ONLY = True
+RUN_STATS_ONLY = False
 
 if (ENABLE_DEBUG_OUT): sys.stderr.write("opening input json\n")
-with open(JSON_FILE) as f:    
-    master_counts = json.load(f)
+with open(NOUN_JSON_FILE) as f:    
+    master_noun_counts = json.load(f)
 # to track progress for large files
 if (ENABLE_DEBUG_OUT): sys.stderr.write("opened input json\n")
 
-# sum_counts = sum(master_counts.values())
-counts = {}
+# open verbs
+with open(VERB_JSON_FILE) as f:    
+    master_verb_counts = json.load(f)
 
-trials = 1
+# format verbs into a dict for variates
+v_master_verb_counts = {}
+needs_noun = []
+master_verb_counts = master_verb_counts["verbs"]
+for i in master_verb_counts:
+    # given unicode floats, convert them into ints*1000
+    v_master_verb_counts[i['urlPrefix']] = int(float(i['freq']) * 1000)
+    if "needsNoun" in i:
+        assert(i["needsNoun"] != "")
+        needs_noun.append(i['urlPrefix'])
+
+noun_counts = {}
+verb_counts = {}
+
+if (RUN_STATS_ONLY):
+    trials = 100
+else:
+    trials = 1
+
 trace_size = TRACE_SIZE
-v = Variate(master_counts)
+v_nouns = Variate(master_noun_counts)
+v_verbs = Variate(v_master_verb_counts)
 
 for j in range(0, trials):
     for i in range(0, trace_size):
         if (ENABLE_DEBUG_OUT):
-            if (i % DEBUG_PRINTOUT_FREQ == 0): sys.stderr.write("picked %d\n" % (i))
-        # item = pick_rand(master_counts, sum_counts)
-        item = v.getRand()
+            if ((i % DEBUG_PRINTOUT_FREQ == 0) and (j == 0) and (i != 0)):
+                sys.stderr.write("picked %d\n" % (i))
+
+        # pick verb
+        verb = v_verbs.getRand()
+
+        # pick noun
+        noun = v_nouns.getRand()
         
-        if (ENABLE_STATS):
-            if item not in counts:
-                counts[item] = 0
-            counts[item] += 1
+        if (RUN_STATS_ONLY):
+            if noun not in noun_counts:
+                noun_counts[noun] = 0
+            noun_counts[noun] += 1
+            if verb not in verb_counts:
+                verb_counts[verb] = 0
+            verb_counts[verb] += 1
 
-        if random.random() <= PROB_EDIT:
-            print EDIT_STR + DELIM_STR + WP_PREFIX_URL + item
-        else:
-            print VIEW_STR + DELIM_STR + WP_PREFIX_URL + item
+        # main output:
+        if not RUN_STATS_ONLY:
+	        # print SERVER_NAME + verb + noun
+	        if verb in needs_noun:
+	            # print verb + " NEEDS A NOUN"
+	            print SERVER_NAME + verb + noun
+	        else:
+	            # print verb + " DOES NOT NEED A  NOUN"
+	            print SERVER_NAME + verb
 
-if (ENABLE_STATS):
-    sys.stderr.write(json.dumps(counts, indent=2, sort_keys=True))
+if (RUN_STATS_ONLY):
+#    sys.stderr.write(json.dumps(noun_counts, indent=2, sort_keys=True))
+    print "************* v_master_verb_counts length: " + str(len(v_master_verb_counts))
+    print v_master_verb_counts
+    print "************* verb_counts length: " + str(len(verb_counts))
+    sys.stderr.write(json.dumps(verb_counts, indent=2, sort_keys=True))
+    print "************* master_noun_counts length: " + str(len(master_noun_counts))
+    print master_noun_counts
+    print "************* noun_counts length: " + str(len(noun_counts))
+    sys.stderr.write(json.dumps(noun_counts, indent=2, sort_keys=True))
 
