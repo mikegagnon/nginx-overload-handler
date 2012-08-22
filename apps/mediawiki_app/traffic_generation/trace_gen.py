@@ -36,12 +36,18 @@ DEBUG_PRINTOUT_FREQ = 10000
 ENABLE_DEBUG_OUT = True
 # RUN_STATS_ONLY = True
 RUN_STATS_ONLY = False
+GENERATE_TITLES_FILE = True
 
 if (ENABLE_DEBUG_OUT): sys.stderr.write("opening input json\n")
 with open(NOUN_JSON_FILE) as f:    
     master_noun_counts = json.load(f)
+
 # to track progress for large files
 if (ENABLE_DEBUG_OUT): sys.stderr.write("opened input json\n")
+
+
+if (GENERATE_TITLES_FILE):
+    titles_file = open(NOUN_JSON_FILE + ".titles", "w"); 
 
 # open verbs
 with open(VERB_JSON_FILE) as f:    
@@ -70,6 +76,7 @@ trace_size = TRACE_SIZE
 v_nouns = Variate(master_noun_counts)
 v_verbs = Variate(v_master_verb_counts)
 
+recorded_nouns = []
 for j in range(0, trials):
     for i in range(0, trace_size):
         if (ENABLE_DEBUG_OUT):
@@ -89,6 +96,11 @@ for j in range(0, trials):
             if verb not in verb_counts:
                 verb_counts[verb] = 0
             verb_counts[verb] += 1
+
+        # record noun as a title
+        if (GENERATE_TITLES_FILE and noun not in recorded_nouns):
+            titles_file.write(noun + "\n")
+            recorded_nouns.append(noun)
 
         # main output:
         if not RUN_STATS_ONLY:
