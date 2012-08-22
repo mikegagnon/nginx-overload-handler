@@ -16,31 +16,25 @@
 #
 ################################################################################
 #
-# Generates a page action trace and a plain unique titles list from the supplied JSON
-# requires the bundled trace_gen.py
+# A very simple wrapper around trace_gen.py
 #
 # Usage: ./trace_and_list_gen.sh <json-pageview-count-file> [<trace-size>]
 #
 # Output: .trace and .titles files
 #
 
-JSON_FILE=$1
-if [ -z "$JSON_FILE" ]; then
+NOUNS_JSON=$1
+VERBS_JSON="./data/verbs.json" # use the default checked-in one
+
+if [ -z "$NOUNS_JSON" ]; then
     echo "Usage: ./trace_and_list_gen.sh <json-pageview-count-file> [<trace-size>]"
-    # JSON_FILE="./data/sample-pagecounts-input00.json" # test only, remove
     exit
 fi
-OUTPUT_TRACE_FILE=`echo $JSON_FILE | sed s'/.json$//'`".trace"
-OUTPUT_LIST_FILE=`echo $JSON_FILE | sed s'/.json$//'`".titles"
+OUTPUT_TRACE_FILE=`echo $NOUNS_JSON | sed s'/.json$//'`".trace"
 
 TRACE_SIZE=$2
 if [ -z "$TRACE_SIZE" ]; then
-    TRACE_SIZE=10000 # default if not provided
+    TRACE_SIZE=12000 # default if not provided
 fi
 
-./trace_gen.py $JSON_FILE $TRACE_SIZE 1 > $OUTPUT_TRACE_FILE
-
-data=`cat $OUTPUT_TRACE_FILE | sed s'/.*\?title\=//g'`
-data=`echo "$data" | sort | uniq`
-echo "$data" > $OUTPUT_LIST_FILE
-
+./trace_gen.py $NOUNS_JSON $VERBS_JSON $TRACE_SIZE 1 > $OUTPUT_TRACE_FILE

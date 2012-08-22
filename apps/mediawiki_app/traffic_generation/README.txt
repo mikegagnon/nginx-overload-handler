@@ -17,7 +17,6 @@ gunzip it into ./data
 2. Script filters out garbage pages, generates pageview count json
 Files:
 ./prepare_inputs.sh
-./page_counts_to_json.py (invoked by .sh)
 Output example:
 ./data/pagecounts-20120301-040000.json
 
@@ -35,8 +34,8 @@ Files:
 ./export_wp_pages.sh 
 (calls MW's importDump.php, so run with the input list from the prior step on MW server)
 Output example:
-pagecounts-20120301-040000.0.wpimport.xml
-pagecounts-20120301-040000.15.wpimport.xml
+./data/pagecounts-20120301-040000.0.wpimport.xml
+./data/pagecounts-20120301-040000.15.wpimport.xml
 
 6. Test or puzzle_solver: loops through trace, gets/posts MW page data according to trace
 Files:
