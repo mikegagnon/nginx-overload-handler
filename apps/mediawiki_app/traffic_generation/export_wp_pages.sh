@@ -28,7 +28,7 @@
 # downloaded from Wikipedia, many pages fail (deleted since, or special, or error, etc),
 # so watch the "verified downloaded" stats at the end of this script
 
-PAGES_PER_CURBATCH=10
+PAGES_PER_CURBATCH=20
 SLEEP=3
 TITLE_LIST_FILE=$1
 if [ -z "$TITLE_LIST_FILE" ]; then
@@ -62,7 +62,7 @@ do
         out_file=`echo $TITLE_LIST_FILE | sed s'/.titles$//'`".$actual_downloaded.wpimport.xml"
         curl -o $out_file ${EXP_SERVER}${EXP_URL}${postval}
         sleep $SLEEP
-        verify_num_pages=`grep -o "text.*bytes[^>]*" $out_file | wc -l`
+        verify_num_pages=`grep -o "text.*bytes=[^>]*" $out_file | wc -l`
         actual_downloaded=`expr $actual_downloaded + $verify_num_pages`
         echo "number of pages downloaded: $verify_num_pages, total: $actual_downloaded"
         
