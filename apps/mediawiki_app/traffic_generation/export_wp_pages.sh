@@ -20,7 +20,7 @@
 # in batches of <20 files at a time into multiple local files
 # then it also attempts to import these local files into a local Mediawiki
 #
-# Usage: ./export_wp_pages.sh <title-list-file>
+# Usage: ./export_wp_pages.sh <title-list-file> [import-only]
 #
 # Specify below a proper LOCAL_MW_INSTALL_DIR for successful import
 #
@@ -40,11 +40,25 @@ fi
 EXP_SERVER="http://en.wikipedia.org"
 EXP_URL="/w/index.php?title=Special:Export&action=submit&curonly=1&wpDownload=1&pages="
 LOCAL_MW_INSTALL_DIR="/home/fcgi_user/mediawiki-1.18.2/"
+
+# if we wish to import an existing bunch of files only...
+IMPORT_ONLY=$2
+if [ -n "$IMPORT_ONLY" ]; then
+    # pagecounts-20120301-210000.json.
+    for i in `ls $TITLE_LIST_FILE.*.xml`
+    do
+        echo "exporting $i..."
+        php ${LOCAL_MW_INSTALL_DIR}/maintenance/importDump.php $i    
+    done
+    exit
+fi
+
 data=`cat $TITLE_LIST_FILE`
 datasize=`echo "$data" | wc -l`
 
 actual_downloaded=0
 count=0
+
 # after done preparing titles, export them from the Wikipedia
 for i in `echo "$data"`
 do
