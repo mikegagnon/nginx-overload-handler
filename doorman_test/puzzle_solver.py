@@ -186,14 +186,14 @@ class PuzzleSolver:
 
 class ClientGreenlet(Greenlet):
 
-    def __init__(self, logger, queue, server, urls, timeout, regex_target, \
+    def __init__(self, logger, queue, server, url, timeout, regex_target, \
         greenlet_id, concurrent_puzzles, puzzles_being_solved, regex_puzzle = r"/puzzle_static/puzzle\.js"):
 
         Greenlet.__init__(self)
         self.queue = queue
         self.logger = logger
         self.server = server
-        self.urls = urls
+        self.url = url
         self.timeout = timeout
         self.regex_target = re.compile(regex_target)
         self.regex_puzzle = re.compile(regex_puzzle)
@@ -205,25 +205,29 @@ class ClientGreenlet(Greenlet):
 
         self.logger.debug("%d Requesting %s", self.greenlet_id, url)
 
+
         before = time.time()
         try:
             response = urllib2.urlopen("http://%s%s" % (self.server, url), timeout=self.timeout)
         except socket.timeout:
             latency = time.time() - before
             return("timeout", None, None, latency)
-        except URLError:
-            latency = time.time() - before
-            return("timeout", None, None, latency)
         except HTTPError, e:
             latency = time.time() - before
+            if e.code == 404:
+                self.logger.debug("treating 404 as 200: %s %s", url, e)
+                return ("200", "target", None, latency)
             return ("%s" % e.code, None, None, latency)
+        except URLError, e:
+            latency = time.time() - before
+            return (str(e), None, None, latency)
 
 
-        text = response.read()
         latency = time.time() - before
         if (latency > self.timeout):
             raise GeventBacklogged("this machine can't send requests that fast")
 
+        text = response.read()
         if self.regex_target.search(text):
             self.logger.debug("%d Received target response", self.greenlet_id)
             return ("200", "target", None, latency)
@@ -235,13 +239,15 @@ class ClientGreenlet(Greenlet):
             return ("200", "other", text, latency)
             #raise ValueError("%d Did not recognize response: %s ..." % (self.greenlet_id, text[:100]))
 
-    def run(self):
 
-        url = random.choice(self.urls)
+    def run(self):
+        return self.do_run(self.url)
+
+    def do_run(self, url):
+
         self.logger.debug("requesting %s", url)
         (status, category, response, latency) = self.request(url)
         now = time.time()
-
 
         if status != "200":
             self.queue.put((status, None, now, latency, None))
@@ -287,15 +293,9 @@ class ClientGreenlet(Greenlet):
                 self.logger.info("%d, failed with %d-bit puzzle: %s", self.greenlet_id, solver.bits, keyed_url)
                 return
 
-            # re-send the request, this time with puzzle solution
-            (status, category, response, latency) = self.request(keyed_url)
+            # needs to be recursive to handle redirets well
+            return self.do_run(keyed_url)
 
-            if status != "200":
-                self.queue.put((status, None, now, latency, None))
-            elif response == None:
-                self.queue.put((status, "web-app", now, latency, None))
-            else:
-                self.logger.error("%d expecting web-app page but received something else", self.greenlet_id)
 
 class Monitor(Greenlet):
 
@@ -427,8 +427,10 @@ def run_client(name, desc, default_concurrent_puzzles, default_timeout):
     puzzles_being_solved = [0]
 
     start_time = time.time()
+    num_urls = len(urls)
     for i in range(0, requests):
-        job = ClientGreenlet.spawn(logger, queue, args.server, urls, args.timeout + 10, \
+	url = urls[i % num_urls]
+        job = ClientGreenlet.spawn(logger, queue, args.server, url, args.timeout + 10, \
                     args.regex, i + 1, args.concurrent_puzzles, puzzles_being_solved)
         jobs.append(job)
         if args.poisson:
