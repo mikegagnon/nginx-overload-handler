@@ -32,7 +32,7 @@ rm -f $QUERY_FILE
 
 # replace with vanilla tables
 sudo mv $INSTALL_MEDIA_WIKI_PATH/LocalSettings.php /tmp
-php $INSTALL_MEDIA_WIKI_PATH/maintenance/install.php \
+sudo php $INSTALL_MEDIA_WIKI_PATH/maintenance/install.php \
     testname testadmin \
     --pass "$MEDIAWIKI_PASSWORD" \
     --scriptpath "" \
