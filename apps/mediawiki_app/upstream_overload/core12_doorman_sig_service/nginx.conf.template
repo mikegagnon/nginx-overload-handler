@@ -147,6 +147,31 @@ http {
         server    localhost:9038;
         server    localhost:9039;
         server    localhost:9040;
+        server    localhost:9041;
+        server    localhost:9042;
+        server    localhost:9043;
+        server    localhost:9044;
+        server    localhost:9045;
+        server    localhost:9046;
+        server    localhost:9047;
+        server    localhost:9048;
+        server    localhost:9049;
+        server    localhost:9050;
+        server    localhost:9051;
+        server    localhost:9052;
+        server    localhost:9053;
+        server    localhost:9054;
+        server    localhost:9055;
+        server    localhost:9056;
+        server    localhost:9057;
+        server    localhost:9058;
+        server    localhost:9059;
+        server    localhost:9060;
+        server    localhost:9061;
+        server    localhost:9062;
+        server    localhost:9063;
+        server    localhost:9064;
+        server    localhost:9065;
     }
 }
 
