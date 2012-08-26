@@ -1181,17 +1181,27 @@ ngx_http_upstream_free_overload_peer(
     dd_list(&peer_state->idle_list, "idle_list", peer_state, pc->log);
     dd_list(&peer_state->busy_list, "busy_list", NULL, pc->log);
 
-    // TODO: Address this temporary hack
-    // Right now this module kills every fcgi worker after it receives _free_overload_peer call from nginx.
-    // This is because upstream_overload makes the assumption that whenever _free is called, the peer
-    // is idle. But as it turns, there are many cases where is assumption is false. I.e., the _free is called
-    // where in reality the peer is still busy (see php-fpm's function fastcgi_finish_request) for an example.
-    // The correct solution is to put some real engineering effort into refinding the protocol between
-    // nginx and the fastcgi workers, so that way nginx will always know (with high confidence) when a fastcgi
-    // worker is truly idle. But until, then upstream_overload can ensure workers are truly idle when they
-    // are freed by ---killing the worker after it is freed---
-    send_overload_alert(peer_state, peer, pc->log);
-    send_sigservice_message(peer_state, peer, &request_data->request_str, pc->log);
+    /**
+     * This module makes the assumption that whenever _free is called, the peer that is freed is idle. Most
+     * often this is true, because once the upstream compeltes the request it closes the connection which
+     * results in a call to _free. However, it is possible that the connection between nginx and the
+     * upstream worker may close while, yet the upstream worker continues processing and is no longer idle.
+     * For example, this can happen when using php-fpm's fastcgi_finish_request() feature. Most often though
+     * this occurs when the client closes the connection to the server, in which case nginx closes the connection
+     * to the upstream worker. If the upstream worker never notices the connection has closed it will keep working.
+     * If the request is a high-density request then it will keep working until it times out. During this period
+     * Nginx will think the upstream worker is idle when in fact it is busy.
+     *
+     * To avoid this situation, this module kills the backend whenever the client closes the connection. This is
+     * really just a temporary solution. The real solution is to engineer a protocol between the upstream worker
+     * and this module, so that the module always knows whether the upstream worker is busy or idle.
+     */
+    dd_log4(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_free_overload_peer(pc=%p, request_data=%p, connection_state=%d): "
+        "client_closed_connection = %d",
+        pc, request_data, connection_state, pc->client_closed_connection);
+    if (pc->client_closed_connection) {
+        send_sigservice_message(peer_state, peer, &request_data->request_str, pc->log);
+    }
 
     dd_log3(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_free_overload_peer(pc=%p, request_data=%p, connection_state=%d): releasing lock",
         pc, request_data, connection_state);
