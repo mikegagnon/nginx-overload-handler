@@ -1,0 +1,23 @@
+diff -rupN nginx-1.2.0/src/event/ngx_event_connect.h nginx-1.2.0-beergarden/src/event/ngx_event_connect.h
+--- nginx-1.2.0/src/event/ngx_event_connect.h	2012-01-18 07:07:43.000000000 -0800
++++ nginx-1.2.0-beergarden/src/event/ngx_event_connect.h	2012-08-25 18:52:37.817274206 -0700
+@@ -64,6 +64,8 @@ struct ngx_peer_connection_s {
+ 
+     unsigned                         cached:1;
+ 
++    unsigned                         client_closed_connection:1;
++
+                                      /* ngx_connection_log_error_e */
+     unsigned                         log_error:2;
+ };
+diff -rupN nginx-1.2.0/src/http/ngx_http_upstream.c nginx-1.2.0-beergarden/src/http/ngx_http_upstream.c
+--- nginx-1.2.0/src/http/ngx_http_upstream.c	2012-04-03 00:37:31.000000000 -0700
++++ nginx-1.2.0-beergarden/src/http/ngx_http_upstream.c	2012-08-25 18:54:06.750920495 -0700
+@@ -1070,6 +1070,7 @@ ngx_http_upstream_check_broken_connectio
+     c->error = 1;
+ 
+     if (!u->cacheable && u->peer.connection) {
++        u->peer.client_closed_connection = 1;
+         ngx_log_error(NGX_LOG_INFO, ev->log, err,
+                       "client prematurely closed connection, "
+                       "so upstream connection is closed too");
