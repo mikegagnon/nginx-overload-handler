@@ -1176,7 +1176,6 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
 
     request_type = ngx_doorman_req_type(r, ctx, conf, &key_value, &expire_value);
 
-    // BOOKMARK
     if (request_type == DOR_REQ_FAILURE || request_type == DOR_REQ_EXPIRED) {
         v->len = 1;
         v->valid = 1;
@@ -1201,9 +1200,7 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                        "doorman link md5: \"%V\"", &temp_str);
 
-        // actual_hash_buf = hash($doorman_md5)
         ngx_http_doorman_hash(actual_hash_buf, &temp_str);
-        // temp_str = hex-string version of actual_hash_buf
         ngx_http_doorman_hashval_to_str(&temp_str, actual_hash_buf);
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                        "doorman actual_hash str: \"%V\"", &temp_str);
@@ -1231,6 +1228,14 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
                        "doorman hash is invalid");
             v->data = (u_char *) "0";
         }
+
+        // This is kind of an ugly hack, but what this does is remove the puzzle key and expires
+        // parameters from the request that is headed towards the upstream worker.
+        // This way, the upstream workers will never see puzzle key or expires parameter. I
+        // imagine there is a better way to accomplish this feat in nginx, but this seems to work
+        // for now
+        r->args.len = ctx->orig_args.len;
+        r->args.data = ctx->orig_args.data;
 
         return NGX_OK;
     }
