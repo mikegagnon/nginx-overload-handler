@@ -57,6 +57,9 @@ http {
             # re_delta#This must match the URI part related to the MD5 hash and expiration time.
             doorman $arg_key,$arg_expire;
 
+            set $sig_key "";
+            doorman_signature_key $sig_key;
+
             # the names of URL arguments that hold puzzle key and expire time (respectively)
             doorman_arg_key_name        key;
             doorman_arg_expire_name     expire;

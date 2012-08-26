@@ -1200,8 +1200,9 @@ ngx_http_upstream_free_overload_peer(
         "client_closed_connection = %d",
         pc, request_data, connection_state, pc->client_closed_connection);
     if (pc->client_closed_connection) {
-        send_sigservice_message(peer_state, peer, &request_data->request_str, pc->log);
+        send_overload_alert(peer_state, peer, pc->log);
     }
+    send_sigservice_message(peer_state, peer, &request_data->request_str, pc->log);
 
     dd_log3(NGX_LOG_DEBUG_HTTP, pc->log, 0, "_free_overload_peer(pc=%p, request_data=%p, connection_state=%d): releasing lock",
         pc, request_data, connection_state);
