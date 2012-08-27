@@ -25,5 +25,6 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 TARGET=`basename $PHP_FPM_VULN_BIN`
 
+restart mysql
 killall $TARGET
 
