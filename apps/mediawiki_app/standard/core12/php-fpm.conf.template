@@ -18,12 +18,9 @@ listen.backlog = 128
 user = TEMPLATE_FCGI_USER
 group = TEMPLATE_FCGI_USER
 
-pm = dynamic
+pm = static
 
-pm.max_children = 60
-pm.start_servers = 10
-pm.min_spare_servers = 10
-pm.max_spare_servers = 20
+pm.max_children = 80
 pm.max_requests = 500
 
 request_terminate_timeout = 60

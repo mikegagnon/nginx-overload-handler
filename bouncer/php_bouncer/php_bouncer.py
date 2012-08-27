@@ -41,6 +41,7 @@ dependencies = os.path.join(DIRNAME, "..", "..", "dependencies", "env.sh")
 var = env.env(dependencies)
 
 PHP_CGI_VULN_BIN = var["PHP_CGI_VULN_BIN"]
+KILL_SQL_PHP = os.path.join(DIRNAME, "kill_sql.php")
 PHP_FCGI_CMD_TEMPLATE_STR = '%s -b $addr:$port' % PHP_CGI_VULN_BIN
 
 class BouncerForPhp(BouncerProcessManager):
@@ -54,7 +55,8 @@ class BouncerForPhp(BouncerProcessManager):
             )
         self.logger.debug("cmd_str='%s'" % cmd_str)
         cmd = cmd_str.split()
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        environ = dict(os.environ.items() + [("MYSQL_USER", "user%d" % port)])
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env = environ)
         stdoutLogger = log.FileLoggerThread(self.logger, "php5-cgi stdout", logging.INFO, process.stdout)
         stderrLogger = log.FileLoggerThread(self.logger, "php5-cgi stderr", logging.ERROR, process.stderr)
         stdoutLogger.start()
@@ -63,10 +65,22 @@ class BouncerForPhp(BouncerProcessManager):
 
     def kill_worker(self, addr, port, popen_obj):
         '''Must attempt to kill the specified worker. Does not return anything'''
+        self.logger.debug("killing %d", port)
         try:
             popen_obj.kill()
         except OSError, e:
             self.logger.error("Error while trying to kill '%s:%d': %s" % (addr, port, e))
+
+        cmd_str = "php %s" % KILL_SQL_PHP
+        self.logger.debug("cmd_str='%s'" % cmd_str)
+        cmd = cmd_str.split()
+        environ = dict(os.environ.items() + [("MYSQL_USER", "user%d" % port)])
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env = environ)
+        stdoutLogger = log.FileLoggerThread(self.logger, "kill_sql.php stdout", logging.INFO, process.stdout)
+        stderrLogger = log.FileLoggerThread(self.logger, "kill_sql.php stderr", logging.ERROR, process.stderr)
+        stdoutLogger.start()
+        stderrLogger.start()
+        process.wait()
 
 bouncer_process_manager.main(BouncerForPhp)
 

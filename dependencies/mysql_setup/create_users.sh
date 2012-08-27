@@ -14,21 +14,14 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== install_dummy_vuln.sh for MediaWiki====
+# ==== create_users.sh for mysql ====
 #
-# Installs a dummy high-density vulnerability into the MediaWiki installation.
-# This is necessary to conduct high-density attacks while training.
-#
-# USAGE: sudo ./install_dummy_vuln.sh
+# USAGE: ./create_users.sh
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../../dependencies/env.sh
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/env.sh
+source $DIR/../env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-cp $DIR/dummy_vuln.php $INSTALL_MEDIA_WIKI_PATH/dummy_vuln.php
-cp $DIR/dummy_vuln_sql.php $INSTALL_MEDIA_WIKI_PATH/dummy_vuln_sql.php
-chown -R $FCGI_USER:$FCGI_USER $INSTALL_MEDIA_WIKI_PATH/dummy_vuln_*.php
+mysql --user=root --password="$MYSQL_PASSWORD" < $DIR/create_users.sql
 

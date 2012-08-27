@@ -15,3 +15,5 @@ $wgCompressRevisions = true;
 $wgRevisionCacheExpiry = 3*24*3600;
 $wgParserCacheExpireTime = 14*24*3600;
 
+# set by the php-bouncer
+$wgDBuser = getenv('MYSQL_USER');
