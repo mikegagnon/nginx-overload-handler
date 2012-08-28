@@ -29,7 +29,7 @@ while [ 1 ]
 do
     # run multiple benchmarks in parallel to avoid getting blocked
     # while waiting for requests
-    ((ab -n $2 -c $2 $3 &> /dev/null ) & sleep 1 ; kill $! &> /dev/null) &
+    ((ab -n $2 -c $2 $3 ) & sleep 1 ; kill $! ) &
     AFTER=`date +%s`
     let TIME=$AFTER-$BEFORE
     if [ $TIME -gt $1 ]; then
