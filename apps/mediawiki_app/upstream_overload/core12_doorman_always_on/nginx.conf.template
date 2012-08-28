@@ -68,6 +68,7 @@ http {
             doorman_expire_delta 60;
             doorman_init_missing_bits 1;
             doorman_min_missing_bits 1;
+            doorman_max_missing_bits 1;
 
             set $sig_key "$doorman_request_length agent$http_user_agent scheme$scheme contentlength$content_length contenttype$content_type requestmethod$request_method remoteuser$remote_user $request_uri";
 
