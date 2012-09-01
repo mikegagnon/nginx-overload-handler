@@ -40,5 +40,5 @@ void delete_model(bayes_feature ** features);
 bayes_feature *find_feature(bayes_feature *features, char *token);
 void add_feature(bayes_feature **features, char *token, double positive_prob, double negative_prob);
 int load_model(bayes_feature **features, int fd);
-int classify(bayes_feature *features, double apriori_positive, char *string);
+int classify(bayes_feature *features, double apriori_positive, char *string, char * end);
 

@@ -19,7 +19,7 @@
  *
  * ==== maturity ====
  *
- * Experimental development. Testing using nginx-1.0.12
+ * Experimental development. Testing using nginx-1.20
  *
  * ==== TODO ====
  *  - a bunch of things (see todos throughout code)

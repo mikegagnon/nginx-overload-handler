@@ -21,6 +21,10 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/../../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/../../../nginx_upstream_overload/env.sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-$SUDO -i -u nginx_user $DIR/../../../sig_service/sigservice.py --stderr off --logfile DEBUG
+$SUDO -i -u nginx_user $DIR/../../../sig_service/sigservice.py \
+    --sig-file $SIG_FILE_PATH \
+    --stderr off --logfile DEBUG
 

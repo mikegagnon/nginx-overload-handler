@@ -26,7 +26,9 @@ OVERLOAD_MODULE_DIR=$DIR
 NGINX_USER=nginx_user
 NGINX_GROUP=$NGINX_USER
 NGINX_HOME_DIR=/home/$NGINX_USER
+NGINX_RAMDISK_DIR=$NGINX_HOME_DIR/ramdisk
 
 # the upstream_overload module will send alerts to this pipe
 ALERT_PIPE_PATH=$NGINX_HOME_DIR/alert_pipe
+SIG_FILE_PATH=$NGINX_RAMDISK_DIR/signature.txt
 

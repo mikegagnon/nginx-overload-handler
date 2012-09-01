@@ -20,6 +20,13 @@
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/../../../nginx_upstream_overload/env.sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# create a ramdisk for the signature file
+mkdir -p $NGINX_RAMDISK_DIR
+umount $NGINX_RAMDISK_DIR
+mount -t tmpfs none $NGINX_RAMDISK_DIR -o size=256M
 
 $DIR/kill_mediawiki.sh
 # TODO: actually verify that mediawiki is dead, instead of just

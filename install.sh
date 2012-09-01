@@ -59,6 +59,7 @@ sudo ./dependencies/thrift_compile/install.sh
 sudo ./nginx_upstream_overload/install_dependencies.sh
 sudo ./nginx_upstream_overload/useradd.sh
 sudo ./nginx_upstream_overload/install_named_pipe.sh
+./nginx_upstream_overload/patch.sh
 ./nginx_upstream_overload/compile.sh
 sudo ./nginx_upstream_overload/install.sh
 

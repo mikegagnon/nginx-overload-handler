@@ -19,10 +19,9 @@
 
 import puzzle_solver
 
-puzzle_solver.run_client( \
-    "doorman_legit.py", \
+puzzle_solver.run_client(
+    "doorman_legit.py",
     "Tool used to test Doorman with legit clients.",
-    default_puzzle_threads = -1,
-    default_timeout = 10.0,
-    stall_after_puzzle=True)
+    default_concurrent_puzzles = -1,
+    default_timeout = 10.0)
 

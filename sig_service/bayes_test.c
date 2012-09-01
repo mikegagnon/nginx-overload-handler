@@ -63,9 +63,13 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    print_model(features);
+    //print_model(features);
 
-    int classification = classify(features, apriori_positive, argv[2]);
+    ssize_t len = strlen(argv[2]);
+    // overwrite '\0' with 1 to test classify's ability to handle non-null terminated strings
+    argv[2][len]= 1;
+
+    int classification = classify(features, apriori_positive, argv[2], &argv[2][len]);
     printf("%s\n", classification > 0 ? "positive" : "negative");
 
     return 0;

@@ -33,12 +33,8 @@ TRACE_FILENAME="$DIR/results/$FILENAME_BASE.csv"
 SUMMARY_FILENAME="$DIR/results/$FILENAME_BASE.json"
 echo $TRACE_FILENAME
 
-# TODO: should use $DOORMAN_ATTACK? is this a bug?
-$DOORMAN_LEGIT --stderr off --trace-filename $TRACE_FILENAME --url "/dummy_vuln.php" --regex MediaWiki $* &
-
-sleep $TEST_TIME
-kill $!
+$DOORMAN_ATTACK --stderr ERROR --trace-filename $TRACE_FILENAME --url "/dummy_vuln.php" --regex MediaWiki $*
 cat $TRACE_FILENAME | $DOORMAN_ANALYZE > $SUMMARY_FILENAME
 
-echo "done"
+echo "done attack"
 

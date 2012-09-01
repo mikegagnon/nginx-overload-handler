@@ -134,7 +134,7 @@
 #define RELOAD_SIG_PERIOD 1.0
 
 // TODO: config param. Also note this must be on ramdisk for good performance
-#define DOORMAN_SIGFILE  "/home/nginx_user/signature.txt"
+#define DOORMAN_SIGFILE  "/home/nginx_user/ramdisk/signature.txt"
 
 // TODO: make this non global and shared-mem safe. Each worker
 // can probably just load its own signature
@@ -145,7 +145,7 @@ bayes_feature * doorman_bayes_model = NULL;
 
 // suspicious requests receive puzzles that take 2^SIG_SERVICE_PENALTY times as long to solve
 // TODO: take confidence score into account when choosing puzzle complexity
-#define SIG_SERVICE_PENALTY 4.0
+#define SIG_SERVICE_PENALTY 3.0
 
 // md5 has 16-byte hashes
 #define DOORMAN_HASH_LEN 16
@@ -167,6 +167,7 @@ typedef ngx_uint_t doorman_request_type_t;
 // in shared memory.
 // Holds the last time the puzzle complexity was updated
 time_t last_puzzle_change = INVALID_TIME;
+time_t last_overload_check = INVALID_TIME;
 
 // Last time the signature was reloaded
 time_t last_sig_reload = INVALID_TIME;
@@ -179,7 +180,10 @@ double num_missing_bits = 0.0;
  ***************************************************************/
 
 // Min amount of time between changing puzzle complexity
-#define PUZZLE_UPDATE_PERIOD    5
+#define OVERLOAD_MODE_CHECK_PERIOD 1
+#define PUZZLE_UPDATE_PERIOD    15
+#define EXTREME_DIRE_MIN_SUCCESS_RATE   ((double) 0.05)
+#define DIRE_MIN_SUCCESS_RATE   ((double) 0.85)
 #define MIN_SUCCESS_RATE        ((double) 0.95)
 #define MAX_SUCCESS_RATE        ((double) 0.99)
 #define THROUGHPUT_THRESHOLD    ((double) 0.10)     // measured in requests per sec
@@ -201,6 +205,7 @@ typedef struct {
 typedef struct {
     ngx_http_complex_value_t  *variable;
     ngx_http_complex_value_t  *md5;
+    ngx_http_complex_value_t  *signature_key;
     ngx_str_t                  arg_key_name;
     ngx_str_t                  arg_expire_name;
     ngx_uint_t                 expire_delta;
@@ -210,6 +215,7 @@ typedef struct {
     ngx_uint_t                 burst_len;
     ngx_uint_t                 sleep_time;
 } ngx_http_doorman_conf_t;
+
 
 /**
  * Defines the structure for the ctx variable, which holds
@@ -293,6 +299,19 @@ static ngx_command_t  ngx_http_doorman_commands[] = {
       ngx_http_set_complex_value_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_doorman_conf_t, variable),
+      NULL },
+
+    /**
+     * md5 will hold something like "sEcr3t$uri$doorman_filtered_args$doorman_expire"
+     * this module will generate actual_hash by (1) instantiating the md5
+     * complex value into a variable, then (2) taking the md5 hash of the resulting
+     * variable.
+     */
+    { ngx_string("doorman_signature_key"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_http_set_complex_value_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_doorman_conf_t, signature_key),
       NULL },
 
     /**
@@ -429,6 +448,87 @@ ngx_module_t  ngx_http_doorman_module = {
 };
 
 /**
+ *
+ */
+#define RL1 "%%rl1%% "
+#define RL2 "%%rl2%% "
+#define RL3 "%%rl3%% "
+#define RL4 "%%rl4%% "
+#define RL5 "%%rl5%% "
+#define RL6 "%%rl6%% "
+#define RL7 "%%rl7%% "
+#define RL8 "%%rl8%% "
+#define RL9 "%%rl9%% "
+#define RL10 "%%rl10%% "
+#define RL11 "%%rl11%% "
+#define RL12 "%%rl12%% "
+#define RL13 "%%rl13%% "
+#define RL14 "%%rl14%% "
+#define RL15 "%%rl15%% "
+#define RL16 "%%rl16%% "
+#define RL17 "%%rl17%% "
+#define RL18 "%%rl18%% "
+#define RL19 "%%rl19%% "
+#define RL20 "%%rl20%% "
+#define RL21 "%%rl21%% "
+#define RL22 "%%rl22%% "
+#define RL23 "%%rl23%% "
+#define RL24 "%%rl24%% "
+#define RL25 "%%rl25%% "
+
+#define TWO_1 2
+#define TWO_2 4
+#define TWO_3 8
+#define TWO_4 16
+#define TWO_5 32
+#define TWO_6 64
+#define TWO_7 128
+#define TWO_8 256
+#define TWO_9 512
+#define TWO_10 1024
+#define TWO_11 2048
+#define TWO_12 4096
+#define TWO_13 8192
+#define TWO_14 16384
+#define TWO_15 32768
+#define TWO_16 65536
+#define TWO_17 131072
+#define TWO_18 262144
+#define TWO_19 524288
+#define TWO_20 1048576
+#define TWO_21 2097152
+#define TWO_22 4194304
+#define TWO_23 8388608
+#define TWO_24 16777216
+#define TWO_25 33554432
+
+static ngx_str_t ngx_http_request_length1 = ngx_string(RL1 );
+static ngx_str_t ngx_http_request_length2 = ngx_string(RL1 RL2);
+static ngx_str_t ngx_http_request_length3 = ngx_string(RL1 RL2 RL3);
+static ngx_str_t ngx_http_request_length4 = ngx_string(RL1 RL2 RL3 RL4);
+static ngx_str_t ngx_http_request_length5 = ngx_string(RL1 RL2 RL3 RL4 RL5);
+static ngx_str_t ngx_http_request_length6 = ngx_string(RL1 RL2 RL3 RL4 RL5 RL6);
+static ngx_str_t ngx_http_request_length7 = ngx_string(RL1 RL2 RL3 RL4 RL5 RL6 RL7);
+static ngx_str_t ngx_http_request_length8 = ngx_string(RL1 RL2 RL3 RL4 RL5 RL6 RL7 RL8);
+static ngx_str_t ngx_http_request_length9 = ngx_string(RL1 RL2 RL3 RL4 RL5 RL6 RL7 RL8 RL9);
+static ngx_str_t ngx_http_request_length10 = ngx_string(RL1 RL2 RL3 RL4 RL5 RL6 RL7 RL8 RL9 RL10);
+static ngx_str_t ngx_http_request_length11 = ngx_string(RL1 RL2 RL3 RL4 RL5 RL6 RL7 RL8 RL9 RL10 RL11);
+static ngx_str_t ngx_http_request_length12 = ngx_string(RL1 RL2 RL3 RL4 RL5 RL6 RL7 RL8 RL9 RL10 RL11 RL12);
+static ngx_str_t ngx_http_request_length13 = ngx_string(RL1 RL2 RL3 RL4 RL5 RL6 RL7 RL8 RL9 RL10 RL11 RL12 RL13);
+static ngx_str_t ngx_http_request_length14 = ngx_string(RL1 RL2 RL3 RL4 RL5 RL6 RL7 RL8 RL9 RL10 RL11 RL12 RL13 RL14);
+static ngx_str_t ngx_http_request_length15 = ngx_string(RL1 RL2 RL3 RL4 RL5 RL6 RL7 RL8 RL9 RL10 RL11 RL12 RL13 RL14 RL15);
+static ngx_str_t ngx_http_request_length16 = ngx_string(RL1 RL2 RL3 RL4 RL5 RL6 RL7 RL8 RL9 RL10 RL11 RL12 RL13 RL14 RL15 RL16);
+static ngx_str_t ngx_http_request_length17 = ngx_string(RL1 RL2 RL3 RL4 RL5 RL6 RL7 RL8 RL9 RL10 RL11 RL12 RL13 RL14 RL15 RL16 RL17);
+static ngx_str_t ngx_http_request_length18 = ngx_string(RL1 RL2 RL3 RL4 RL5 RL6 RL7 RL8 RL9 RL10 RL11 RL12 RL13 RL14 RL15 RL16 RL17 RL18);
+static ngx_str_t ngx_http_request_length19 = ngx_string(RL1 RL2 RL3 RL4 RL5 RL6 RL7 RL8 RL9 RL10 RL11 RL12 RL13 RL14 RL15 RL16 RL17 RL18 RL19);
+static ngx_str_t ngx_http_request_length20 = ngx_string(RL1 RL2 RL3 RL4 RL5 RL6 RL7 RL8 RL9 RL10 RL11 RL12 RL13 RL14 RL15 RL16 RL17 RL18 RL19 RL20);
+static ngx_str_t ngx_http_request_length21 = ngx_string(RL1 RL2 RL3 RL4 RL5 RL6 RL7 RL8 RL9 RL10 RL11 RL12 RL13 RL14 RL15 RL16 RL17 RL18 RL19 RL20 RL21);
+static ngx_str_t ngx_http_request_length22 = ngx_string(RL1 RL2 RL3 RL4 RL5 RL6 RL7 RL8 RL9 RL10 RL11 RL12 RL13 RL14 RL15 RL16 RL17 RL18 RL19 RL20 RL21 RL22);
+static ngx_str_t ngx_http_request_length23 = ngx_string(RL1 RL2 RL3 RL4 RL5 RL6 RL7 RL8 RL9 RL10 RL11 RL12 RL13 RL14 RL15 RL16 RL17 RL18 RL19 RL20 RL21 RL22 RL23);
+static ngx_str_t ngx_http_request_length24 = ngx_string(RL1 RL2 RL3 RL4 RL5 RL6 RL7 RL8 RL9 RL10 RL11 RL12 RL13 RL14 RL15 RL16 RL17 RL18 RL19 RL20 RL21 RL22 RL23 RL24);
+static ngx_str_t ngx_http_request_length25 = ngx_string(RL1 RL2 RL3 RL4 RL5 RL6 RL7 RL8 RL9 RL10 RL11 RL12 RL13 RL14 RL15 RL16 RL17 RL18 RL19 RL20 RL21 RL22 RL23 RL24 RL25);
+
+/**
  * names of nginx variables (associated with request) that this module defines
  */
 static ngx_str_t  ngx_http_doorman_result_name       = ngx_string("doorman_result");
@@ -440,6 +540,7 @@ static ngx_str_t  ngx_http_doorman_trunc_hash_name   = ngx_string("doorman_trunc
 static ngx_str_t  ngx_http_doorman_missing_bits_name = ngx_string("doorman_missing_bits");
 static ngx_str_t  ngx_http_doorman_burst_len_name    = ngx_string("doorman_burst_len");
 static ngx_str_t  ngx_http_doorman_sleep_time_name   = ngx_string("doorman_sleep_time");
+static ngx_str_t  ngx_http_doorman_request_length = ngx_string("doorman_request_length");
 
 // Computes hash of src_str and stores it in result_buf
 // PRECONDITION: buf points to a u_char array of size DOORMAN_HASH_LEN
@@ -743,6 +844,7 @@ ngx_http_doorman_get_conf(ngx_http_request_t *r)
 
     if (conf->variable == NULL ||
         conf->md5 == NULL ||
+        conf->signature_key == NULL ||
         conf->arg_key_name.len == 0 ||
         conf->arg_expire_name.len == 0 ||
         conf->expire_delta == NGX_CONF_UNSET_UINT ||
@@ -752,7 +854,7 @@ ngx_http_doorman_get_conf(ngx_http_request_t *r)
         conf->burst_len == NGX_CONF_UNSET_UINT ||
         conf->sleep_time == NGX_CONF_UNSET_UINT) {
         ngx_log_error(NGX_LOG_CRIT, r->connection->log, 0,
-                   "doorman: one of (variable, md5, expire_delta, init_missing_bits, "
+                   "doorman: one of (variable, md5, signature_key, expire_delta, init_missing_bits, "
                    "min_missing_bits, max_missing_bits, burst_len, sleep_time) not defined");
         return NULL;
     }
@@ -761,6 +863,8 @@ ngx_http_doorman_get_conf(ngx_http_request_t *r)
                "doorman: conf->variable == '%V'", &conf->variable->value);
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman: conf->md5 == '%V'", &conf->md5->value);
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman: conf->signature_key == '%V'", &conf->signature_key->value);
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman: conf->arg_key_name == '%V'", &conf->arg_key_name);
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
@@ -890,26 +994,33 @@ ngx_http_doorman_update_puzzle(ngx_http_request_t *r, ngx_http_doorman_conf_t *c
     // Calculate stats
     ngx_http_doorman_stats(&stats, r->connection->log);
 
-    if (stats.rejected_rate > 0.2) {
+    if (stats.evicted_count > 0 && stats.success_rate < DIRE_MIN_SUCCESS_RATE) {
+        if (stats.success_rate < EXTREME_DIRE_MIN_SUCCESS_RATE) {
+            ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman puzzle: success_rate==%1.3f < extreme_dire_min_success_rate==%1.3f", stats.success_rate, DIRE_MIN_SUCCESS_RATE);
+            // evict everthing
+
+        } else {
+            ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman puzzle: success_rate==%1.3f < dire_min_success_rate==%1.3f", stats.success_rate, DIRE_MIN_SUCCESS_RATE);
+        }
+        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman puzzle: throughput==%1.3f >= threshold==%1.3f", stats.throughput_rate, THROUGHPUT_THRESHOLD);
+            ngx_http_doorman_inc_missing_bits(r, conf, 128.0);
+    } else if (stats.rejected_rate > 0.2) {
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman puzzle: rejected_rate==%1.3f > 0.2 ", stats.rejected_rate);
         ngx_http_doorman_inc_missing_bits(r, conf, 2.0);
-    } else if (stats.success_rate < MIN_SUCCESS_RATE) {
+    } else if (stats.evicted_count > 0 && stats.success_rate < MIN_SUCCESS_RATE) {
         ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman puzzle: success_rate==%1.3f < min_success_rate==%1.3f", stats.success_rate, MIN_SUCCESS_RATE);
-        if (stats.throughput_rate < THROUGHPUT_THRESHOLD) {
-            ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-               "doorman puzzle: throughput==%1.3f < threshold==%1.3f", stats.throughput_rate, THROUGHPUT_THRESHOLD);
-            ngx_http_doorman_dec_missing_bits(r, conf, 0.2);
-        } else {
             ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman puzzle: throughput==%1.3f >= threshold==%1.3f", stats.throughput_rate, THROUGHPUT_THRESHOLD);
             ngx_http_doorman_inc_missing_bits(r, conf, 1.0);
-        }
     } else if (stats.success_rate > MAX_SUCCESS_RATE) {
         ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman puzzle: success_rate==%1.3f > max_success_rate==%1.3f (throughout==%1.3f)", stats.success_rate, MAX_SUCCESS_RATE, stats.throughput_rate);
-        ngx_http_doorman_dec_missing_bits(r, conf, 3.0);
+        ngx_http_doorman_dec_missing_bits(r, conf, 1.0);
     } else {
         ngx_log_debug4(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman puzzle: min_success_rate==%1.3f <= success_rate==%1.3f <= max_success_rate==%1.3f (throughput==%1.3f)",
@@ -979,40 +1090,59 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
     /**
      * Classify the request
      *************************************************************************/
-    static ngx_str_t    request_str_varname = ngx_string("request_uri");
-    static ngx_uint_t   request_str_hash = 0;
     ngx_str_t           request_str;
-    if (request_str_hash == 0) {
-        request_str_hash = ngx_hash_key(request_str_varname.data, request_str_varname.len);
+    if (ngx_http_complex_value(r, conf->signature_key, &request_str) != NGX_OK) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                   "doorman ERROR while ngx_http_complex_value(r, conf->signature_key, &request_str)");
+        return NGX_ERROR;
     }
 
-    ngx_variable_value_t *value = ngx_http_get_variable(r, &request_str_varname, request_str_hash);
-    if (value->not_found) {
-        dd_error1(NGX_LOG_ERR, r->connection->log, 0, "request_str: could not find variable: %V", &request_str_varname);
-        ngx_str_null(&request_str);
-    } else {
-        request_str.len = value->len;
-        request_str.data = ngx_pcalloc(r->pool, value->len + 1);
-        ngx_cpystrn(request_str.data, value->data, value->len + 1);
-        request_str.data[value->len] = '\0';
-        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-           "request_str: %V == '%s'", &request_str_varname, request_str.data);
-    }
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+       "request_str: '%V'", &request_str);
 
-    int classification = classify(doorman_bayes_model, 0.5, (char*) request_str.data);
+    int classification = classify(doorman_bayes_model, 0.5, (char*) request_str.data,
+        (char*) &request_str.data[request_str.len]);
+
     if (classification > 0) {
-        dd_error2(NGX_LOG_ERR, r->connection->log, 0,
-           "doorman signature request_str: %V == '%s' --> suspected high-density", &request_str_varname, request_str.data);
+        dd_error1(NGX_LOG_ERR, r->connection->log, 0,
+           "doorman signature request_str: '%V' --> suspected high-density", &request_str);
     } else {
-        dd_error2(NGX_LOG_ERR, r->connection->log, 0,
-           "doorman signature request_str: %V == '%s' --> suspected low-density", &request_str_varname, request_str.data);
+        dd_error1(NGX_LOG_ERR, r->connection->log, 0,
+           "doorman signature request_str: '%V' --> suspected low-density", &request_str);
     }
 
 
     /**
      * Update the puzzle complexity if needed
      *************************************************************************/
-    if (last_puzzle_change == INVALID_TIME ||
+    if (num_missing_bits <= 0.0 && (last_overload_check == INVALID_TIME ||
+        ngx_time() - last_overload_check > OVERLOAD_MODE_CHECK_PERIOD)) {
+        // update the stats first
+        if (upstream_overload_peer_state != NULL) {
+            ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "doorman: updating stats");
+            ngx_spinlock(&upstream_overload_peer_state->lock, SPINLOCK_VALUE, SPINLOCK_NUM_SPINS);
+            ngx_http_upstream_overload_update_stats(r->connection->log, upstream_overload_peer_state, 0, 0, 0);
+            ngx_unlock(&upstream_overload_peer_state->lock);
+        }
+
+        ngx_http_doorman_aggregate_stats_t stats;
+
+        if (upstream_overload_peer_state == NULL) {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                "doorman: upstream_overload_peer_state not set");
+        }
+
+        // Calculate stats
+        ngx_http_doorman_stats(&stats, r->connection->log);
+
+        if (stats.evicted_count > 0 && stats.success_rate < DIRE_MIN_SUCCESS_RATE) {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                   "doorman: entering overload mode");
+            ngx_http_doorman_update_puzzle(r, conf);
+        }
+
+    } else if (last_puzzle_change == INVALID_TIME ||
         ngx_time() - last_puzzle_change > PUZZLE_UPDATE_PERIOD) {
 
         // update the stats first
@@ -1084,7 +1214,6 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
 
     request_type = ngx_doorman_req_type(r, ctx, conf, &key_value, &expire_value);
 
-    // BOOKMARK
     if (request_type == DOR_REQ_FAILURE || request_type == DOR_REQ_EXPIRED) {
         v->len = 1;
         v->valid = 1;
@@ -1109,9 +1238,7 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                        "doorman link md5: \"%V\"", &temp_str);
 
-        // actual_hash_buf = hash($doorman_md5)
         ngx_http_doorman_hash(actual_hash_buf, &temp_str);
-        // temp_str = hex-string version of actual_hash_buf
         ngx_http_doorman_hashval_to_str(&temp_str, actual_hash_buf);
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                        "doorman actual_hash str: \"%V\"", &temp_str);
@@ -1139,6 +1266,14 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
                        "doorman hash is invalid");
             v->data = (u_char *) "0";
         }
+
+        // This is kind of an ugly hack, but what this does is remove the puzzle key and expires
+        // parameters from the request that is headed towards the upstream worker.
+        // This way, the upstream workers will never see puzzle key or expires parameter. I
+        // imagine there is a better way to accomplish this feat in nginx, but this seems to work
+        // for now
+        r->args.len = ctx->orig_args.len;
+        r->args.data = ctx->orig_args.data;
 
         return NGX_OK;
     }
@@ -1173,7 +1308,7 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
     double num_missing_bits_request = num_missing_bits;
     if (classification > 0) {
         // if the request is suspected to be high-density then increase missing bits
-        num_missing_bits_request *= SIG_SERVICE_PENALTY;
+        num_missing_bits_request += SIG_SERVICE_PENALTY;
         ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "doorman signature missing_bits: suspcious request, increasing missing bits "
                    "from %f to %f", num_missing_bits, num_missing_bits_request);
@@ -1251,6 +1386,94 @@ ngx_http_doorman_missing_bits_variable(ngx_http_request_t *r,
 
     } else {
         v->not_found = 1;
+    }
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_http_doorman_request_length_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+
+    if (r->request_length >= TWO_25) {
+        v->len = ngx_http_request_length25.len;
+        v->data = ngx_http_request_length25.data;
+    } else if (r->request_length >= TWO_24) {
+        v->len = ngx_http_request_length24.len;
+        v->data = ngx_http_request_length24.data;
+    } else if (r->request_length >= TWO_23) {
+        v->len = ngx_http_request_length23.len;
+        v->data = ngx_http_request_length23.data;
+    } else if (r->request_length >= TWO_22) {
+        v->len = ngx_http_request_length22.len;
+        v->data = ngx_http_request_length22.data;
+    } else if (r->request_length >= TWO_21) {
+        v->len = ngx_http_request_length21.len;
+        v->data = ngx_http_request_length21.data;
+    } else if (r->request_length >= TWO_20) {
+        v->len = ngx_http_request_length20.len;
+        v->data = ngx_http_request_length20.data;
+    } else if (r->request_length >= TWO_19) {
+        v->len = ngx_http_request_length19.len;
+        v->data = ngx_http_request_length19.data;
+    } else if (r->request_length >= TWO_18) {
+        v->len = ngx_http_request_length18.len;
+        v->data = ngx_http_request_length18.data;
+    } else if (r->request_length >= TWO_17) {
+        v->len = ngx_http_request_length17.len;
+        v->data = ngx_http_request_length17.data;
+    } else if (r->request_length >= TWO_16) {
+        v->len = ngx_http_request_length16.len;
+        v->data = ngx_http_request_length16.data;
+    } else if (r->request_length >= TWO_15) {
+        v->len = ngx_http_request_length15.len;
+        v->data = ngx_http_request_length15.data;
+    } else if (r->request_length >= TWO_14) {
+        v->len = ngx_http_request_length14.len;
+        v->data = ngx_http_request_length14.data;
+    } else if (r->request_length >= TWO_13) {
+        v->len = ngx_http_request_length13.len;
+        v->data = ngx_http_request_length13.data;
+    } else if (r->request_length >= TWO_12) {
+        v->len = ngx_http_request_length12.len;
+        v->data = ngx_http_request_length12.data;
+    } else if (r->request_length >= TWO_11) {
+        v->len = ngx_http_request_length11.len;
+        v->data = ngx_http_request_length11.data;
+    } else if (r->request_length >= TWO_10) {
+        v->len = ngx_http_request_length10.len;
+        v->data = ngx_http_request_length10.data;
+    } else if (r->request_length >= TWO_9) {
+        v->len = ngx_http_request_length9.len;
+        v->data = ngx_http_request_length9.data;
+    } else if (r->request_length >= TWO_8) {
+        v->len = ngx_http_request_length8.len;
+        v->data = ngx_http_request_length8.data;
+    } else if (r->request_length >= TWO_7) {
+        v->len = ngx_http_request_length7.len;
+        v->data = ngx_http_request_length7.data;
+    } else if (r->request_length >= TWO_6) {
+        v->len = ngx_http_request_length6.len;
+        v->data = ngx_http_request_length6.data;
+    } else if (r->request_length >= TWO_5) {
+        v->len = ngx_http_request_length5.len;
+        v->data = ngx_http_request_length5.data;
+    } else if (r->request_length >= TWO_4) {
+        v->len = ngx_http_request_length4.len;
+        v->data = ngx_http_request_length4.data;
+    } else if (r->request_length >= TWO_3) {
+        v->len = ngx_http_request_length3.len;
+        v->data = ngx_http_request_length3.data;
+    } else if (r->request_length >= TWO_2) {
+        v->len = ngx_http_request_length2.len;
+        v->data = ngx_http_request_length2.data;
+    } else {
+        v->len = ngx_http_request_length1.len;
+        v->data = ngx_http_request_length1.data;
     }
 
     return NGX_OK;
@@ -1431,6 +1654,11 @@ ngx_http_doorman_merge_conf(ngx_conf_t *cf, void *parent, void *child)
     if (conf->md5 == NULL) {
         conf->md5 = prev->md5;
     }
+
+    if (conf->signature_key == NULL) {
+        conf->signature_key = prev->signature_key;
+    }
+
     ngx_conf_merge_str_value(conf->arg_key_name, prev->arg_key_name, "");
     ngx_conf_merge_str_value(conf->arg_expire_name, prev->arg_expire_name, "");
     ngx_conf_merge_uint_value(conf->expire_delta, prev->expire_delta, NGX_CONF_UNSET_UINT);
@@ -1520,6 +1748,12 @@ ngx_http_doorman_add_variables(ngx_conf_t *cf)
         return NGX_ERROR;
     }
     var->get_handler = ngx_http_doorman_missing_bits_variable;
+
+    var = ngx_http_add_variable(cf, &ngx_http_doorman_request_length, 0);
+    if (var == NULL) {
+        return NGX_ERROR;
+    }
+    var->get_handler = ngx_http_doorman_request_length_variable;
 
     var = ngx_http_add_variable(cf, &ngx_http_doorman_burst_len_name, 0);
     if (var == NULL) {
