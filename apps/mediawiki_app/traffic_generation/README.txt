@@ -7,6 +7,8 @@ MediaWiki "realistic" traffic replay toolkit
 Best setup is if the MW exp-import script is run on a target MediaWiki server
 While the trace and traffic gen. scripts are run from the second, "attacking" server
 
+* assumes MediaWiki has been installed using the scripts in the dir above
+
 The flow and the files are as follows:
 
 =====================
