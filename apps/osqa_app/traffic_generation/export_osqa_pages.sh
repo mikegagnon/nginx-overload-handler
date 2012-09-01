@@ -30,6 +30,9 @@ data=`$DIR/export_osqa_pages.py`
 echo "exporting..."
 echo "$data"> $QUERY_FILE
 mysql osqa -u $MYSQL_USER -p$MYSQL_PASSWORD < $QUERY_FILE 
-rm -f $QUERY_FILE
+
+
+
+# rm -f $QUERY_FILE
 echo "done"
 

@@ -28,7 +28,8 @@ QUERY_FILE="/tmp/$RANDOM.bgosqamysql"
 
 # DROP existing
 echo "drop database osqa;" > $QUERY_FILE
-echo "CREATE DATABASE osqa DEFAULT CHARACTER SET UTF8 COLLATE utf8_general_ci;" >> $QUERY_FILE
+echo "CREATE DATABASE osqa DEFAULT CHARACTER SET UTF8 COLLATE utf8_general_ci;" \
+    >> $QUERY_FILE
 
 mysql -u $MYSQL_USER -p$MYSQL_PASSWORD < $QUERY_FILE > /dev/null 2>&1
 rm -f $QUERY_FILE
