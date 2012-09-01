@@ -1,0 +1,58 @@
+{
+    "verbs": [
+        {
+            "desc": "normal view", 
+            "freq": "51", 
+            "needsNoun": "yes", 
+            "urlPrefix": "/index.php?title="
+        }, 
+        {
+            "desc": "NoticeLocal", 
+            "freq": "12.32", 
+            "urlPrefix": "/index.php?title=Special:NoticeLocal/anon&action=raw"
+        }, 
+        {
+            "desc": "search", 
+            "freq": "5.88", 
+            "needsNoun": "yes", 
+            "urlPrefix": "/index.php?title=Special%3ASearch&search="
+        }, 
+        {
+            "desc": "rand", 
+            "freq": "3", 
+            "urlPrefix": "/index.php?title=Special:Random"
+        }, 
+        {
+            "desc": "all recn changes", 
+            "freq": "2.31", 
+            "urlPrefix": "/index.php?title=Special:RecentChanges"
+        }, 
+        {
+            "desc": "export a page", 
+            "freq": ".21", 
+            "needsNoun": "yes", 
+            "urlPrefix": "/index.php?title=Special:Export/"
+        }, 
+        {
+            "desc": "sample load.php for css", 
+            "freq": "8", 
+            "urlPrefix": "/load.php?debug=false&lang=en&modules=mediawiki.legacy.commonPrint%2Cshared%7Cskins.vector&only=styles&skin=vector&*"
+        }, 
+        {
+            "desc": "sample load.php for js", 
+            "freq": "8", 
+            "urlPrefix": "/load.php?debug=false&amp;lang=en&amp;modules=startup&amp;only=scripts&amp;skin=vector&amp;*"
+        }, 
+        {
+            "desc": "opensearch_desc.php", 
+            "freq": "7", 
+            "urlPrefix": "/opensearch_desc.php"
+        }, 
+        {
+            "desc": "action edit - not submitting", 
+            "freq": "1", 
+            "needsNoun": "yes", 
+            "urlPrefix": "/index.php?action=edit&title="
+        }
+    ]
+}
