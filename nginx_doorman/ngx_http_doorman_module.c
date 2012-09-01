@@ -145,7 +145,7 @@ bayes_feature * doorman_bayes_model = NULL;
 
 // suspicious requests receive puzzles that take 2^SIG_SERVICE_PENALTY times as long to solve
 // TODO: take confidence score into account when choosing puzzle complexity
-#define SIG_SERVICE_PENALTY 4.0
+#define SIG_SERVICE_PENALTY 3.0
 
 // md5 has 16-byte hashes
 #define DOORMAN_HASH_LEN 16
@@ -1308,7 +1308,7 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
     double num_missing_bits_request = num_missing_bits;
     if (classification > 0) {
         // if the request is suspected to be high-density then increase missing bits
-        num_missing_bits_request *= SIG_SERVICE_PENALTY;
+        num_missing_bits_request += SIG_SERVICE_PENALTY;
         ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "doorman signature missing_bits: suspcious request, increasing missing bits "
                    "from %f to %f", num_missing_bits, num_missing_bits_request);
