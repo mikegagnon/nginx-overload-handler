@@ -262,7 +262,7 @@ int classify(bayes_feature *features, double apriori_positive, char *string, cha
 
     while(1) {
         string = get_token(string, token, MAX_TOKEN_STR_LEN, end);
-        if (token[0] == '\0' || token >= end) {
+        if (token[0] == '\0' || string >= end) {
             break;
         }
         feature = find_feature(features, token);
