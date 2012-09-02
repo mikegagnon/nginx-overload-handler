@@ -67,7 +67,7 @@ http {
             # Number of seconds before puzzle expires
             doorman_expire_delta 60;
             doorman_init_missing_bits 0;
-            doorman_max_missing_bits 7;
+            doorman_max_missing_bits 6;
 
             set $sig_key "$doorman_request_length agent$http_user_agent scheme$scheme contentlength$content_length contenttype$content_type requestmethod$request_method remoteuser$remote_user $request_uri";
 
