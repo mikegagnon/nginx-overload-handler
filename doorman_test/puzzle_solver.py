@@ -48,6 +48,16 @@ import random
 
 TIMEOUT=10
 
+class PuzzlesBeingSolved:
+    def __init__(self):
+        self.count = 0
+
+    def inc(self):
+        self.count += 1
+
+    def dec(self):
+        self.count -= 1
+
 # when you call urllib2.urlopen above, it doesn't actually issue a request.
 # rather gevent, queue's it up and issues the request later.
 # if the queue delay is long that it takes longer than TIMEOUT then the system is clogged
@@ -201,7 +211,64 @@ class ClientGreenlet(Greenlet):
         self.concurrent_puzzles = concurrent_puzzles
         self.puzzles_being_solved = puzzles_being_solved
 
+    # try to do the post; if it returns a 405 that's because the Doorman is forwarding to the
+    # post in order to generate  puzle. However, SSI cannot handle POSTs, so you need to
+    # just GET the URL, so you can get a puzzle back, then solve the puzzle, then post with the
+    # solution
+    def post(self, headers, data, url):
+        self.logger.debug("%d posting %s %s %s", self.greenlet_id, headers, data, url)
+        if data == None or url == None:
+            sys.exit(1)
+        before = time.time()
+        try:
+            response = urllib2.urlopen("http://%s%s" % (self.server, url), timeout=self.timeout)
+        except socket.timeout:
+            latency = time.time() - before
+            return("timeout", None, None, latency)
+        except HTTPError, e:
+            latency = time.time() - before
+            if e.code == 404:
+                self.logger.debug("treating 404 as 200: %s %s", url, e)
+                return ("200", "target", None, latency)
+            return ("%s" % e.code, None, None, latency)
+        except URLError, e:
+            latency = time.time() - before
+            return (str(e), None, None, latency)
+
+
+        latency = time.time() - before
+        if (latency > self.timeout):
+            raise GeventBacklogged("this machine can't send requests that fast")
+
+        text = response.read()
+        if self.regex_target.search(text):
+            self.logger.debug("%d Received target response", self.greenlet_id)
+            return ("200", "target", None, latency)
+        elif self.regex_puzzle.search(text):
+            self.logger.debug("%d, Received puzzle response", self.greenlet_id)
+            return ("200", "puzzle", text, latency)
+        else:
+            self.logger.error("%d Did not recognize response: %s ...", self.greenlet_id, text[:100])
+            return ("200", "other", text, latency)
+
     def request(self, url):
+        '''url is either an url string (for GET)
+        or for POST: "POST`HEADER`header`DATA`data`URL`url"
+        '''
+        
+        if (url.startswith("POST`")):
+            parts = url.split('`')
+            headers = []
+            data = None
+            url = None
+            for i in range(0, len(parts)):
+                if parts[i] == "HEADER":
+                    headers.append(parts[i+1])
+                elif parts[i] == "DATA":
+                    data = parts[i+1]
+                elif parts[i] == "URL":
+                    url = parts[i+1]
+            return self.post(headers, data, url)
 
         self.logger.debug("%d Requesting %s", self.greenlet_id, url)
 
@@ -262,12 +329,15 @@ class ClientGreenlet(Greenlet):
             solver = PuzzleSolver(self.logger, response, self.timeout)
             self.queue.put((status, "give-puzzle", now, latency, solver.bits))
 
-            if self.concurrent_puzzles > 0 and self.puzzles_being_solved[0] >= self.concurrent_puzzles:
+            self.logger.debug("self.concurrent_puzzles = %d, self.puzzles_being_solved = %s",
+                self.concurrent_puzzles, self.puzzles_being_solved)
+
+            if self.concurrent_puzzles > 0 and self.puzzles_being_solved.count >= self.concurrent_puzzles:
                 self.logger.debug("%d, Received %d-bit puzzle, but puzzle concurrency is maxed out", \
                     self.greenlet_id, solver.bits)
                 return
 
-            self.puzzles_being_solved[0] += 1
+            self.puzzles_being_solved.inc()
 
             self.logger.info("%d, Solving %d-bit puzzle", self.greenlet_id, solver.bits)
 
@@ -280,7 +350,7 @@ class ClientGreenlet(Greenlet):
             except PuzzleTimeout:
                 success = False
 
-            self.puzzles_being_solved[0] -= 1
+            self.puzzles_being_solved.dec()
 
             now = time.time()
             latency = now - before
@@ -424,7 +494,7 @@ def run_client(name, desc, default_concurrent_puzzles, default_timeout):
     # the total amount of time this greenlet should have spent sleeping
     expected_duration = 0.0
 
-    puzzles_being_solved = [0]
+    puzzles_being_solved = PuzzlesBeingSolved()
 
     start_time = time.time()
     num_urls = len(urls)
