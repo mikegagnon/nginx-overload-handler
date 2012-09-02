@@ -31,7 +31,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 FILENAME_BASE=`echo "attack_$*" | sed 's/\s/_/g' | tr '/' '_'`
 TRACE_FILENAME="$DIR/results/$FILENAME_BASE.csv"
 SUMMARY_FILENAME="$DIR/results/$FILENAME_BASE.json"
-echo $TRACE_FILENAME
+echo $SUMMARY_FILENAME
 
 $DOORMAN_ATTACK --stderr ERROR --trace-filename $TRACE_FILENAME --url "/dummy_vuln.php" --regex MediaWiki $*
 cat $TRACE_FILENAME | $DOORMAN_ANALYZE > $SUMMARY_FILENAME

@@ -31,7 +31,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 FILENAME_BASE=`echo "legit_$*" | sed 's/\s/_/g' | tr '/' '_'`
 TRACE_FILENAME="$DIR/results/$FILENAME_BASE.csv"
 SUMMARY_FILENAME="$DIR/results/$FILENAME_BASE.json"
-echo $TRACE_FILENAME
+echo $SUMMARY_FILENAME
 
 $DOORMAN_LEGIT --stderr ERROR --trace-filename $TRACE_FILENAME --url "/index.php?title=Main_Page" --regex MediaWiki $* 
 cat $TRACE_FILENAME | $DOORMAN_ANALYZE > $SUMMARY_FILENAME
