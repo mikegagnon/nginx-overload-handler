@@ -16,15 +16,10 @@
 #
 # ==== env.sh ====
 #
-# defines some shell variables for osqa
+# defines some shell variables
 #
 
-# $DIR is the absolute path for the directory containing this bash script
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-export INSTALL_OSQA_PATH="$FCGI_USER_HOME/osqa"
-export OSQA_DIST_URL=$OSQA_DL_REMOTE_PATH
-export OSQA_USER="beergarden"
-export OSQA_PATH=$INSTALL_OSQA_PATH
+OSQA_BOUNCER=$DIR/osqa_bouncer.py
+
