@@ -1131,15 +1131,16 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
         if (upstream_overload_peer_state == NULL) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                 "doorman: upstream_overload_peer_state not set");
-        }
+        } else {
 
-        // Calculate stats
-        ngx_http_doorman_stats(&stats, r->connection->log);
+            // Calculate stats
+            ngx_http_doorman_stats(&stats, r->connection->log);
 
-        if (stats.evicted_count > 0 && stats.success_rate < DIRE_MIN_SUCCESS_RATE) {
-            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                   "doorman: entering overload mode");
-            ngx_http_doorman_update_puzzle(r, conf);
+            if (stats.evicted_count > 0 && stats.success_rate < DIRE_MIN_SUCCESS_RATE) {
+                ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                       "doorman: entering overload mode");
+                ngx_http_doorman_update_puzzle(r, conf);
+            }
         }
 
     } else if (last_puzzle_change == INVALID_TIME ||

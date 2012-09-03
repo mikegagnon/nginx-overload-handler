@@ -4,7 +4,7 @@
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
+#  You may obCONFIG_INSTALLED_BACKUPtain a copy of the License at
 #
 #      http://www.apache.org/licenses/LICENSE-2.0
 #
@@ -14,17 +14,16 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== env.sh ====
+# ==== install_conf.sh ====
 #
-# defines some shell variables for osqa
+# Installs nginx.conf where nginx-overload is disabled
+#
+# USAGE: sudo ./install_conf.sh
 #
 
-# $DIR is the absolute path for the directory containing this bash script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../../dependencies/env.sh
+source $DIR/../../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-export INSTALL_OSQA_PATH="$FCGI_USER_HOME/osqa"
-export OSQA_DIST_URL=$OSQA_DL_REMOTE_PATH
-export OSQA_USER="beergarden"
-export OSQA_PATH=$INSTALL_OSQA_PATH
+cp $DIR/nginx.conf $NGINX_CONF
+

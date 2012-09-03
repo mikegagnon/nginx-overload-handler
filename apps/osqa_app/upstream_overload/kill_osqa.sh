@@ -14,17 +14,21 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== env.sh ====
+# ==== launch_osqa.sh ====
 #
-# defines some shell variables for osqa
-#
+# USAGE: ./launch_osqa.sh
 
 # $DIR is the absolute path for the directory containing this bash script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../../dependencies/env.sh
+source $DIR/../env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-export INSTALL_OSQA_PATH="$FCGI_USER_HOME/osqa"
-export OSQA_DIST_URL=$OSQA_DL_REMOTE_PATH
-export OSQA_USER="beergarden"
-export OSQA_PATH=$INSTALL_OSQA_PATH
+pkill -f "osqa_bouncer.py"
+pkill -f INSTALL_OSQA_PATH/manage.py
+pkill -f "alert_router.py"
+pkill -f ".*run_gunicorn.*"
+sleep 2
+pkill -9 -f "osqa_bouncer.py"
+pkill -9 -f INSTALL_OSQA_PATH/manage.py
+pkill -9 -f "alert_router.py"
+pkill -9 -f ".*run_gunicorn.*"

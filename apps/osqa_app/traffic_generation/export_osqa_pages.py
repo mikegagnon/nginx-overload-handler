@@ -66,8 +66,8 @@ def readFromOsqaMeta(url, count):
     try:
         doc = urllib2.urlopen(url)
     except HTTPError, e:
-        if e.code == 404:
-            return # just skip for now
+        # if e.code == 404:
+        return # just skip for now
 
     soup = BeautifulSoup(doc.read())
     #title = soup.find(attrs={'id':LASTMOD_ID})

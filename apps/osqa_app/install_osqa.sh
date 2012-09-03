@@ -18,12 +18,6 @@
 #
 # USAGE: sudo ./install_osqa.sh
 #
-# PREREQ: Install vulnerable version of Django
-#   ../../dependencies/django_vuln/patch.sh
-#   sudo ../../dependencies/django_vuln/install.sh
-#
-# Instructions taken from http://fartersoft.com/blog/2010/12/12/installing-osqa-with-nginx-uwsgi-and-sqlite3-on-ubuntu-lucid-10-04-minimal/
-#
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/env.sh
@@ -31,7 +25,9 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-# Copy osqa files into installation location
+$DIR/../../dependencies/django_vuln/install.sh
+$DIR/../../dependencies/django_vuln/patch.sh
+
 mkdir -p $INSTALL_OSQA_PATH
 cp -r $OSQA_LOCAL_PATH/* $INSTALL_OSQA_PATH
 
@@ -54,3 +50,5 @@ python manage.py migrate forum --fake
 
 chown -R $FCGI_USER:$FCGI_USER $INSTALL_OSQA_PATH
 
+# enable gunicorn in this app
+echo "INSTALLED_APPS.append('gunicorn')" >> $INSTALL_OSQA_PATH/settings.py

@@ -4,7 +4,7 @@
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
+#  You may obCONFIG_INSTALLED_BACKUPtain a copy of the License at
 #
 #      http://www.apache.org/licenses/LICENSE-2.0
 #
@@ -17,13 +17,19 @@
 # ==== launch_osqa.sh ====
 #
 # USAGE: sudo ./launch_osqa.sh
+#   Needs to be run as root so it can switch to running as fcgi user
+#
 
-# $DIR is the absolute path for the directory containing this bash script
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/env.sh
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../../dependencies/env.sh
+source $DIR/../../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-$SUDO -i -u $FCGI_USER python $INSTALL_OSQA_PATH/manage.py runserver 0.0.0.0:9000
+export RAILS_ENV=production
+umask 22
+
+sudo rm /usr/local/nginx/logs/*.log
+rm $DIR/../../../log/*
+
+$DIR/run_bouncer.sh &
+$DIR/run_alert_router.sh &
 

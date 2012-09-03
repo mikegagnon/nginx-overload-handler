@@ -16,9 +16,7 @@
 #
 # ==== doorman_legit.sh for mediawiki ====
 #
-# For usage see: ./doorman_legit.sh -h
-#
-# Example usage: ./doorman_legit.sh -s localhost -to 5 -t 20
+# Example usage: ./doorman_legit.sh --id EXPERIMENT_NAME --server SERVER --url FILE --rate 30 --duration 20
 #
 
 # $DIR is the absolute path for the directory containing this bash script
@@ -33,7 +31,14 @@ TRACE_FILENAME="$DIR/results/$FILENAME_BASE.csv"
 SUMMARY_FILENAME="$DIR/results/$FILENAME_BASE.json"
 echo $SUMMARY_FILENAME
 
-$DOORMAN_LEGIT --stderr ERROR --trace-filename $TRACE_FILENAME --url "/index.php?title=Main_Page" --regex MediaWiki $* 
+$DOORMAN_LEGIT \
+    --stderr ERROR \
+    --url-file mediawiki_trace \
+    --poisson \
+    --trace-filename $TRACE_FILENAME \
+    --regex "(MediaWiki)|(@media)|(<\?xml)|(No modules requested)" \
+    $*
+
 cat $TRACE_FILENAME | $DOORMAN_ANALYZE > $SUMMARY_FILENAME
 
 echo "done legit"
