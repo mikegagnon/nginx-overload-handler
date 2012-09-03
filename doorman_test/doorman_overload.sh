@@ -16,18 +16,25 @@
 #
 # ==== doorman_overload.sh sends a large volume of requests at server ===
 #
-# USAGE: ./doorman_overload.sh concurrent url
+# USAGE: ./doorman_overload.sh duration concurrent url
 #   where concurrent is the number of concurrent requests per benchmark
 #   url is the target url
 #
-# e.g. ./doorman_overload.sh 800 "http://foo/index.php?title=Main_Page"
+# e.g. ./doorman_overload.sh 3 800 "http://foo/index.php?title=Main_Page"
 #
+
+BEFORE=`date +%s`
 
 while [ 1 ]
 do
     # run multiple benchmarks in parallel to avoid getting blocked
     # while waiting for requests
-    ((ab -n $1 -c $1 $2) & sleep 1 ; kill $!) &
+    ((ab -n $2 -c $2 $3 ) & sleep 1 ; kill $! ) &
+    AFTER=`date +%s`
+    let TIME=$AFTER-$BEFORE
+    if [ $TIME -gt $1 ]; then
+        exit
+    fi
     sleep 0.25
 done
 

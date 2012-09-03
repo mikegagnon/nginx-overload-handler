@@ -29,5 +29,6 @@ source $DIR/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 cp $DIR/dummy_vuln.php $INSTALL_MEDIA_WIKI_PATH/dummy_vuln.php
-chown -R $FCGI_USER:$FCGI_USER $INSTALL_MEDIA_WIKI_PATH/dummy_vuln.php
+cp $DIR/dummy_vuln_sql.php $INSTALL_MEDIA_WIKI_PATH/dummy_vuln_sql.php
+chown -R $FCGI_USER:$FCGI_USER $INSTALL_MEDIA_WIKI_PATH/dummy_vuln_*.php
 

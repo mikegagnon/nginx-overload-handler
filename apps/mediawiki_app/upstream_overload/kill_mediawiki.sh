@@ -19,6 +19,9 @@
 # USAGE: sudo ./kill_mediawiki.sh
 #
 
+service mysql stop
+service mysql start
+
 pkill -f "python.*php_bouncer.py"
 pkill -f "php-cgi"
 pkill -f "python.*alert_router.py"

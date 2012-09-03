@@ -24,6 +24,9 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/../../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+sudo rm /usr/local/nginx/logs/*.log
+rm $DIR/../../../log/*
+
 $DIR/run_bouncer.sh &
 $DIR/run_alert_router.sh &
 $DIR/run_sigservice.sh &

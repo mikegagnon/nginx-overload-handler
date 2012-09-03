@@ -52,6 +52,7 @@ cat $CONFIG_DIR/nginx.conf.template \
 
 cat $CONFIG_DIR/bouncer_config.json.template \
     | sed "s@TEMPLATE_ALERT_PIPE_PATH@$ALERT_PIPE_PATH@g" \
+    | sed "s@TEMPLATE_SIG_FILE_PATH@$SIG_FILE_PATH@g" \
     > $DIR/bouncer_config.json
 
 cat $DIR/restart_fcgi.sh.template \

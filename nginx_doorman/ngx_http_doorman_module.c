@@ -134,7 +134,7 @@
 #define RELOAD_SIG_PERIOD 1.0
 
 // TODO: config param. Also note this must be on ramdisk for good performance
-#define DOORMAN_SIGFILE  "/home/nginx_user/signature.txt"
+#define DOORMAN_SIGFILE  "/home/nginx_user/ramdisk/signature.txt"
 
 // TODO: make this non global and shared-mem safe. Each worker
 // can probably just load its own signature
@@ -145,7 +145,7 @@ bayes_feature * doorman_bayes_model = NULL;
 
 // suspicious requests receive puzzles that take 2^SIG_SERVICE_PENALTY times as long to solve
 // TODO: take confidence score into account when choosing puzzle complexity
-#define SIG_SERVICE_PENALTY 4.0
+#define SIG_SERVICE_PENALTY 3.0
 
 // md5 has 16-byte hashes
 #define DOORMAN_HASH_LEN 16
@@ -167,6 +167,7 @@ typedef ngx_uint_t doorman_request_type_t;
 // in shared memory.
 // Holds the last time the puzzle complexity was updated
 time_t last_puzzle_change = INVALID_TIME;
+time_t last_overload_check = INVALID_TIME;
 
 // Last time the signature was reloaded
 time_t last_sig_reload = INVALID_TIME;
@@ -179,7 +180,10 @@ double num_missing_bits = 0.0;
  ***************************************************************/
 
 // Min amount of time between changing puzzle complexity
-#define PUZZLE_UPDATE_PERIOD    5
+#define OVERLOAD_MODE_CHECK_PERIOD 1
+#define PUZZLE_UPDATE_PERIOD    15
+#define EXTREME_DIRE_MIN_SUCCESS_RATE   ((double) 0.05)
+#define DIRE_MIN_SUCCESS_RATE   ((double) 0.85)
 #define MIN_SUCCESS_RATE        ((double) 0.95)
 #define MAX_SUCCESS_RATE        ((double) 0.99)
 #define THROUGHPUT_THRESHOLD    ((double) 0.10)     // measured in requests per sec
@@ -990,26 +994,33 @@ ngx_http_doorman_update_puzzle(ngx_http_request_t *r, ngx_http_doorman_conf_t *c
     // Calculate stats
     ngx_http_doorman_stats(&stats, r->connection->log);
 
-    if (stats.rejected_rate > 0.2) {
+    if (stats.evicted_count > 0 && stats.success_rate < DIRE_MIN_SUCCESS_RATE) {
+        if (stats.success_rate < EXTREME_DIRE_MIN_SUCCESS_RATE) {
+            ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman puzzle: success_rate==%1.3f < extreme_dire_min_success_rate==%1.3f", stats.success_rate, DIRE_MIN_SUCCESS_RATE);
+            // evict everthing
+
+        } else {
+            ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman puzzle: success_rate==%1.3f < dire_min_success_rate==%1.3f", stats.success_rate, DIRE_MIN_SUCCESS_RATE);
+        }
+        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "doorman puzzle: throughput==%1.3f >= threshold==%1.3f", stats.throughput_rate, THROUGHPUT_THRESHOLD);
+            ngx_http_doorman_inc_missing_bits(r, conf, 128.0);
+    } else if (stats.rejected_rate > 0.2) {
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman puzzle: rejected_rate==%1.3f > 0.2 ", stats.rejected_rate);
         ngx_http_doorman_inc_missing_bits(r, conf, 2.0);
-    } else if (stats.success_rate < MIN_SUCCESS_RATE) {
+    } else if (stats.evicted_count > 0 && stats.success_rate < MIN_SUCCESS_RATE) {
         ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman puzzle: success_rate==%1.3f < min_success_rate==%1.3f", stats.success_rate, MIN_SUCCESS_RATE);
-        if (stats.throughput_rate < THROUGHPUT_THRESHOLD) {
-            ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-               "doorman puzzle: throughput==%1.3f < threshold==%1.3f", stats.throughput_rate, THROUGHPUT_THRESHOLD);
-            ngx_http_doorman_dec_missing_bits(r, conf, 0.2);
-        } else {
             ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman puzzle: throughput==%1.3f >= threshold==%1.3f", stats.throughput_rate, THROUGHPUT_THRESHOLD);
             ngx_http_doorman_inc_missing_bits(r, conf, 1.0);
-        }
     } else if (stats.success_rate > MAX_SUCCESS_RATE) {
         ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman puzzle: success_rate==%1.3f > max_success_rate==%1.3f (throughout==%1.3f)", stats.success_rate, MAX_SUCCESS_RATE, stats.throughput_rate);
-        ngx_http_doorman_dec_missing_bits(r, conf, 3.0);
+        ngx_http_doorman_dec_missing_bits(r, conf, 1.0);
     } else {
         ngx_log_debug4(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman puzzle: min_success_rate==%1.3f <= success_rate==%1.3f <= max_success_rate==%1.3f (throughput==%1.3f)",
@@ -1094,17 +1105,45 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
 
     if (classification > 0) {
         dd_error1(NGX_LOG_ERR, r->connection->log, 0,
-           "doorman signature request_str: '%s' --> suspected high-density", request_str.data);
+           "doorman signature request_str: '%V' --> suspected high-density", &request_str);
     } else {
         dd_error1(NGX_LOG_ERR, r->connection->log, 0,
-           "doorman signature request_str: '%s' --> suspected low-density", request_str.data);
+           "doorman signature request_str: '%V' --> suspected low-density", &request_str);
     }
 
 
     /**
      * Update the puzzle complexity if needed
      *************************************************************************/
-    if (last_puzzle_change == INVALID_TIME ||
+    if (num_missing_bits <= 0.0 && (last_overload_check == INVALID_TIME ||
+        ngx_time() - last_overload_check > OVERLOAD_MODE_CHECK_PERIOD)) {
+        // update the stats first
+        if (upstream_overload_peer_state != NULL) {
+            ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "doorman: updating stats");
+            ngx_spinlock(&upstream_overload_peer_state->lock, SPINLOCK_VALUE, SPINLOCK_NUM_SPINS);
+            ngx_http_upstream_overload_update_stats(r->connection->log, upstream_overload_peer_state, 0, 0, 0);
+            ngx_unlock(&upstream_overload_peer_state->lock);
+        }
+
+        ngx_http_doorman_aggregate_stats_t stats;
+
+        if (upstream_overload_peer_state == NULL) {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                "doorman: upstream_overload_peer_state not set");
+        } else {
+
+            // Calculate stats
+            ngx_http_doorman_stats(&stats, r->connection->log);
+
+            if (stats.evicted_count > 0 && stats.success_rate < DIRE_MIN_SUCCESS_RATE) {
+                ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                       "doorman: entering overload mode");
+                ngx_http_doorman_update_puzzle(r, conf);
+            }
+        }
+
+    } else if (last_puzzle_change == INVALID_TIME ||
         ngx_time() - last_puzzle_change > PUZZLE_UPDATE_PERIOD) {
 
         // update the stats first
@@ -1176,7 +1215,6 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
 
     request_type = ngx_doorman_req_type(r, ctx, conf, &key_value, &expire_value);
 
-    // BOOKMARK
     if (request_type == DOR_REQ_FAILURE || request_type == DOR_REQ_EXPIRED) {
         v->len = 1;
         v->valid = 1;
@@ -1201,9 +1239,7 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                        "doorman link md5: \"%V\"", &temp_str);
 
-        // actual_hash_buf = hash($doorman_md5)
         ngx_http_doorman_hash(actual_hash_buf, &temp_str);
-        // temp_str = hex-string version of actual_hash_buf
         ngx_http_doorman_hashval_to_str(&temp_str, actual_hash_buf);
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                        "doorman actual_hash str: \"%V\"", &temp_str);
@@ -1231,6 +1267,14 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
                        "doorman hash is invalid");
             v->data = (u_char *) "0";
         }
+
+        // This is kind of an ugly hack, but what this does is remove the puzzle key and expires
+        // parameters from the request that is headed towards the upstream worker.
+        // This way, the upstream workers will never see puzzle key or expires parameter. I
+        // imagine there is a better way to accomplish this feat in nginx, but this seems to work
+        // for now
+        r->args.len = ctx->orig_args.len;
+        r->args.data = ctx->orig_args.data;
 
         return NGX_OK;
     }
@@ -1265,7 +1309,7 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
     double num_missing_bits_request = num_missing_bits;
     if (classification > 0) {
         // if the request is suspected to be high-density then increase missing bits
-        num_missing_bits_request *= SIG_SERVICE_PENALTY;
+        num_missing_bits_request += SIG_SERVICE_PENALTY;
         ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "doorman signature missing_bits: suspcious request, increasing missing bits "
                    "from %f to %f", num_missing_bits, num_missing_bits_request);

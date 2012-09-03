@@ -24,5 +24,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-INSTALL_OSQA_PATH="$FCGI_USER_HOME/osqa"
-
+export INSTALL_OSQA_PATH="$FCGI_USER_HOME/osqa"
+export OSQA_DIST_URL=$OSQA_DL_REMOTE_PATH
+export OSQA_USER="beergarden"
+export OSQA_PATH=$INSTALL_OSQA_PATH
