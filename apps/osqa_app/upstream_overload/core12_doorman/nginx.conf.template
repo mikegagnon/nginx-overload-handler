@@ -101,6 +101,9 @@ http {
         }
     }
 
+    num_spare_backends 8;
+    alert_pipe TEMPLATE_ALERT_PIPE_PATH;
+
     upstream django {
         overload;
         server    localhost:9000;
