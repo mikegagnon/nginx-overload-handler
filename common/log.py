@@ -32,7 +32,7 @@ DIRNAME = os.path.dirname(os.path.realpath(__file__))
 LOGDIR = os.path.join(DIRNAME, "..", "log")
 LOGDIR = os.path.realpath(LOGDIR)
 
-MAX_LOGFILE_BYTES = 1024 * 1024 * 1 # 1 MB
+MAX_LOGFILE_BYTES = 1024 * 1024 * 1024 * 1 # 1 MB
 BACKUP_COUNT = 5
 
 FORMATTER_LOGFILE = logging.Formatter("%(asctime)s - %(levelname)10s - %(process)d - %(filename)20s : %(funcName)30s - %(message)s")
