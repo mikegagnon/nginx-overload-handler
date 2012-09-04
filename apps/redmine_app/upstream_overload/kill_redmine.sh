@@ -20,10 +20,10 @@
 #
 
 pkill -f "redmine_bouncer.py"
-pkill -f "/usr/bin/ruby"
+pkill -f "ruby"
 pkill -f "alert_router.py"
 sleep 2
 pkill -9 -f "redmine_bouncer.py"
-pkill -9 -f "/usr/bin/ruby"
+pkill -9 -f "ruby"
 pkill -9 -f "alert_router.py"
 
