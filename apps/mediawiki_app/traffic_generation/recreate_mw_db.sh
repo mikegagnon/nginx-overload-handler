@@ -27,8 +27,8 @@ QUERY_FILE="/tmp/$RANDOM.bgmysql"
 # DROP existing
 echo "drop database my_wiki" > $QUERY_FILE
 
-mysql -u $DBUSER -p$MYSQL_PASSWORD < $QUERY_FILE > /dev/null 2>&1
-rm -f $QUERY_FILE
+mysql -u $MYSQL_USER -p$MYSQL_PASSWORD < $QUERY_FILE > /dev/null 2>&1
+#rm -f $QUERY_FILE
 
 # replace with vanilla tables
 sudo mv $INSTALL_MEDIA_WIKI_PATH/LocalSettings.php /tmp

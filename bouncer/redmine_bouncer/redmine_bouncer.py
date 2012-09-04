@@ -44,7 +44,10 @@ INSTALL_REDMINE_PATH = var["INSTALL_REDMINE_PATH"]
 # TODO: Is it possible to modify the configuration of mongrel such that it only
 # handles one request at time? This would hopefully speed up the time it takes
 # restart mongrel and lead to lower memory foot print.
-REDMINE_CMD_TEMPLATE_STR = 'mongrel_rails start -p $port -e production -c %s -P /tmp/mongrel$port.pid' % INSTALL_REDMINE_PATH
+# REDMINE_CMD_TEMPLATE_STR = 'mongrel_rails start -p $port -e production -c %s -P /tmp/mongrel$port.pid' % INSTALL_REDMINE_PATH
+# REDMINE_CMD_TEMPLATE_STR = '/usr/bin/ruby /home/fcgi_user/redmine-1.4.0/script/server mongrel -e production -p $1'
+REDMINE_CMD_TEMPLATE_STR = 'ruby %s/script/server mongrel -e production -p $port' \
+    % INSTALL_REDMINE_PATH
 
 class BouncerForRedmine(BouncerProcessManager):
 
