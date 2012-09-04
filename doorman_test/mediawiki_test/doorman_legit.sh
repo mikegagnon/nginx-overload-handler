@@ -35,6 +35,7 @@ $DOORMAN_LEGIT \
     --stderr ERROR \
     --url-file mediawiki_trace \
     --poisson \
+    --timeout 20 \
     --trace-filename $TRACE_FILENAME \
     --regex "(MediaWiki)|(@media)|(<\?xml)|(No modules requested)" \
     $*
