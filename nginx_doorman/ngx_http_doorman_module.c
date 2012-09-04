@@ -141,7 +141,7 @@
 bayes_feature * doorman_bayes_model = NULL;
 
 // TODO: adapt this probability based on observations
-#define APRIORI_POSITIVE 0.5
+#define APRIORI_POSITIVE 0.75
 
 // suspicious requests receive puzzles that take 2^SIG_SERVICE_PENALTY times as long to solve
 // TODO: take confidence score into account when choosing puzzle complexity
@@ -184,6 +184,7 @@ double num_missing_bits = 0.0;
 #define PUZZLE_UPDATE_PERIOD    15
 #define EXTREME_DIRE_MIN_SUCCESS_RATE   ((double) 0.05)
 #define DIRE_MIN_SUCCESS_RATE   ((double) 0.85)
+#define DIRE_INCREASE_BITS      3
 #define MIN_SUCCESS_RATE        ((double) 0.95)
 #define MAX_SUCCESS_RATE        ((double) 0.99)
 #define THROUGHPUT_THRESHOLD    ((double) 0.10)     // measured in requests per sec
@@ -1006,7 +1007,7 @@ ngx_http_doorman_update_puzzle(ngx_http_request_t *r, ngx_http_doorman_conf_t *c
         }
         ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman puzzle: throughput==%1.3f >= threshold==%1.3f", stats.throughput_rate, THROUGHPUT_THRESHOLD);
-            ngx_http_doorman_inc_missing_bits(r, conf, 128.0);
+            ngx_http_doorman_inc_missing_bits(r, conf, DIRE_INCREASE_BITS);
     } else if (stats.rejected_rate > 0.2) {
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman puzzle: rejected_rate==%1.3f > 0.2 ", stats.rejected_rate);
@@ -1100,7 +1101,7 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
        "request_str: '%V'", &request_str);
 
-    int classification = classify(doorman_bayes_model, 0.5, (char*) request_str.data,
+    int classification = classify(doorman_bayes_model, APRIORI_POSITIVE, (char*) request_str.data,
         (char*) &request_str.data[request_str.len]);
 
     if (classification > 0) {
@@ -1284,7 +1285,9 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
      *************************************************************************/
 
     // initialize the $doorman_expire variable
-    gen_expire = ngx_time() + conf->expire_delta;
+    // why do we add (ngx_random() % 60) to the expire. it's a short to term hack
+    // to add some salt to the hash.
+    gen_expire = ngx_time() + conf->expire_delta + (ngx_random() % 60);
     ngx_snprintf(ctx->expire.data, sizeof(ctx->expire_data), "%d%Z", gen_expire);
     ctx->expire.len = ngx_strlen(ctx->expire_data);
     ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
@@ -1309,7 +1312,7 @@ ngx_http_doorman_result_variable(ngx_http_request_t *r,
     double num_missing_bits_request = num_missing_bits;
     if (classification > 0) {
         // if the request is suspected to be high-density then increase missing bits
-        num_missing_bits_request += SIG_SERVICE_PENALTY;
+        num_missing_bits_request = conf->max_missing_bits;
         ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "doorman signature missing_bits: suspcious request, increasing missing bits "
                    "from %f to %f", num_missing_bits, num_missing_bits_request);
