@@ -141,7 +141,7 @@
 bayes_feature * doorman_bayes_model = NULL;
 
 // TODO: adapt this probability based on observations
-#define APRIORI_POSITIVE 0.75
+#define APRIORI_POSITIVE 0.50
 
 // suspicious requests receive puzzles that take 2^SIG_SERVICE_PENALTY times as long to solve
 // TODO: take confidence score into account when choosing puzzle complexity
@@ -997,17 +997,19 @@ ngx_http_doorman_update_puzzle(ngx_http_request_t *r, ngx_http_doorman_conf_t *c
 
     if (stats.evicted_count > 0 && stats.success_rate < DIRE_MIN_SUCCESS_RATE) {
         if (stats.success_rate < EXTREME_DIRE_MIN_SUCCESS_RATE) {
-            ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                "doorman puzzle: success_rate==%1.3f < extreme_dire_min_success_rate==%1.3f", stats.success_rate, DIRE_MIN_SUCCESS_RATE);
             // evict everthing
 
         } else {
-            ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                "doorman puzzle: success_rate==%1.3f < dire_min_success_rate==%1.3f", stats.success_rate, DIRE_MIN_SUCCESS_RATE);
         }
         ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman puzzle: throughput==%1.3f >= threshold==%1.3f", stats.throughput_rate, THROUGHPUT_THRESHOLD);
-            ngx_http_doorman_inc_missing_bits(r, conf, DIRE_INCREASE_BITS);
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+           "doorman puzzle: increasing puzzle complexity by %d", DIRE_INCREASE_BITS);
+        ngx_http_doorman_inc_missing_bits(r, conf, DIRE_INCREASE_BITS);
     } else if (stats.rejected_rate > 0.2) {
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                "doorman puzzle: rejected_rate==%1.3f > 0.2 ", stats.rejected_rate);
