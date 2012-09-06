@@ -521,7 +521,7 @@ def run_client(name, desc, default_concurrent_puzzles, default_timeout):
                     help="Default=%(default)s. Connections timeout after TIMEOUT seconds.")
     parser.add_argument("-r", "--regex",  type=str, required=True,
                     help="regular expression that positively matches the target web-app page, NOT the puzzle page, and NOT 403 pages or anything else; e.g. MediaWiki")
-    parser.add_argument("-e", "--rate",  type=int, default=10,
+    parser.add_argument("-e", "--rate",  type=float, default=10,
                     help="Default=%(default)s. Number of requests per second")
     parser.add_argument("-d", "--duration",  type=int, default=5,
                     help="Default=%(default)s. Duration of trial in seconds.")
@@ -557,14 +557,14 @@ def run_client(name, desc, default_concurrent_puzzles, default_timeout):
         logger.error("Missing --url or --url-file arguments")
         sys.exit(1)
 
-    logger.info("urls = %s", urls)
+    logger.info("urls = %s ...", urls[:10])
 
     monitor = Monitor.spawn(logger, queue, args.history, args.trace_filename)
 
     jobs = []
 
     period = 1.0 / args.rate
-    requests = args.rate * args.duration
+    requests = int(args.rate * args.duration) + 1
 
     # the total amount of time this greenlet should have spent sleeping
     expected_duration = 0.0
