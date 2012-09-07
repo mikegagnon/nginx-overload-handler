@@ -33,5 +33,5 @@ umask 22
 # mongrel_rails start -p $1 -e $RAILS_ENV -c $INSTALL_REDMINE_PATH -P /tmp/mongrel$1.pid
 # cd /home/fcgi_user/redmine-1.4.0
 # ruby script/server mongrel -e production -p $1 -P /tmp/mongrel$1.pid
-/usr/bin/ruby script/server mongrel -e production -p $1
+/usr/bin/ruby /home/fcgi_user/redmine-1.4.0/script/server mongrel -e production -p $1
 

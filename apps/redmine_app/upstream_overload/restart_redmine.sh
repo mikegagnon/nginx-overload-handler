@@ -20,9 +20,19 @@
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/../../../nginx_upstream_overload/env.sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# create a ramdisk for the signature file
+mkdir -p $NGINX_RAMDISK_DIR
+umount $NGINX_RAMDISK_DIR
+mount -t tmpfs none $NGINX_RAMDISK_DIR -o size=256M
 
 $DIR/kill_redmine.sh
 # TODO: actually verify that redmine is dead, instead of just
 # sleeping for a second
 sleep 1
 $DIR/launch_redmine.sh
+
+sleep 1
+$DIR/../../../nginx_upstream_overload/launch_nginx.sh
