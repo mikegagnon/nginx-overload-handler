@@ -1,0 +1,169 @@
+
+worker_processes  1;
+
+user nginx_user;
+worker_rlimit_nofile 65535;
+#error_log   logs/debug.log debug;
+
+events {
+    worker_connections  1024;
+    use epoll;
+}
+
+
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
+
+    sendfile        on;
+
+    keepalive_timeout  65;
+
+    server {
+        listen       80;
+        server_name  TEMPLATE_SERVER_NAME;
+
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   html;
+        }
+
+        location /puzzle_ssi/ {
+            ssi on;
+            root   TEMPLATE_PUZZLE_SSI_PATH_NGX;
+        }
+
+        location /puzzle_static/ {
+            root   TEMPLATE_PUZZLE_STATIC_PATH_NGX;
+        }
+
+        location /images      { root           TEMPLATE_INSTALL_REDMINE_PATH/public/;}
+        location /javascripts { root           TEMPLATE_INSTALL_REDMINE_PATH/public/;}
+        location /stylesheets { root           TEMPLATE_INSTALL_REDMINE_PATH/public/;}
+        location /themes      { root           TEMPLATE_INSTALL_REDMINE_PATH/public/;}
+
+    	location / {
+            # re_delta#This must match the URI part related to the MD5 hash and expiration time.
+            doorman $arg_key,$arg_expire;
+
+            # the names of URL arguments that hold puzzle key and expire time (respectively)
+            doorman_arg_key_name        key;
+            doorman_arg_expire_name     expire;
+
+            doorman_burst_len    1;
+            doorman_sleep_time 200;
+
+            # Number of seconds before puzzle expires
+            doorman_expire_delta 60;
+            doorman_init_missing_bits 0;
+            doorman_max_missing_bits 6;
+
+            set $sig_key "$doorman_request_length agent$http_user_agent scheme$scheme contentlength$content_length contenttype$content_type requestmethod$request_method remoteuser$remote_user $request_uri";
+
+            doorman_signature_key $sig_key;
+
+            ## The MD5 hash is built from a secret token + uri + args
+            # The doorman module strips the admitkey argument from doorman_md5
+            # For the URL to work properly the admitkey param MUST BE THE LAST param in the URL
+            doorman_md5 secret$doorman_orig_uri$doorman_orig_args$doorman_expire;
+
+            ## If they key is expired
+            if ($doorman_result = "0") {
+                return 403;
+            }
+
+            ## If the hash is incorrect (or non-existent) then $doorman is a null string.
+            if ($doorman_result = "") {
+                rewrite ^.*$ /puzzle_ssi/puzzle.html;
+            }
+
+
+            root TEMPLATE_INSTALL_REDMINE_PATH/public/;
+            proxy_set_header  X-Real-IP        $remote_addr;
+            proxy_set_header  X-Forwarded-For  $proxy_add_x_forwarded_for;
+            proxy_set_header  Host             $http_host;
+            proxy_redirect    off;
+            proxy_pass        http://mongrel;
+    	}
+    }
+    # FastCGI requests will be load balanced using the upstream_overload module
+
+    # 13 workers - 2 spares = 11 non-spare workers
+    # Nginx has 1 worker process --> 11 + 1 = 12 CPU-bound processes
+    # --> fully utilized CPU
+    num_spare_backends 7;
+    alert_pipe TEMPLATE_ALERT_PIPE_PATH;
+
+    upstream mongrel {
+        # activate the upstream_overload module
+        overload;
+        server    localhost:9000;
+        server    localhost:9001;
+        server    localhost:9002;
+        server    localhost:9003;
+        server    localhost:9004;
+        server    localhost:9005;
+        server    localhost:9006;
+        server    localhost:9007;
+        server    localhost:9008;
+        server    localhost:9009;
+        server    localhost:9010;
+        server    localhost:9011;
+        server    localhost:9012;
+        server    localhost:9013;
+        server    localhost:9014;
+        server    localhost:9015;
+        server    localhost:9016;
+        server    localhost:9017;
+        server    localhost:9018;
+        server    localhost:9019;
+        server    localhost:9020;
+        server    localhost:9021;
+        server    localhost:9022;
+        server    localhost:9023;
+        server    localhost:9024;
+        server    localhost:9025;
+        server    localhost:9026;
+        server    localhost:9027;
+        server    localhost:9028;
+        server    localhost:9029;
+        server    localhost:9030;
+        server    localhost:9031;
+        server    localhost:9032;
+        server    localhost:9033;
+        server    localhost:9034;
+        server    localhost:9035;
+        server    localhost:9036;
+        server    localhost:9037;
+        server    localhost:9038;
+        server    localhost:9039;
+        server    localhost:9040;
+        server    localhost:9041;
+        server    localhost:9042;
+        server    localhost:9043;
+        server    localhost:9044;
+        server    localhost:9045;
+        server    localhost:9046;
+        server    localhost:9047;
+        server    localhost:9048;
+        server    localhost:9049;
+        server    localhost:9050;
+        server    localhost:9051;
+        server    localhost:9052;
+        server    localhost:9053;
+        server    localhost:9054;
+        server    localhost:9055;
+        server    localhost:9056;
+        server    localhost:9057;
+        server    localhost:9058;
+        server    localhost:9059;
+        server    localhost:9060;
+        server    localhost:9061;
+        server    localhost:9062;
+        server    localhost:9063;
+        server    localhost:9064;
+        server    localhost:9065; 
+    }
+}
+
+

@@ -20,6 +20,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+echo "Restarting nginx"
 # stop nginx and ignore any errors relating to not find the nginx.pid file
 # (this error is expect when nginx isn't already running)
 $NGINX_BIN -s stop |& grep -v 'nginx.pid'

@@ -24,10 +24,17 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/../../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+sudo rm /usr/local/nginx/logs/*.log
+rm $DIR/../../../log/*
+
+
 export RAILS_ENV=production
 umask 22
 
 
 $DIR/run_bouncer.sh &
 $DIR/run_alert_router.sh &
+$DIR/run_sigservice.sh &
 
+# it takes a long time for redmine to restart
+sleep 60

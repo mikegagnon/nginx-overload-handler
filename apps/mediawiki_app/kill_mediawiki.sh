@@ -23,4 +23,3 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 $DIR/standard/kill_mediawiki.sh
 $DIR/upstream_overload/kill_mediawiki.sh
-
