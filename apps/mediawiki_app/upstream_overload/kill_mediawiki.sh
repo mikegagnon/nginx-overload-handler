@@ -18,7 +18,9 @@
 #
 # USAGE: sudo ./kill_mediawiki.sh
 #
-
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/../env.sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 service mysql stop
 service mysql start
 
@@ -31,4 +33,6 @@ pkill -9 -f "python.*php_bouncer.py"
 pkill -9 -f "php-cgi"
 pkill -9 -f "python.*alert_router.py"
 pkill -9 -f "python.*sigservice.py"
+
+php $INSTALL_MEDIA_WIKI_PATH/maintenance/runJobs.php
 

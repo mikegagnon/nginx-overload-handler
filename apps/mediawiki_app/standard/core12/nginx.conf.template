@@ -38,7 +38,7 @@ http {
             root   html;
         }
 
-        location ~ \.php$ {
+        location ~ \.php/?$ {
             include /usr/local/nginx/conf/fastcgi_params;
             fastcgi_pass my_backend;
             fastcgi_index index.php;
