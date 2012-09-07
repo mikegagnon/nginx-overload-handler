@@ -226,7 +226,7 @@ def analyze(f):
 
         if event == "web-app":
             num_success += 1.0
-        elif event == "None" or event == "solve-puzzle-timeout" or status == "timeout":
+        elif event == "None" or event == "solve-puzzle-timeout" or status == "timeout" or event == "error":
             num_fail += 1.0
 
         if event == "give-puzzle":

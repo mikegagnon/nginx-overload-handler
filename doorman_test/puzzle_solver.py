@@ -309,6 +309,7 @@ class ClientGreenlet(Greenlet):
             headers = None
             data = None
             url = None
+            keyed_url = False
             for i in range(0, len(parts)):
                 if parts[i] == "HEADERS":
                     headers = json.loads(parts[i+1])
@@ -316,7 +317,11 @@ class ClientGreenlet(Greenlet):
                     data = parts[i+1]
                 elif parts[i] == "URL":
                     url = parts[i+1]
-            return self.do_post(headers, data, url)
+                elif parts[i] == "KEYED_URL":
+                    keyed_url = True
+
+            return self.do_post(headers, data, url, keyed_url)
+
         else:
             return self.do_get(url)
 
@@ -440,6 +445,8 @@ class ClientGreenlet(Greenlet):
 
             # needs to be recursive to handle redirects well
             return self.do_get(keyed_url)
+        else:
+            self.queue.put((status, "error", now, latency, None))
 
 
 class Monitor(Greenlet):
@@ -486,7 +493,7 @@ class Monitor(Greenlet):
 
             if event == "web-app":
                 num_success += 1.0
-            elif event == None or event == "solve-puzzle-timeout" or status == "timeout":
+            elif event == None or event == "solve-puzzle-timeout" or status == "timeout" or event == "error":
                 num_fail += 1.0
 
             total = num_success + num_fail
