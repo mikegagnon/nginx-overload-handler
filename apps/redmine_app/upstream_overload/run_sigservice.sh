@@ -14,28 +14,17 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== launch_redmine.sh ====
+# ==== run_sigservice.sh for mediawiki_app ====
 #
-# USAGE: sudo ./launch_redmine.sh
-#   Needs to be run as root so it can switch to running as fcgi user
+# USAGE: sudo ./run_sigservice.sh &
 #
-
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/../../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/../../../nginx_upstream_overload/env.sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-sudo rm /usr/local/nginx/logs/*.log
-rm $DIR/../../../log/*
+$SUDO -i -u nginx_user $DIR/../../../sig_service/sigservice.py \
+    --sig-file $SIG_FILE_PATH \
+    --stderr off --logfile DEBUG
 
-
-export RAILS_ENV=production
-umask 22
-
-
-$DIR/run_bouncer.sh &
-$DIR/run_alert_router.sh &
-$DIR/run_sigservice.sh &
-
-echo "wait a minute..."
-# it takes a long time for redmine to restart
-sleep 60

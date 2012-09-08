@@ -19,11 +19,13 @@
 # USAGE: sudo ./kill_redmine.sh
 #
 
-pkill -f "redmine_bouncer.py"
 pkill -f "ruby"
-pkill -f "alert_router.py"
+pkill -f "python.*redmine_bouncer.py"
+pkill -f "python.*alert_router.py"
+pkill -f "python.*sigservice.py"
 sleep 2
-pkill -9 -f "redmine_bouncer.py"
 pkill -9 -f "ruby"
-pkill -9 -f "alert_router.py"
+pkill -9 -f "python.*redmine_bouncer.py"
+pkill -9 -f "python.*alert_router.py"
+pkill -9 -f "python.*sigservice.py"
 
