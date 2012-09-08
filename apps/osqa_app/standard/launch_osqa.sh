@@ -26,5 +26,17 @@ source $DIR/../../../dependencies/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 #$SUDO -i -u $FCGI_USER python $INSTALL_OSQA_PATH/manage.py runserver 0.0.0.0:9000
-$SUDO -i -u $FCGI_USER python $INSTALL_OSQA_PATH/manage.py run_gunicorn 0.0.0.0:9000
+$SUDO -i -u $FCGI_USER python $INSTALL_OSQA_PATH/manage.py run_gunicorn 0.0.0.0:9000 &
+$SUDO -i -u $FCGI_USER python $INSTALL_OSQA_PATH/manage.py run_gunicorn 0.0.0.0:9001 &
+$SUDO -i -u $FCGI_USER python $INSTALL_OSQA_PATH/manage.py run_gunicorn 0.0.0.0:9002 &
+$SUDO -i -u $FCGI_USER python $INSTALL_OSQA_PATH/manage.py run_gunicorn 0.0.0.0:9003 &
+$SUDO -i -u $FCGI_USER python $INSTALL_OSQA_PATH/manage.py run_gunicorn 0.0.0.0:9004 &
+$SUDO -i -u $FCGI_USER python $INSTALL_OSQA_PATH/manage.py run_gunicorn 0.0.0.0:9005 &
+$SUDO -i -u $FCGI_USER python $INSTALL_OSQA_PATH/manage.py run_gunicorn 0.0.0.0:9006 &
+$SUDO -i -u $FCGI_USER python $INSTALL_OSQA_PATH/manage.py run_gunicorn 0.0.0.0:9007 &
+$SUDO -i -u $FCGI_USER python $INSTALL_OSQA_PATH/manage.py run_gunicorn 0.0.0.0:9008 &
+$SUDO -i -u $FCGI_USER python $INSTALL_OSQA_PATH/manage.py run_gunicorn 0.0.0.0:9009 &
+$SUDO -i -u $FCGI_USER python $INSTALL_OSQA_PATH/manage.py run_gunicorn 0.0.0.0:9010 &
+$SUDO -i -u $FCGI_USER python $INSTALL_OSQA_PATH/manage.py run_gunicorn 0.0.0.0:9011 &
+
 

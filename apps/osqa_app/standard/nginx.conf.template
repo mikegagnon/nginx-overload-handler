@@ -57,5 +57,16 @@ http {
 
     upstream django {
         server    localhost:9000;
+        server    localhost:9001;
+        server    localhost:9002;
+        server    localhost:9003;
+        server    localhost:9004;
+        server    localhost:9005;
+        server    localhost:9006;
+        server    localhost:9007;
+        server    localhost:9008;
+        server    localhost:9009;
+        server    localhost:9010;
+        server    localhost:9011;
     }
 }

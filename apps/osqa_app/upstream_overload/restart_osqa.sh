@@ -20,13 +20,21 @@
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source $DIR/../../../nginx_upstream_overload/env.sh
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 $DIR/kill_osqa.sh
+
+# create a ramdisk for the signature file
+mkdir -p $NGINX_RAMDISK_DIR
+umount $NGINX_RAMDISK_DIR
+mount -t tmpfs none $NGINX_RAMDISK_DIR -o size=256M
+
 # TODO: actually verify that osqa is dead, instead of just
 # sleeping for a second
 sleep 1
 $DIR/launch_osqa.sh
 
-sleep 1
+sleep 10
 $DIR/../../../nginx_upstream_overload/launch_nginx.sh
 

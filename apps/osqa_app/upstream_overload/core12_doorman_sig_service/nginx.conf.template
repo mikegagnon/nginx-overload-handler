@@ -79,7 +79,7 @@ http {
             # For the URL to work properly the admitkey param MUST BE THE LAST param in the URL
             doorman_md5 secret$doorman_orig_uri$doorman_orig_args$doorman_expire;
 
-            set $sig_key "";
+            set $sig_key "$doorman_request_length agent$http_user_agent scheme$scheme contentlength$content_length contenttype$content_type requestmethod$request_method remoteuser$remote_user $request_uri";
 
             doorman_signature_key $sig_key;
 
@@ -119,5 +119,58 @@ http {
         server    localhost:9010;
         server    localhost:9011;
         server    localhost:9012;
+        server    localhost:9013;
+        server    localhost:9014;
+        server    localhost:9015;
+        server    localhost:9016;
+        server    localhost:9017;
+        server    localhost:9018;
+        server    localhost:9019;
+        server    localhost:9020;
+        server    localhost:9021;
+        server    localhost:9022;
+        server    localhost:9023;
+        server    localhost:9024;
+        server    localhost:9025;
+        server    localhost:9026;
+        server    localhost:9027;
+        server    localhost:9028;
+        server    localhost:9029;
+        server    localhost:9030;
+        server    localhost:9031;
+        server    localhost:9032;
+        server    localhost:9033;
+        server    localhost:9034;
+        server    localhost:9035;
+        server    localhost:9036;
+        server    localhost:9037;
+        server    localhost:9038;
+        server    localhost:9039;
+        server    localhost:9040;
+        server    localhost:9041;
+        server    localhost:9042;
+        server    localhost:9043;
+        server    localhost:9044;
+        server    localhost:9045;
+        server    localhost:9046;
+        server    localhost:9047;
+        server    localhost:9048;
+        server    localhost:9049;
+        server    localhost:9050;
+        server    localhost:9051;
+        server    localhost:9052;
+        server    localhost:9053;
+        server    localhost:9054;
+        server    localhost:9055;
+        server    localhost:9056;
+        server    localhost:9057;
+        server    localhost:9058;
+        server    localhost:9059;
+        server    localhost:9060;
+        server    localhost:9061;
+        server    localhost:9062;
+        server    localhost:9063;
+        server    localhost:9064;
+        server    localhost:9065;
     }
 }

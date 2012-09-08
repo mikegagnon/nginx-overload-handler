@@ -27,8 +27,11 @@ pkill -f "osqa_bouncer.py"
 pkill -f INSTALL_OSQA_PATH/manage.py
 pkill -f "alert_router.py"
 pkill -f ".*run_gunicorn.*"
+pkill -f "python.*sigservice.py"
 sleep 2
 pkill -9 -f "osqa_bouncer.py"
 pkill -9 -f INSTALL_OSQA_PATH/manage.py
 pkill -9 -f "alert_router.py"
 pkill -9 -f ".*run_gunicorn.*"
+pkill -9 -f "python.*sigservice.py"
+

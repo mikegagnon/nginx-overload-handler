@@ -14,23 +14,12 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== launch_osqa.sh ====
+# ==== kill_mediawiki.sh ====
 #
-# USAGE: sudo ./launch_osqa.sh
-#   Needs to be run as root so it can switch to running as fcgi user
+# USAGE: sudo ./kill_mediawiki.sh
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../../../dependencies/env.sh
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-export RAILS_ENV=production
-umask 22
-
-sudo rm /usr/local/nginx/logs/*.log
-rm $DIR/../../../log/*
-
-$DIR/run_bouncer.sh &
-$DIR/run_alert_router.sh &
-$DIR/run_sigservice.sh &
-
+$DIR/standard/kill_osqa.sh
+$DIR/upstream_overload/kill_osqa.sh

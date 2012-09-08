@@ -14,23 +14,22 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# ==== launch_osqa.sh ====
+# ==== restart_osqa.sh ====
 #
-# USAGE: sudo ./launch_osqa.sh
-#   Needs to be run as root so it can switch to running as fcgi user
+# USAGE: sudo ./restart_osqa.sh
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source $DIR/../../../dependencies/env.sh
+source $DIR/../../../nginx_upstream_overload/env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-export RAILS_ENV=production
-umask 22
+$DIR/kill_osqa.sh
 
-sudo rm /usr/local/nginx/logs/*.log
-rm $DIR/../../../log/*
+# TODO: actually verify that osqa is dead, instead of just
+# sleeping for a second
+sleep 1
+$DIR/launch_osqa.sh
 
-$DIR/run_bouncer.sh &
-$DIR/run_alert_router.sh &
-$DIR/run_sigservice.sh &
+sleep 10
+$DIR/../../../nginx_upstream_overload/launch_nginx.sh
 
