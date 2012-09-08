@@ -218,7 +218,6 @@ class ClientGreenlet(Greenlet):
     # just GET the URL, so you can get a puzzle back, then solve the puzzle, then post with the
     # solution
     def post(self, headers, data, url):
-        print 7
         self.logger.debug("%d posting %s %s %s", self.greenlet_id, headers, data, url)
         if data == None or url == None:
             sys.exit(1)
@@ -227,11 +226,8 @@ class ClientGreenlet(Greenlet):
         # First issue a GET request for the url without any data or special headers
         try:
             #headers = {"Content-Type" : "application/x-www-form-urlencoded"}
-            print 7.6
             req = urllib2.Request("http://%s%s" % (self.server, url), data, headers)
-            print 8
             response = urllib2.urlopen(req, timeout=self.timeout)
-            print 9
         except socket.timeout:
             latency = time.time() - before
             return("timeout", None, None, latency)
@@ -328,12 +324,9 @@ class ClientGreenlet(Greenlet):
     def do_post(self, headers, data, url, is_keyed_url = False):
 
         self.logger.debug("post request %s %s %s %s", headers, data, url, is_keyed_url)
-        print 1
         if is_keyed_url:
-            print 2
             (status, category, response, latency) = self.post(headers, data, url)
         else:
-            print 3
             (status, category, response, latency) = self.request(url)
 
         now = time.time()
