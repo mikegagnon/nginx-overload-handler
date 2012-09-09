@@ -22,6 +22,7 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/../env.sh
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ORIGDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 CONFIG_DIR=$DIR
 
@@ -61,3 +62,5 @@ do
     echo "Launch successful"
 done
 
+sleep 10
+$ORIGDIR/../../../nginx_upstream_overload/launch_nginx.sh

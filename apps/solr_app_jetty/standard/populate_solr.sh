@@ -16,7 +16,7 @@
 #
 # ==== populate_solr.sh ====
 #
-# USAGE: ./launch_solr.sh
+# USAGE: ./populate_solr.sh
 #
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -28,6 +28,9 @@ $DIR/kill_solr.sh
 $DIR/launch_solr.sh 8983
 
 cd $SOLR_LOCAL_PATH/example/exampledocs/
+
+# solr takes a bit to start, have seen crashes if start posting too early
+sleep 4
 
 ./post.sh *.xml
 

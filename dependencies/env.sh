@@ -112,7 +112,7 @@ TOMCAT_DL_LOCAL_PATH="$DOWNLOAD_DIR/apache-tomcat-6.0.35.tar.gz"
 TOMCAT_LOCAL_PATH="$DOWNLOAD_DIR/apache-tomcat-6.0.35"
 export CATALINA_HOME="$TOMCAT_LOCAL_PATH"
 
-SOLR_DL_REMOTE_PATH="http://apache.mirrors.tds.net/lucene/solr/3.1.0/apache-solr-3.1.0.tgz"
+SOLR_DL_REMOTE_PATH="http://archive.apache.org/dist/lucene/solr/3.1.0/apache-solr-3.1.0.tgz"
 SOLR_DL_LOCAL_PATH="$DOWNLOAD_DIR/apache-solr-3.1.0.tgz"
 SOLR_LOCAL_PATH="$DOWNLOAD_DIR/apache-solr-3.1.0"
 SOLR_LOCAL_PATH_JETTY="$SOLR_LOCAL_PATH-jetty"

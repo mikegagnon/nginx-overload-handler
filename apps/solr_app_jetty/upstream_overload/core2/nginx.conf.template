@@ -1,0 +1,56 @@
+
+worker_processes  1;
+
+user nginx_user;
+
+# error_log   logs/debug.log debug;
+
+events {
+    worker_connections  1024;
+}
+
+
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
+
+    sendfile        on;
+
+    keepalive_timeout  65;
+
+    server {
+        listen       80;
+        server_name  TEMPLATE_SERVER_NAME;
+
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   html;
+        }
+
+        location / {
+            root TEMPLATE_INSTALL_SOLR_PATH/public/;
+            proxy_set_header  X-Real-IP        $remote_addr;
+            proxy_set_header  X-Forwarded-For  $proxy_add_x_forwarded_for;
+            proxy_set_header  Host             $http_host;
+            proxy_redirect    off;
+            proxy_pass        http://jetties;
+        }
+    }
+    # FastCGI requests will be load balanced using the upstream_overload module
+
+    # 13 workers - 2 spares = 11 non-spare workers
+    # Nginx has 1 worker process --> 11 + 1 = 12 CPU-bound processes
+    # --> fully utilized CPU
+    num_spare_backends 1;
+    alert_pipe TEMPLATE_ALERT_PIPE_PATH;
+
+    upstream jetties {
+        # activate the upstream_overload module
+        overload;
+        server    localhost:9000;
+        server    localhost:9001;
+        server    localhost:9002;
+    }
+}
+
+
