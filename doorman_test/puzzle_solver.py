@@ -236,6 +236,8 @@ class ClientGreenlet(Greenlet):
             if e.code == 404:
                 self.logger.debug("treating 404 as 200: %s %s", url, e)
                 return ("200", "target", None, latency)
+            self.logger.error("error while requesting %s %s", url, e)
+            self.logger.exception(e)
             return ("%s" % e.code, None, None, latency)
         except URLError, e:
             latency = time.time() - before
@@ -275,6 +277,8 @@ class ClientGreenlet(Greenlet):
             if e.code == 404:
                 self.logger.debug("treating 404 as 200: %s %s", url, e)
                 return ("200", "target", None, latency)
+            self.logger.error("error while requesting %s %s", url, e)
+            self.logger.exception(e)
             return ("%s" % e.code, None, None, latency)
         except URLError, e:
             latency = time.time() - before
